@@ -3,7 +3,7 @@
 git checkout main
 
 ✅ 2. Crie uma branch para sua tarefa
-git checkout -b feat/themeColor
+git checkout -b feat/notification-inc/validacao 
 
 ✅ 3. Trabalhe normalmente
 Faça seus códigos, depois:
@@ -12,9 +12,8 @@ bash
 git add .
 git commit -m "feat: adiciona Login com google"
 
-✅ 4. Volte para a main e mescle sua branch
-git checkout main
-git merge feat/nome-da-tarefa
+✅ 4. Volte para a mai
+git merge feat/feat/themeColor
 
 ✅ 5. (Opcional) Apague a branch usada
 git branch -d feat/nome-da-tarefa

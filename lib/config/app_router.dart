@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/screens/cadastro_screen.dart';
 import 'package:unlock/screens/home_screen.dart';
 import 'package:unlock/screens/login_screen.dart';
 import 'package:unlock/screens/profile_screen.dart';
+import 'package:unlock/screens/settings_screen.dart'; // ✅ Adicionar import
 import 'package:unlock/screens/splash_screen.dart';
 import 'package:unlock/utils/page_transitions.dart';
 
@@ -79,6 +81,28 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         pageBuilder: (context, state) => PageTransitions.slideFromBottom(
           key: state.pageKey,
           child: const ProfileScreen(),
+        ),
+      ),
+
+      // ✅ NOVA ROTA: Settings Screen
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        pageBuilder: (context, state) => PageTransitions.slideFromRight(
+          // Ou outra transição de sua escolha
+          key: state.pageKey,
+          child: const SettingsScreen(),
+        ),
+      ),
+
+      // ✅ NOVA ROTA: cadastro Screen
+      GoRoute(
+        path: '/cadastro',
+        name: 'cadastro',
+        pageBuilder: (context, state) => PageTransitions.fadeTransition(
+          // Ou outra transição de sua escolha
+          key: state.pageKey,
+          child: const CadastroScreen(),
         ),
       ),
     ],

@@ -1,8 +1,10 @@
 // lib/screens/home_screen.dart
+import 'package:cached_network_image/cached_network_image.dart'; // ✅ Adicionar import
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/services/notification_service.dart'; // Importar NotificationService
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -21,12 +23,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
 
   // Estado local
   bool _isLocalLoading = false;
+  // late bool _areNotificationsEnabled; // REMOVIDO: Agora na SettingsScreen
 
   @override
   void initState() {
     super.initState();
     _initAnimations();
     _startAnimations();
+    // Inicializa o estado do switch com o valor do NotificationService
+    // É importante que NotificationService.initialize() já tenha sido chamado
+    // e _loadNotificationPreference() concluído.
+    // Para garantir, podemos carregar aqui ou assumir que já está carregado.
+    // Para um carregamento mais robusto, você pode usar um FutureBuilder
+    // ou um provider Riverpod para o estado de _notificationsEnabled. // Comentário atualizado
+    // _areNotificationsEnabled = NotificationService.notificationsEnabled; // REMOVIDO
   }
 
   void _initAnimations() {
@@ -165,8 +175,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    final theme = Theme.of(context); // Obter o tema atual
+
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: theme.scaffoldBackgroundColor, // ✅ Usar cor do tema
       body: AnimatedBuilder(
         animation: _fadeAnimation,
         builder: (context, child) {
@@ -182,14 +194,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildAppBar(user) {
+    final theme = Theme.of(context);
+    final isDarkMode = theme.brightness == Brightness.dark;
+
     return SliverAppBar(
       expandedHeight: 200,
       floating: false,
       pinned: true,
-      backgroundColor: const Color(0xFF1E293B),
+      backgroundColor:
+          theme.appBarTheme.backgroundColor ??
+          theme.colorScheme.surface, // ✅ Usar cor do tema
       flexibleSpace: FlexibleSpaceBar(
         background: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
+            // ✅ O gradiente pode ser mais complexo de tematizar.
+            // Uma opção é definir gradientes diferentes no AppTheme ou usar uma cor sólida do tema.
+            // Por simplicidade, manteremos o gradiente por enquanto, mas idealmente seria temático.
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
@@ -208,10 +228,33 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       CircleAvatar(
                         radius: 30,
                         backgroundColor: Colors.white.withOpacity(0.2),
-                        child: Text(
-                          user.avatar,
-                          style: const TextStyle(fontSize: 30),
-                        ),
+                        // ✅ Substituir Text por CachedNetworkImage
+                        child: user.avatar.startsWith('http')
+                            ? ClipOval(
+                                child: CachedNetworkImage(
+                                  imageUrl: user.avatar,
+                                  placeholder: (context, url) =>
+                                      const CircularProgressIndicator(
+                                        valueColor:
+                                            AlwaysStoppedAnimation<Color>(
+                                              Colors.white70,
+                                            ),
+                                      ),
+                                  errorWidget: (context, url, error) =>
+                                      const Icon(
+                                        Icons.person,
+                                        size: 30,
+                                        color: Colors.white70,
+                                      ),
+                                  fit: BoxFit.cover,
+                                  width: 60,
+                                  height: 60,
+                                ),
+                              )
+                            : Text(
+                                user.avatar,
+                                style: const TextStyle(fontSize: 30),
+                              ), // Fallback para emoji/texto se não for URL
                       ),
                       const SizedBox(width: 16),
                       Expanded(
@@ -220,18 +263,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                           children: [
                             Text(
                               'Olá, ${user.displayName}!',
-                              style: const TextStyle(
+                              style: theme.textTheme.headlineSmall?.copyWith(
                                 fontSize: 24,
                                 fontWeight: FontWeight.bold,
-                                color: Colors.white,
-                              ),
+                                color: isDarkMode
+                                    ? Colors.white
+                                    : theme
+                                          .colorScheme
+                                          .onPrimary, // Ajustar conforme o design
+                              ), // ✅ Usar estilo do tema
                             ),
                             Text(
                               'Bem-vindo de volta',
-                              style: TextStyle(
+                              style: theme.textTheme.bodyMedium?.copyWith(
                                 fontSize: 14,
-                                color: Colors.white.withOpacity(0.8),
-                              ),
+                                color:
+                                    (isDarkMode
+                                            ? Colors.white
+                                            : theme.colorScheme.onPrimary)
+                                        .withOpacity(0.8),
+                              ), // ✅ Usar estilo do tema
                             ),
                           ],
                         ),
@@ -248,15 +299,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         IconButton(
           onPressed: _isLocalLoading ? null : _handleLogout,
           icon: _isLocalLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 20,
                   height: 20,
                   child: CircularProgressIndicator(
                     strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      isDarkMode ? Colors.white : theme.colorScheme.onPrimary,
+                    ), // ✅ Usar cor do tema
                   ),
                 )
-              : const Icon(Icons.logout, color: Colors.white),
+              : Icon(
+                  Icons.logout,
+                  color: isDarkMode
+                      ? Colors.white
+                      : theme.colorScheme.onPrimary,
+                ), // ✅ Usar cor do tema
           tooltip: 'Sair',
         ),
       ],
@@ -264,6 +322,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildContent(AuthState authState) {
+    final theme = Theme.of(context);
+
     return SliverPadding(
       padding: const EdgeInsets.all(20),
       sliver: SliverList(
@@ -286,12 +346,84 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           // Debug section (only in debug mode)
           if (authState.status == AuthStatus.authenticated)
             _buildDebugSection(authState),
+
+          const SizedBox(height: 30),
+          // Seção de Teste de Notificações
+          _buildNotificationTestSection(), // Chama o método que contém o Switch
         ]),
       ),
     );
   }
 
+  Widget _buildNotificationTestSection() {
+    // Este widget agora precisa ser Stateful ou usar um Consumer para reconstruir
+    // quando _areNotificationsEnabled mudar. Como HomeScreen já é ConsumerStatefulWidget,
+    // podemos usar setState (que já está sendo usado para _areNotificationsEnabled na SettingsScreen).
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Testar Notificações',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
+          ),
+        ),
+        const SizedBox(height: 16),
+        // O SwitchListTile de notificações foi movido para SettingsScreen
+        ElevatedButton.icon(
+          icon: const Icon(Icons.notifications),
+          label: const Text('Enviar Notificação Local Simples'),
+          onPressed: () {
+            // Botão sempre habilitado
+            NotificationService.showSimpleLocalNotification(
+              title: '🔔 Teste Local',
+              body:
+                  'Esta é uma notificação local de teste disparada da HomeScreen!',
+              payload: 'local_test_payload',
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.blue,
+            // disabledBackgroundColor: Colors.blue.withOpacity(0.5), // Não mais necessário
+          ),
+        ),
+        const SizedBox(height: 10),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.cloud_queue),
+          label: const Text('Simular Recebimento FCM (Local)'),
+          onPressed: () {
+            // Botão sempre habilitado
+            NotificationService.showSimpleLocalNotification(
+              title: '☁️ FCM Simulado',
+              body:
+                  'Esta notificação simula uma mensagem FCM recebida em primeiro plano.',
+              payload: 'fcm_foreground_sim_payload',
+            );
+          },
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Colors.orange,
+            // disabledBackgroundColor: Colors.orange.withOpacity(0.5), // Não mais necessário
+          ),
+        ),
+        const SizedBox(height: 10),
+        Text(
+          'Para testar FCM real em background/terminado: envie uma notificação do console do Firebase.',
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onBackground.withOpacity(0.7),
+          ), // ✅ Usar estilo do tema
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
   Widget _buildStatsSection(user) {
+    final theme = Theme.of(context);
+
     final stats = [
       {'icon': Icons.stars, 'label': 'Nível', 'value': '${user.level}'},
       {'icon': Icons.flash_on, 'label': 'XP', 'value': '${user.xp}'},
@@ -306,12 +438,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Suas Estatísticas',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
           ),
         ),
         const SizedBox(height: 16),
@@ -329,9 +461,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                   ),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
+                    color:
+                        theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: Colors.white.withOpacity(0.1)),
+                    border: Border.all(
+                      color: theme.colorScheme.outline.withOpacity(0.3),
+                    ), // ✅ Usar cor do tema
                   ),
                   child: Column(
                     children: [
@@ -343,18 +478,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                       const SizedBox(height: 8),
                       Text(
                         stat['value'] as String,
-                        style: const TextStyle(
-                          fontSize: 18,
+                        style: theme.textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ), // ✅ Usar estilo do tema
                       ),
                       Text(
                         stat['label'] as String,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: Colors.white.withOpacity(0.7),
-                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                            0.7,
+                          ),
+                        ), // ✅ Usar estilo do tema
                       ),
                     ],
                   ),
@@ -368,6 +503,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildQuickActions() {
+    final theme = Theme.of(context);
+
     final actions = [
       {
         'icon': Icons.person,
@@ -385,19 +522,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         'icon': Icons.settings,
         'label': 'Configurações',
         'color': const Color(0xFF0D9488),
-        'onTap': () {},
+        'onTap': () =>
+            context.push('/settings'), // ✅ Navegar para SettingsScreen
       },
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Ações Rápidas',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
           ),
         ),
         const SizedBox(height: 16),
@@ -414,7 +552,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     right: index < actions.length - 1 ? 12 : 0,
                   ),
                   child: Material(
-                    color: const Color(0xFF1E293B),
+                    color:
+                        theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
                     borderRadius: BorderRadius.circular(16),
                     child: InkWell(
                       onTap: action['onTap'] as VoidCallback,
@@ -424,7 +563,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: Colors.white.withOpacity(0.1),
+                            color: theme.colorScheme.outline.withOpacity(
+                              0.3,
+                            ), // ✅ Usar cor do tema
                           ),
                         ),
                         child: Column(
@@ -446,11 +587,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                             const SizedBox(height: 12),
                             Text(
                               action['label'] as String,
-                              style: const TextStyle(
-                                fontSize: 14,
+                              style: theme.textTheme.titleSmall?.copyWith(
                                 fontWeight: FontWeight.w600,
-                                color: Colors.white,
-                              ),
+                                color: theme.colorScheme.onSurfaceVariant,
+                              ), // ✅ Usar estilo do tema
                             ),
                           ],
                         ),
@@ -467,6 +607,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildRecentActivity() {
+    final theme = Theme.of(context);
+
     final activities = [
       'Fez login às ${DateTime.now().hour}:${DateTime.now().minute}',
       // 'Nível atualizado para ${authState.user?.level ?? 1}',
@@ -476,21 +618,23 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
+        Text(
           'Atividade Recente',
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Colors.white,
+            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
           ),
         ),
         const SizedBox(height: 16),
         Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: const Color(0xFF1E293B),
+            color: theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: Colors.white.withOpacity(0.1)),
+            border: Border.all(
+              color: theme.colorScheme.outline.withOpacity(0.3),
+            ), // ✅ Usar cor do tema
           ),
           child: Column(
             children: activities.map((activity) {
@@ -510,10 +654,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
                     Expanded(
                       child: Text(
                         activity,
-                        style: TextStyle(
-                          color: Colors.white.withOpacity(0.8),
-                          fontSize: 14,
-                        ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                            0.8,
+                          ),
+                        ), // ✅ Usar estilo do tema
                       ),
                     ),
                   ],
@@ -527,12 +672,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   }
 
   Widget _buildDebugSection(AuthState authState) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B).withOpacity(0.5),
+        color: theme.colorScheme.surfaceVariant.withOpacity(
+          0.5,
+        ), // ✅ Usar cor do tema
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.orange.withOpacity(0.3)),
+        border: Border.all(
+          color: Colors.orange.withOpacity(0.3),
+        ), // Manter laranja para debug ou usar theme.colorScheme.errorContainer
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -557,8 +708,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
             'Initialized: ${authState.isInitialized}\n'
             'Loading: ${authState.isLoading}\n'
             'User ID: ${authState.user?.uid ?? 'null'}',
-            style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant.withOpacity(
+                0.7,
+              ), // ✅ Usar estilo do tema
               fontSize: 12,
               fontFamily: 'monospace',
             ),

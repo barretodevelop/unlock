@@ -15,6 +15,7 @@ class NotificationService {
       FlutterLocalNotificationsPlugin();
   static final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   static bool _initialized = false;
+  static bool _notificationsEnabled = true; // Estado padrão
 
   // ✅ Inicialização completa
   static Future<void> initialize() async {
@@ -24,6 +25,9 @@ class NotificationService {
       if (kDebugMode) {
         print('🔄 NotificationService: Inicializando...');
       }
+
+      // Carregar preferência de notificações
+      await _loadNotificationPreference();
 
       // 1. Inicializar notificações locais
       await _initializeLocalNotifications();
@@ -94,6 +98,13 @@ class NotificationService {
     // Listener para mudanças no token
     _fcm.onTokenRefresh.listen(_saveFCMToken);
 
+    // ✅ NOVO: Listener para mensagens FCM em foreground
+    FirebaseMessaging.onMessage.listen((RemoteMessage message) {
+      if (kDebugMode)
+        print('📨 Mensagem FCM em foreground: ${message.messageId}');
+      _showLocalNotificationFromFCM(message);
+    });
+
     if (kDebugMode) {
       print('✅ NotificationService: FCM configurado');
     }
@@ -126,11 +137,58 @@ class NotificationService {
     }
   }
 
-  // ✅ Handler para mensagens em foreground
+  // ✅ NOVO: Mostrar notificação local a partir de uma mensagem FCM
+  static Future<void> _showLocalNotificationFromFCM(
+    RemoteMessage message,
+  ) async {
+    final notification = message.notification;
+    final android = message.notification?.android;
 
-  // ✅ Mostrar notificação local a partir de FCM
+    if (notification != null && android != null) {
+      // Simplesmente para o exemplo, ajuste conforme sua estrutura de FCM
+      await showSimpleLocalNotification(
+        title: notification.title ?? 'Nova Mensagem',
+        body: notification.body ?? 'Você recebeu uma nova mensagem.',
+        payload:
+            message.data['payload']?.toString() ??
+            message.messageId, // Exemplo de payload
+      );
+    } else if (notification != null) {
+      // Fallback se não houver detalhes específicos do Android
+      await showSimpleLocalNotification(
+        title: notification.title ?? 'Nova Mensagem',
+        body: notification.body ?? 'Você recebeu uma nova mensagem.',
+        payload: message.data['payload']?.toString() ?? message.messageId,
+      );
+    }
+  }
 
-  // ✅ Callbacks de notificações locais
+  // ✅ NOVO: Método público para mostrar uma notificação local simples
+  static Future<void> showSimpleLocalNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    if (!_notificationsEnabled) return; // Não mostra se desabilitado
+
+    const androidDetails = AndroidNotificationDetails(
+      'unlock_channel_id', // ID do canal
+      'Unlock Notificações', // Nome do canal
+      channelDescription: 'Canal principal para notificações do app Unlock.',
+      importance: Importance.max,
+      priority: Priority.high,
+      icon: '@mipmap/ic_launcher', // Certifique-se que este ícone existe
+    );
+    const notificationDetails = NotificationDetails(android: androidDetails);
+    await _localNotifications.show(
+      0,
+      title,
+      body,
+      notificationDetails,
+      payload: payload,
+    );
+    if (kDebugMode) print('🔔 Notificação local simples exibida: $title');
+  }
 
   static Future<void> _onNotificationTapped(
     NotificationResponse response,
@@ -151,6 +209,23 @@ class NotificationService {
 
     // await _sendTokenToServer(token);
   }
+
+  static Future<void> _loadNotificationPreference() async {
+    final prefs = await SharedPreferences.getInstance();
+    _notificationsEnabled = prefs.getBool('notifications_enabled') ?? true;
+    if (kDebugMode)
+      print('🔔 Preferência de Notificação Carregada: $_notificationsEnabled');
+  }
+
+  static Future<void> setNotificationsEnabled(bool enabled) async {
+    _notificationsEnabled = enabled;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('notifications_enabled', enabled);
+    if (kDebugMode)
+      print('🔔 Preferência de Notificação Salva: $_notificationsEnabled');
+  }
+
+  static bool get notificationsEnabled => _notificationsEnabled;
 
   // ✅ Status e getters
   static bool get isInitialized => _initialized;

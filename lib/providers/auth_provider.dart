@@ -11,7 +11,9 @@ final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
   return AuthNotifier();
 });
 
-// Estado da autenticação
+// lib/providers/auth_provider.dart - NAVEGAÇÃO CORRIGIDA
+// Substitua apenas a classe AuthState por esta versão:
+
 @immutable
 class AuthState {
   final UserModel? user;
@@ -28,14 +30,49 @@ class AuthState {
     this.status = AuthStatus.unknown,
   });
 
-  // Getters convenientes
+  // ✅ NAVEGAÇÃO CORRIGIDA - Getters convenientes
   bool get isAuthenticated =>
       user != null && status == AuthStatus.authenticated;
-  bool get canNavigate => isInitialized && !isLoading;
-  bool get shouldShowSplash =>
-      !isInitialized || (isLoading && status == AuthStatus.unknown);
-  bool get shouldShowLogin => canNavigate && !isAuthenticated;
-  bool get shouldShowHome => canNavigate && isAuthenticated;
+
+  bool get canNavigate => isInitialized && !isLoading && error == null;
+
+  // ✅ ONBOARDING - Verifica se usuário precisa completar perfil
+  bool get needsOnboarding {
+    if (!isAuthenticated || user == null) return false;
+
+    // Debug para verificar valores
+    if (kDebugMode) {
+      print('🔍 Checking onboarding for ${user!.uid}:');
+      print('  onboardingCompleted: ${user!.onboardingCompleted}');
+      print('  codinome: "${user!.codinome}"');
+      print('  interesses.length: ${user!.interesses.length}');
+      print('  relationshipInterest: "${user!.relationshipInterest}"');
+      print('  needsOnboarding: ${user!.needsOnboarding}');
+    }
+
+    return user!.needsOnboarding;
+  }
+
+  // ✅ PROPRIEDADES DE NAVEGAÇÃO CORRETAS
+  bool get shouldShowSplash {
+    return !isInitialized || isLoading;
+  }
+
+  bool get shouldShowLogin {
+    return canNavigate && !isAuthenticated;
+  }
+
+  bool get shouldShowOnboarding {
+    return canNavigate && isAuthenticated && needsOnboarding;
+  }
+
+  bool get shouldShowHome {
+    return canNavigate && isAuthenticated && !needsOnboarding;
+  }
+
+  // ✅ PROPRIEDADES LEGADAS (manter compatibilidade)
+  bool get shouldShowSplashScreen => shouldShowSplash;
+  bool get shouldShowHomeScreen => shouldShowHome;
 
   AuthState copyWith({
     UserModel? user,
@@ -55,8 +92,17 @@ class AuthState {
 
   @override
   String toString() {
-    return 'AuthState(user: ${user?.uid}, isLoading: $isLoading, '
-        'isInitialized: $isInitialized, status: $status, error: $error)';
+    return 'AuthState('
+        'user: ${user?.uid}, '
+        'isLoading: $isLoading, '
+        'isInitialized: $isInitialized, '
+        'status: $status, '
+        'error: $error, '
+        'needsOnboarding: $needsOnboarding, '
+        'shouldShowLogin: $shouldShowLogin, '
+        'shouldShowOnboarding: $shouldShowOnboarding, '
+        'shouldShowHome: $shouldShowHome'
+        ')';
   }
 
   @override
@@ -163,7 +209,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           status: AuthStatus.authenticated,
           error: null,
         );
-        _log('✅ Usuário carregado: ${userModel.username}');
+        _log(
+          '✅ Usuário carregado: ${userModel.username} (onboarding: ${userModel.needsOnboarding ? 'pendente' : 'completo'})',
+        );
       } else {
         // Falha ao carregar dados - forçar logout
         _log('❌ Falha ao carregar dados do usuário');
@@ -218,7 +266,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // ========== MÉTODOS PÚBLICOS ==========
+  // ========== MÉTODOS PÚBLICOS ORIGINAIS ==========
 
   // Login com Google
   Future<bool> signInWithGoogle() async {
@@ -297,6 +345,48 @@ class AuthNotifier extends StateNotifier<AuthState> {
     } catch (error) {
       _handleError('Erro ao recarregar usuário', error);
     }
+  }
+
+  // ========== ✅ NOVOS MÉTODOS PARA ONBOARDING ==========
+
+  // Completar onboarding
+  Future<void> completeOnboarding() async {
+    if (state.user == null) {
+      throw Exception('User not authenticated');
+    }
+
+    try {
+      _log('🔄 Completando onboarding para usuário ${state.user!.uid}...');
+
+      // Força uma atualização do estado de autenticação
+      // Isso garantirá que o usuário seja redirecionado corretamente
+      await refreshUser();
+
+      _log('✅ Onboarding completed for user ${state.user!.uid}');
+    } catch (e) {
+      _log('❌ Complete onboarding failed: $e');
+      _handleError('Erro ao completar onboarding', e);
+      rethrow;
+    }
+  }
+
+  // Forçar recheck do status de onboarding (útil após updates de perfil)
+  Future<void> recheckOnboardingStatus() async {
+    if (!state.isAuthenticated) return;
+
+    try {
+      _log('🔄 Verificando status de onboarding...');
+      await refreshUser();
+    } catch (error) {
+      _handleError('Erro ao verificar status de onboarding', error);
+    }
+  }
+
+  // ========== MÉTODOS AUXILIARES ==========
+
+  // Método interno para verificar status de auth (já existe como refreshUser, mantendo compatibilidade)
+  Future<void> _checkAuthStatus() async {
+    await refreshUser();
   }
 
   // ========== UTILITÁRIOS ==========

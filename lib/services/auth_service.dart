@@ -159,7 +159,7 @@ class AuthService {
       _log('🔄 Atualizando usuário: ${user.uid}');
 
       await _ensureConnection();
-      await _firestore.updateUser(user);
+      await _firestore.updateUserModel(user);
 
       _log('✅ Usuário atualizado');
       return user;
@@ -226,6 +226,12 @@ class AuthService {
       createdAt: now,
       lastLoginAt: now,
       aiConfig: const {'apiUrl': '', 'apiKey': '', 'enabled': false},
+      // ✅ CAMPOS DE ONBOARDING - SEMPRE VAZIOS PARA USUÁRIO NOVO
+      codinome: null,
+      interesses: [],
+      relationshipInterest: null,
+      onboardingCompleted:
+          false, // ← IMPORTANTE: sempre false para novo usuário
     );
   }
 

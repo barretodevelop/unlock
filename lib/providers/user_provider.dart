@@ -78,6 +78,103 @@ class UserNotifier extends StateNotifier<UserModel?> {
     state = user;
   }
 
+  // ✅ NOVO: Método para atualizar perfil completo do usuário
+  Future<void> updateProfile({
+    required String codinome,
+    required List<String> interesses,
+    required String relationshipInterest,
+  }) async {
+    if (state == null) {
+      throw Exception('User not logged in');
+    }
+
+    try {
+      // Dados para atualizar no Firestore
+      final updates = {
+        'codinome': codinome,
+        'interesses': interesses,
+        'relationshipInterest': relationshipInterest,
+        'onboardingCompleted': true,
+        'lastUpdatedAt': DateTime.now().toIso8601String(),
+      };
+
+      // Atualiza no Firestore
+      await _firestoreService.updateUser(state!.uid, updates);
+
+      // Atualiza o estado local
+      state = state!.copyWith(
+        codinome: codinome,
+        interesses: interesses,
+        relationshipInterest: relationshipInterest,
+        onboardingCompleted: true,
+      );
+
+      if (kDebugMode) {
+        print('✅ UserProvider: Profile updated successfully');
+        print('  Codinome: $codinome');
+        print('  Interesses: ${interesses.length} items');
+        print('  Relationship Interest: $relationshipInterest');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ UserProvider: Profile update failed: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // ✅ NOVO: Método para atualizar apenas o codinome
+  Future<void> updateCodinome(String newCodinome) async {
+    if (state == null) {
+      throw Exception('User not logged in');
+    }
+
+    try {
+      await _firestoreService.updateUser(state!.uid, {
+        'codinome': newCodinome,
+        'lastUpdatedAt': DateTime.now().toIso8601String(),
+      });
+
+      state = state!.copyWith(codinome: newCodinome);
+
+      if (kDebugMode) {
+        print('✅ UserProvider: Codinome updated to: $newCodinome');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ UserProvider: Codinome update failed: $e');
+      }
+      rethrow;
+    }
+  }
+
+  // ✅ NOVO: Método para atualizar interesses
+  Future<void> updateInteresses(List<String> newInteresses) async {
+    if (state == null) {
+      throw Exception('User not logged in');
+    }
+
+    try {
+      await _firestoreService.updateUser(state!.uid, {
+        'interesses': newInteresses,
+        'lastUpdatedAt': DateTime.now().toIso8601String(),
+      });
+
+      state = state!.copyWith(interesses: newInteresses);
+
+      if (kDebugMode) {
+        print(
+          '✅ UserProvider: Interesses updated: ${newInteresses.length} items',
+        );
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ UserProvider: Interesses update failed: $e');
+      }
+      rethrow;
+    }
+  }
+
   // ✅ SEGURO: Operação de coins agora usa validação server-side
   Future<void> updateCoins(int newCoinAmount, {String? reason}) async {
     if (state == null) {
@@ -171,44 +268,48 @@ class UserNotifier extends StateNotifier<UserModel?> {
     }
   }
 
-  // ✅ MANTIDO: Operações não-econômicas usam método original
-  Future<void> updateXP(int newXp) async {
-    if (state != null) {
-      final newLevel = (newXp / 100).floor() + 1;
-      try {
-        // await _firestoreService.updateUser(state!.uid, {
-        //   'xp': newXp,
-        //   'level': newLevel,
-        // });
-        state = state!.copyWith(xp: newXp, level: newLevel);
-        if (kDebugMode) {
-          print('✅ UserProvider: XP updated: $newXp (Level $newLevel)');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('❌ UserProvider: XP update failed: $e');
-        }
-        rethrow;
-      }
-    }
-  }
+  // // ✅ MANTIDO: Operações não-econômicas usam método original
+  // Future<void> updateXP(int newXp) async {
+  //   if (state != null) {
+  //     final newLevel = (newXp / 100).floor() + 1;
+  //     try {
+  //       await _firestoreService.updateUser(state!.uid, {
+  //         'xp': newXp,
+  //         'level': newLevel,
+  //         'lastUpdatedAt': DateTime.now().toIso8601String(),
+  //       });
+  //       state = state!.copyWith(xp: newXp, level: newLevel);
+  //       if (kDebugMode) {
+  //         print('✅ UserProvider: XP updated: $newXp (Level $newLevel)');
+  //       }
+  //     } catch (e) {
+  //       if (kDebugMode) {
+  //         print('❌ UserProvider: XP update failed: $e');
+  //       }
+  //       rethrow;
+  //     }
+  //   }
+  // }
 
-  Future<void> updateAIConfig(Map<String, dynamic> config) async {
-    if (state != null) {
-      try {
-        // await _firestoreService.updateUser(state!.uid, {'aiConfig': config});
-        // state = state!.copyWith(aiConfig: config);
-        if (kDebugMode) {
-          print('✅ UserProvider: AI config updated');
-        }
-      } catch (e) {
-        if (kDebugMode) {
-          print('❌ UserProvider: AI config update failed: $e');
-        }
-        rethrow;
-      }
-    }
-  }
+  // Future<void> updateAIConfig(Map<String, dynamic> config) async {
+  //   if (state != null) {
+  //     try {
+  //       await _firestoreService.updateUser(state!.uid, {
+  //         'aiConfig': config,
+  //         'lastUpdatedAt': DateTime.now().toIso8601String(),
+  //       });
+  //       state = state!.copyWith(aiConfig: config);
+  //       if (kDebugMode) {
+  //         print('✅ UserProvider: AI config updated');
+  //       }
+  //     } catch (e) {
+  //       if (kDebugMode) {
+  //         print('❌ UserProvider: AI config update failed: $e');
+  //       }
+  //       rethrow;
+  //     }
+  //   }
+  // }
 
   @override
   void dispose() {

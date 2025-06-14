@@ -57,28 +57,41 @@ class FirestoreService {
       rethrow;
     }
   }
+  // Substitua o método updateUser existente no FirestoreService por este:
 
-  Future<void> updateUser(UserModel user) async {
+  Future<void> updateUser(String userId, Map<String, dynamic> data) async {
     try {
       if (kDebugMode) {
         print(
-          'ℹ️ [FirestoreService.updateUser] Attempting to update user: $user.uId with data: $user.toJson()',
+          'ℹ️ [FirestoreService.updateUser] Attempting to update user: $userId with data: $data',
         );
       }
-      await _db.collection('users').doc(user.uid).update(user.toJson());
+
+      // Adiciona timestamp de última atualização automaticamente
+      final updateData = Map<String, dynamic>.from(data);
+      updateData['lastUpdatedAt'] = DateTime.now().toIso8601String();
+
+      await _db.collection('users').doc(userId).update(updateData);
+
       if (kDebugMode) {
         print(
-          '✅ [FirestoreService.updateUser] User updated successfully: $user.uId',
+          '✅ [FirestoreService.updateUser] User updated successfully: $userId',
         );
       }
     } catch (e) {
       if (kDebugMode) {
         print(
-          '❌ [FirestoreService.updateUser] Error updating user $user.uId with data: $user.toJson()',
+          '❌ [FirestoreService.updateUser] Error updating user $userId: $e',
         );
+        print('   Data attempted: $data');
       }
       rethrow; // Re-lança o erro para ser tratado pelo chamador
     }
+  }
+
+  // OPCIONAL: Manter método com UserModel para compatibilidade (se necessário)
+  Future<void> updateUserModel(UserModel user) async {
+    await updateUser(user.uid, user.toJson());
   }
 
   Future<void> deleteUser(String uid) async {}
