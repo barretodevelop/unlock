@@ -56,6 +56,7 @@ dependencies:
   validators: ^3.0.0
   crypto: ^3.0.6
   flutter_launcher_icons: ^0.14.4
+  connectivity_plus: ^6.1.4
 
 dev_dependencies:
   flutter_test:

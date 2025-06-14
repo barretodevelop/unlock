@@ -3,7 +3,7 @@
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:unlock/models/item_model.dart';
+import 'package:flutter/foundation.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/services/firestore_service.dart';
 
@@ -83,13 +83,17 @@ class SecureFirestoreService {
           'lastEconomyUpdate': FieldValue.serverTimestamp(),
         });
 
-        print(
-          '✅ [SecureFirestore] Economy update: User $userId, Coins: $currentCoins→$newCoins, Gems: $currentGems→$newGems, Reason: $reason',
-        );
+        if (kDebugMode) {
+          print(
+            '✅ [SecureFirestore] Economy update: User $userId, Coins: $currentCoins→$newCoins, Gems: $currentGems→$newGems, Reason: $reason',
+          );
+        }
         return true;
       });
     } catch (e) {
-      print('❌ [SecureFirestore] Economy update failed: $e');
+      if (kDebugMode) {
+        print('❌ [SecureFirestore] Economy update failed: $e');
+      }
       rethrow;
     }
   }
@@ -118,7 +122,9 @@ class SecureFirestoreService {
         transactionId: 'mission_$missionId',
       );
     } catch (e) {
-      print('❌ [SecureFirestore] Mission completion failed: $e');
+      if (kDebugMode) {
+        print('❌ [SecureFirestore] Mission completion failed: $e');
+      }
       rethrow;
     }
   }
@@ -145,26 +151,26 @@ class SecureFirestoreService {
     });
   }
 
-  /// Log transações de compra para auditoria
-  static Future<void> _logPurchaseTransaction({
-    required Transaction transaction,
-    required String userId,
-    required ItemModel item,
-    required int quantity,
-    required int totalCost,
-  }) async {
-    final logRef = _db.collection('audit_logs').doc();
-    transaction.set(logRef, {
-      'type': 'item_purchase',
-      'userId': userId,
-      'itemId': item.id,
-      'itemName': item.name,
-      'quantity': quantity,
-      'unitPrice': item.cost,
-      'totalCost': totalCost,
-      'timestamp': FieldValue.serverTimestamp(),
-    });
-  }
+  ///// Log transações de compra para auditoria
+  // static Future<void> _logPurchaseTransaction({
+  //   required Transaction transaction,
+  //   required String userId,
+  //   required ItemModel item,
+  //   required int quantity,
+  //   required int totalCost,
+  // }) async {
+  //   final logRef = _db.collection('audit_logs').doc();
+  //   transaction.set(logRef, {
+  //     'type': 'item_purchase',
+  //     'userId': userId,
+  //     'itemId': item.id,
+  //     'itemName': item.name,
+  //     'quantity': quantity,
+  //     'unitPrice': item.cost,
+  //     'totalCost': totalCost,
+  //     'timestamp': FieldValue.serverTimestamp(),
+  //   });
+  // }
 
   // ========================
   // READONLY OPERATIONS (usando serviço existente)

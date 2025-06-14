@@ -3,7 +3,7 @@
 git checkout main
 
 ✅ 2. Crie uma branch para sua tarefa
-git checkout -b feat/loginGoogle
+git checkout -b feat/themeColor
 
 ✅ 3. Trabalhe normalmente
 Faça seus códigos, depois:

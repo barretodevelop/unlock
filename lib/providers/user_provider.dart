@@ -176,10 +176,10 @@ class UserNotifier extends StateNotifier<UserModel?> {
     if (state != null) {
       final newLevel = (newXp / 100).floor() + 1;
       try {
-        await _firestoreService.updateUser(state!.uid, {
-          'xp': newXp,
-          'level': newLevel,
-        });
+        // await _firestoreService.updateUser(state!.uid, {
+        //   'xp': newXp,
+        //   'level': newLevel,
+        // });
         state = state!.copyWith(xp: newXp, level: newLevel);
         if (kDebugMode) {
           print('✅ UserProvider: XP updated: $newXp (Level $newLevel)');
@@ -196,8 +196,8 @@ class UserNotifier extends StateNotifier<UserModel?> {
   Future<void> updateAIConfig(Map<String, dynamic> config) async {
     if (state != null) {
       try {
-        await _firestoreService.updateUser(state!.uid, {'aiConfig': config});
-        state = state!.copyWith(aiConfig: config);
+        // await _firestoreService.updateUser(state!.uid, {'aiConfig': config});
+        // state = state!.copyWith(aiConfig: config);
         if (kDebugMode) {
           print('✅ UserProvider: AI config updated');
         }

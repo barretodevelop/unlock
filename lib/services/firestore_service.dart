@@ -58,26 +58,28 @@ class FirestoreService {
     }
   }
 
-  Future<void> updateUser(String userId, Map<String, dynamic> data) async {
+  Future<void> updateUser(UserModel user) async {
     try {
       if (kDebugMode) {
         print(
-          'ℹ️ [FirestoreService.updateUser] Attempting to update user: $userId with data: $data',
+          'ℹ️ [FirestoreService.updateUser] Attempting to update user: $user.uId with data: $user.toJson()',
         );
       }
-      await _db.collection('users').doc(userId).update(data);
+      await _db.collection('users').doc(user.uid).update(user.toJson());
       if (kDebugMode) {
         print(
-          '✅ [FirestoreService.updateUser] User updated successfully: $userId',
+          '✅ [FirestoreService.updateUser] User updated successfully: $user.uId',
         );
       }
     } catch (e) {
       if (kDebugMode) {
         print(
-          '❌ [FirestoreService.updateUser] Error updating user $userId with data $data: $e',
+          '❌ [FirestoreService.updateUser] Error updating user $user.uId with data: $user.toJson()',
         );
       }
       rethrow; // Re-lança o erro para ser tratado pelo chamador
     }
   }
+
+  Future<void> deleteUser(String uid) async {}
 }

@@ -2,9 +2,12 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/screens/splash_screen.dart'; // Adicionado para o fluxo de autenticação
+import 'package:unlock/config/app_router.dart';
+import 'package:unlock/config/app_theme.dart';
+import 'package:unlock/providers/theme_provider.dart';
 import 'package:unlock/services/background_service.dart';
 import 'package:unlock/services/notification_service.dart';
 
@@ -72,21 +75,66 @@ void main() async {
     },
   );
 
+  // Configurar sistema
+  await _configureApp();
+
   runApp(
     ProviderScope(child: const UnlockApp()),
   ); // Alterado para o novo Widget App
 }
 
-class UnlockApp extends StatelessWidget {
-  // Renomeado de MainApp ou pode ser um novo Widget
+/// Configurações iniciais do app
+Future<void> _configureApp() async {
+  // Configurar orientação (apenas portrait)
+  await SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Configurar status bar
+  SystemChrome.setSystemUIOverlayStyle(
+    const SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+      systemNavigationBarColor: Color(0xFF0F172A),
+      systemNavigationBarIconBrightness: Brightness.light,
+    ),
+  );
+
+  // Configurar debug (desabilitar banners em produção)
+  if (kReleaseMode) {
+    debugPrint = (String? message, {int? wrapWidth}) {};
+  }
+}
+
+class UnlockApp extends ConsumerWidget {
   const UnlockApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      title: 'Unlock App', // Defina o título do seu app
-      home: SplashScreen(), // Define a SplashScreen como tela inicial
-      // Considere definir um tema aqui: theme: ThemeData(...),
+  Widget build(BuildContext context, WidgetRef ref) {
+    final isDark = ref.watch(themeProvider);
+    final router = ref.watch(appRouterProvider);
+
+    return MaterialApp.router(
+      title: 'PetCare',
+      theme: AppTheme.lightTheme,
+      darkTheme: AppTheme.darkTheme,
+      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
+
+      routerConfig: router,
+      debugShowCheckedModeBanner: false,
+
+      // ✅ NOVO: Builder para debug de background service
+      builder: (context, child) {
+        return Stack(
+          children: [
+            child!,
+
+            // ✅ Debug info no canto superior (apenas em debug mode)
+            // if (kDebugMode) _buildDebugInfo(),
+          ],
+        );
+      },
     );
   }
 }

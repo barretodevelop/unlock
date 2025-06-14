@@ -11,6 +11,7 @@ class UserModel {
   final int coins;
   final int gems;
   final DateTime createdAt;
+  final DateTime lastLoginAt;
   final Map<String, dynamic> aiConfig;
 
   const UserModel({
@@ -24,6 +25,7 @@ class UserModel {
     required this.coins,
     required this.gems,
     required this.createdAt,
+    required this.lastLoginAt,
     required this.aiConfig,
   });
 
@@ -40,6 +42,8 @@ class UserModel {
       coins: json['coins'] ?? 0,
       gems: json['gems'] ?? 0,
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
+      lastLoginAt:
+          DateTime.tryParse(json['lastLoginAt'] ?? '') ?? DateTime.now(),
       aiConfig: Map<String, dynamic>.from(json['aiConfig'] ?? {}),
     );
   }
@@ -57,6 +61,7 @@ class UserModel {
       'coins': coins,
       'gems': gems,
       'createdAt': createdAt.toIso8601String(),
+      'lastLoginAt': createdAt.toIso8601String(),
       'aiConfig': aiConfig,
     };
   }
@@ -73,6 +78,7 @@ class UserModel {
     int? coins,
     int? gems,
     DateTime? createdAt,
+    DateTime? lastLoginAt,
     Map<String, dynamic>? aiConfig,
   }) {
     return UserModel(
@@ -86,6 +92,7 @@ class UserModel {
       coins: coins ?? this.coins,
       gems: gems ?? this.gems,
       createdAt: createdAt ?? this.createdAt,
+      lastLoginAt: lastLoginAt ?? this.lastLoginAt,
       aiConfig: aiConfig ?? this.aiConfig,
     );
   }
