@@ -3,14 +3,14 @@
 git checkout main
 
 ✅ 2. Crie uma branch para sua tarefa
-git checkout -b feat/nome-da-tarefa
+git checkout -b feat/loginGoogle
 
 ✅ 3. Trabalhe normalmente
 Faça seus códigos, depois:
 
 bash
 git add .
-git commit -m "feat: adiciona funcionalidade X"
+git commit -m "feat: adiciona Login com google"
 
 ✅ 4. Volte para a main e mescle sua branch
 git checkout main

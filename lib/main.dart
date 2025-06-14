@@ -3,6 +3,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/screens/splash_screen.dart'; // Adicionado para o fluxo de autenticação
 import 'package:unlock/services/background_service.dart';
 import 'package:unlock/services/notification_service.dart';
 
@@ -12,17 +14,17 @@ final FlutterLocalNotificationsPlugin notificationsPlugin =
     FlutterLocalNotificationsPlugin();
 
 void main() async {
-  WidgetsFlutterBinding.ensureInitialized();
-
   // ✅ INICIALIZAÇÃO CRÍTICA
-  WidgetsFlutterBinding.ensureInitialized();
+  WidgetsFlutterBinding.ensureInitialized(); // Apenas uma chamada no início é necessária
 
   try {
     if (kDebugMode) {
       print('🚀 PetCare: Inicializando aplicação...');
     }
-
-    await Firebase.initializeApp();
+    // É recomendado usar options para garantir a configuração correta da plataforma.
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
     if (kDebugMode) {
       print('✅ Firebase inicializado');
     }
@@ -52,8 +54,7 @@ void main() async {
     // App pode continuar mesmo com erro nos background services
   }
 
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-
+  // A inicialização do Firebase com options já foi feita no bloco try/catch.
   const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
   // final iosInit = DarwinInitializationSettings(
   //   requestSoundPermission: true,
@@ -71,16 +72,21 @@ void main() async {
     },
   );
 
-  runApp(const MainApp());
+  runApp(
+    ProviderScope(child: const UnlockApp()),
+  ); // Alterado para o novo Widget App
 }
 
-class MainApp extends StatelessWidget {
-  const MainApp({super.key});
+class UnlockApp extends StatelessWidget {
+  // Renomeado de MainApp ou pode ser um novo Widget
+  const UnlockApp({super.key});
 
   @override
   Widget build(BuildContext context) {
     return const MaterialApp(
-      home: Scaffold(body: Center(child: Text('Hello World!'))),
+      title: 'Unlock App', // Defina o título do seu app
+      home: SplashScreen(), // Define a SplashScreen como tela inicial
+      // Considere definir um tema aqui: theme: ThemeData(...),
     );
   }
 }
