@@ -1,0 +1,25 @@
+🔄 Fluxo Git Local (sem remoto)
+✅ 1. Sempre parta da main atualizada
+git checkout main
+
+✅ 2. Crie uma branch para sua tarefa
+git checkout -b feat/nome-da-tarefa
+
+✅ 3. Trabalhe normalmente
+Faça seus códigos, depois:
+
+bash
+git add .
+git commit -m "feat: adiciona funcionalidade X"
+
+✅ 4. Volte para a main e mescle sua branch
+git checkout main
+git merge feat/nome-da-tarefa
+
+✅ 5. (Opcional) Apague a branch usada
+git branch -d feat/nome-da-tarefa
+🔁 Repita esse processo a cada nova funcionalidade ou correção.
+
+
+
+git reset --hard 8a81cc0b7b6791bbd79cc0be24e1e1186802c2b2

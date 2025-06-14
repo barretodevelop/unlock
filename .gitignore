@@ -1,0 +1,182 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Generated files
+*.g.dart
+*.freezed.dart
+*.gr.dart
+
+# ========================
+# ARQUIVOS SENSÍVEIS - SEGURANÇA
+# ========================
+
+# Arquivos de ambiente com chaves de API
+.env
+.env.*
+.env.local
+.env.production
+.env.development
+
+# Arquivos de configuração com segredos
+lib/config/secrets.dart
+lib/constants/api_keys.dart
+assets/config/secrets.json
+secrets/
+
+# Firebase
+google-services.json
+GoogleService-Info.plist
+firebase_options.dart 
+lib/firebase_options.dart
+lib/config/firebase_options.dart
+firebase.json
+
+# Chaves de API específicas
+api_keys.dart
+api_keys.json
+*.apikey
+
+# Android
+android/key.properties
+android/app/google-services.json
+android/local.properties
+*.keystore
+*.jks
+
+# iOS
+ios/Runner/GoogleService-Info.plist
+ios/Flutter/flutter_export_environment.sh
+ios/Runner.xcworkspace/xcshareddata/swiftpm/
+
+# Certificados
+*.p12
+*.key
+*.mobileprovision
+*.cer
+
+# Arquivos de configuração AWS
+aws-exports.*
+awsconfiguration.json
+
+# Outros serviços
+stripe_keys.dart
+paypal_config.dart
+*_credentials.dart
+*_secrets.dart
+
+# Arquivos temporários de teste
+test_credentials.dart
+test_keys.dart
+
+# Coverage
+coverage/
+*.lcov
+
+# Arquivos de log e debug
+*.log
+logs/
+*.stackdump
+
+# Fvm
+.fvm/
+
+# Mason
+.mason/
+
+# Very Good CLI
+.very_good
+
+
+
+
+# ========================================
+# .gitignore (Adicionar estas linhas)
+# ========================================
+
+# Environment files - NUNCA commitar
+.env
+.env.local
+.env.*.local
+.env.prod
+.env.staging
+
+# API Keys e certificados
+*.pem
+*.key
+*.p12
+*.jks
+google-services.json
+GoogleService-Info.plist
+
+# Logs e cache
+logs/
+*.log
+.cache/
+
+# Build artifacts
+/build/
+/android/app/build/
+/ios/build/
+
+# Coverage
+coverage/
+lcov.info
+
+# Dependencies
+.packages
+.pub-cache/
+.pub/
+pubspec.lock
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
