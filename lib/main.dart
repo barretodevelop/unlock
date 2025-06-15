@@ -5,9 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/config/app_router.dart';
-import 'package:unlock/config/app_theme.dart';
-import 'package:unlock/providers/theme_provider.dart';
+import 'package:unlock/app.dart';
 import 'package:unlock/services/background_service.dart';
 import 'package:unlock/services/notification_service.dart';
 
@@ -104,37 +102,5 @@ Future<void> _configureApp() async {
   // Configurar debug (desabilitar banners em produção)
   if (kReleaseMode) {
     debugPrint = (String? message, {int? wrapWidth}) {};
-  }
-}
-
-class UnlockApp extends ConsumerWidget {
-  const UnlockApp({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final isDark = ref.watch(themeProvider);
-    final router = ref.watch(appRouterProvider);
-
-    return MaterialApp.router(
-      title: 'PetCare',
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: isDark ? ThemeMode.dark : ThemeMode.light,
-
-      routerConfig: router,
-      debugShowCheckedModeBanner: false,
-
-      // ✅ NOVO: Builder para debug de background service
-      builder: (context, child) {
-        return Stack(
-          children: [
-            child!,
-
-            // ✅ Debug info no canto superior (apenas em debug mode)
-            // if (kDebugMode) _buildDebugInfo(),
-          ],
-        );
-      },
-    );
   }
 }

@@ -4,17 +4,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/feature/games/ppt/ppt.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/screens/cadastro_screen.dart';
-import 'package:unlock/screens/chat_screen.dart';
-import 'package:unlock/screens/connection_test_screen.dart';
-import 'package:unlock/screens/home_screen.dart';
-import 'package:unlock/screens/list_profiles.dart';
-import 'package:unlock/screens/login_screen.dart';
-import 'package:unlock/screens/matching_screen.dart';
-import 'package:unlock/screens/other_user_profile_screen.dart';
-import 'package:unlock/screens/profile_screen.dart';
-import 'package:unlock/screens/settings_screen.dart'; // ✅ Adicionar import
-import 'package:unlock/screens/splash_screen.dart';
+import 'package:unlock/screens/auth/login_screen.dart';
+import 'package:unlock/screens/home/home_screen.dart';
+import 'package:unlock/screens/profile/profile_screen.dart';
+import 'package:unlock/screens/settings_screen.dart';
+import 'package:unlock/screens/social/cadastro_screen.dart';
+import 'package:unlock/screens/social/chat_screen.dart';
+import 'package:unlock/screens/social/connection_screen.dart';
+import 'package:unlock/screens/social/list_profiles.dart';
+import 'package:unlock/screens/social/matching_screen.dart';
+import 'package:unlock/screens/social/other_user_profile_screen.dart';
+import 'package:unlock/screens/splash/splash_screen.dart';
 import 'package:unlock/utils/page_transitions.dart';
 
 // ✅ CORREÇÃO: RouterNotifier para escutar mudanças do AuthProvider
