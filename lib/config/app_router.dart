@@ -8,6 +8,7 @@ import 'package:unlock/screens/cadastro_screen.dart';
 import 'package:unlock/screens/chat_screen.dart';
 import 'package:unlock/screens/connection_test_screen.dart';
 import 'package:unlock/screens/home_screen.dart';
+import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/login_screen.dart';
 import 'package:unlock/screens/matching_screen.dart';
 import 'package:unlock/screens/other_user_profile_screen.dart';
@@ -170,12 +171,30 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: '/chat-screen',
         name: 'chat-screen',
         pageBuilder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>? ?? {};
+          final isRealConnection = extras['isRealConnection'];
+          final connectionData = extras['connectionData'];
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: ChatScreen(
+              connectionData: connectionData,
+              isRealConnection: isRealConnection,
+            ),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/profile-page',
+        name: 'profile-page',
+        pageBuilder: (context, state) {
           // final Map<String, dynamic> connectionData =
           //     state.extra as Map<String, dynamic>;
 
           return PageTransitions.fadeTransition(
             key: state.pageKey,
-            child: ChatScreen(),
+            child: ProfilesPage(),
           );
         },
       ),

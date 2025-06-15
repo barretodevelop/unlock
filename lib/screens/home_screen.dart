@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/mission_screen.dart';
 import 'package:unlock/widgtes/custom_app_bar.dart';
 import 'package:unlock/widgtes/custom_bottom_navigation.dart';
@@ -79,8 +80,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final isDark = theme.brightness == Brightness.dark;
-    final authState = ref.watch(authProvider);
-    final user = authState.user;
+    final user = ref.watch(authProvider).user;
 
     return Scaffold(
       backgroundColor: _getBackgroundColor(isDark),
@@ -122,7 +122,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
       case 2:
         return _buildChatsPage(isDark);
       case 3:
-        return _buildProfilePage(isDark);
+        return ProfilesPage(); //_buildProfilePage(isDark);
       default:
         return _buildHomePage(isDark, user);
     }

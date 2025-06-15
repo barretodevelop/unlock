@@ -239,14 +239,14 @@ class AppHelpers {
   }
 
   // Verificar se pode pagar
-  // static bool canAfford(int cost, String currency) {
-  //   if (currency == 'moedas') {
-  //     return currentUser.moedas >= cost;
-  //   } else if (currency == 'gemas') {
-  //     return currentUser.gemas >= cost;
-  //   }
-  //   return false;
-  // }
+  static bool canAfford(int cost, String currency) {
+    if (currency == 'moedas') {
+      // return currentUser.moedas >= cost;
+    } else if (currency == 'gemas') {
+      // return currentUser.gemas >= cost;
+    }
+    return false;
+  }
 
   // Mostrar snackbar customizado
   static void showCustomSnackBar(

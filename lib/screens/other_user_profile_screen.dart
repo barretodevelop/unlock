@@ -96,6 +96,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
                 children: [
                   // Informações básicas
                   CustomCard(
+                    borderRadius: 20,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -171,6 +172,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
 
                   // Interesses
                   CustomCard(
+                    borderRadius: 20,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -241,6 +243,7 @@ class OtherUserProfileScreen extends ConsumerWidget {
 
                   // Fotos (simulado)
                   CustomCard(
+                    borderRadius: 20,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [

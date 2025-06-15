@@ -5,7 +5,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/data/mock_data_provider.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/screens/chat_screen.dart';
 import 'package:unlock/utils/helpers.dart';
 import 'package:unlock/widgtes/animated_button.dart';
 import 'package:unlock/widgtes/quebra_cabeca_colaborativo.dart';
@@ -441,15 +440,16 @@ class _ConnectionTestScreenState extends ConsumerState<ConnectionTestScreen>
                     child: AnimatedButton(
                       onPressed: () {
                         // currentUser.updateStats(connections: 1);
-                        Navigator.pushReplacement(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => ChatScreen(
-                              // connectionData: widget.chosenConnection,
-                              // isRealConnection: true,
-                            ),
-                          ),
-                        );
+                        // Navigator.pushReplacement(
+                        //   context,
+                        //   MaterialPageRoute(
+                        //     builder: (context) => ChatScreen(
+                        //       connectionData: widget.chosenConnection,
+                        //       isRealConnection: true,
+                        //     ),
+                        //   ),
+                        // );
+                        context.go('/chat-screen');
                       },
                       backgroundColor: Theme.of(context).primaryColor,
                       foregroundColor: Colors.white,

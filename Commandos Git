@@ -3,7 +3,7 @@
 git checkout main
 
 ✅ 2. Crie uma branch para sua tarefa
-git checkout -b feat/inc-homescreen 
+git checkout -b feat/inc-ajuste-missoes
 
 ✅ 3. Trabalhe normalmente
 Faça seus códigos, depois:
@@ -13,7 +13,7 @@ git add .
 git commit -m "feat: adiciona Login com google"
 
 ✅ 4. Volte para a mai
-git merge feat/feat/themeColor
+git merge feat/inc-homescreen
 
 ✅ 5. (Opcional) Apague a branch usada
 git branch -d feat/nome-da-tarefa

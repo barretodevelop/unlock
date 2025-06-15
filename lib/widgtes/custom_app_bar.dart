@@ -1,6 +1,7 @@
 // Widget AppBar Customizado
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
 class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
   final String userName;
@@ -40,12 +41,26 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
               _buildUserInfo(isDark),
               const Spacer(),
               _buildNotificationButton(isDark),
+              IconButton(
+                onPressed: () => context.go('/settings'),
+                icon: Icon(Icons.settings),
+              ),
             ],
           ),
         ),
       ),
     );
   }
+
+  // Widget _buildConfig(bool isDark) {
+  //   return IconButton(
+  //     // onPressed: () {
+  //     //   context.go('/setting');
+  //     // },
+  //      onPressed: () => context.go('/home'),
+  //     icon: Icon(Icons.settings),
+  //   );
+  // }
 
   Widget _buildUserInfo(bool isDark) {
     return Row(
