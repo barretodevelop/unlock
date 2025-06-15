@@ -3,7 +3,7 @@
 git checkout main
 
 ✅ 2. Crie uma branch para sua tarefa
-git checkout -b feat/notification-inc/validacao 
+git checkout -b feat/inc-homescreen 
 
 ✅ 3. Trabalhe normalmente
 Faça seus códigos, depois:

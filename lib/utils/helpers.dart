@@ -2,9 +2,13 @@
 // lib/utils/helpers.dart - Helpers
 import 'dart:math';
 
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:unlock/data/mock_data_provider.dart';
 
-class Helpers {
+final MockDataProvider dataProvider = MockDataProvider();
+
+class AppHelpers {
   static String formatTimestamp(DateTime timestamp) {
     final now = DateTime.now();
     final difference = now.difference(timestamp);
@@ -149,6 +153,124 @@ class Helpers {
             : const Color(0xFF10B981),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      ),
+    );
+  }
+
+  // Construir avatar com borda
+  static Widget buildUserAvatar({
+    String? avatarId,
+    String? borderId,
+    double radius = 20,
+    double borderWidth = 3,
+  }) {
+    final avatar = dataProvider.getItemById('avatars', avatarId ?? 'person');
+    final border = dataProvider.getItemById('borders', borderId ?? 'none');
+
+    IconData avatarIcon = avatar?['icon'] ?? Icons.person;
+    Color borderColor = border?['color'] ?? Colors.transparent;
+
+    return Container(
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: borderColor,
+          width: borderColor == Colors.transparent ? 0 : borderWidth,
+        ),
+      ),
+      child: CircleAvatar(
+        radius: radius,
+        backgroundColor: Colors.blueGrey.shade100,
+        foregroundColor: Colors.blueGrey[800],
+        child: (avatarId!.isNotEmpty)
+            ? ClipOval(
+                child: CachedNetworkImage(
+                  imageUrl: avatarId,
+                  placeholder: (context, url) =>
+                      const CircularProgressIndicator(
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          Colors.white70,
+                        ),
+                      ),
+                  errorWidget: (context, url, error) =>
+                      const Icon(Icons.person, size: 30, color: Colors.white70),
+                  fit: BoxFit.cover,
+                  width:
+                      radius * 2, // Certifique-se de manter proporção correta
+                  height: radius * 2,
+                ),
+              )
+            : Icon(avatarIcon, size: radius * 0.8),
+      ),
+    );
+  }
+
+  // Obter ícone do tipo de relacionamento
+  static IconData getRelationshipIcon(String? relationshipId) {
+    final relationship = dataProvider.getRelationshipTypeById(
+      relationshipId ?? 'amizade',
+    );
+    return relationship?['icon'] ?? Icons.people_alt;
+  }
+
+  // Obter cor do tipo de relacionamento
+  static Color getRelationshipColor(String? relationshipId) {
+    final relationship = dataProvider.getRelationshipTypeById(
+      relationshipId ?? 'amizade',
+    );
+    return relationship?['color'] ?? Colors.blue;
+  }
+
+  // Formatar tempo relativo
+  static String formatRelativeTime(String timeText) {
+    // Em um app real, isso seria baseado em timestamps reais
+    return timeText;
+  }
+
+  // Calcular nível baseado no XP
+  static int calculateLevel(int xp) {
+    return (xp / 100).floor() + 1;
+  }
+
+  // Calcular XP para próximo nível
+  static int xpForNextLevel(int xp) {
+    final currentLevel = calculateLevel(xp);
+    return (currentLevel * 100) - xp;
+  }
+
+  // Verificar se pode pagar
+  // static bool canAfford(int cost, String currency) {
+  //   if (currency == 'moedas') {
+  //     return currentUser.moedas >= cost;
+  //   } else if (currency == 'gemas') {
+  //     return currentUser.gemas >= cost;
+  //   }
+  //   return false;
+  // }
+
+  // Mostrar snackbar customizado
+  static void showCustomSnackBar(
+    BuildContext context,
+    String message, {
+    Color? backgroundColor,
+    IconData? icon,
+    Duration duration = const Duration(seconds: 3),
+  }) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            if (icon != null) ...[
+              Icon(icon, color: Colors.white),
+              const SizedBox(width: 8),
+            ],
+            Expanded(child: Text(message)),
+          ],
+        ),
+        backgroundColor: backgroundColor ?? Colors.blueGrey[700],
+        duration: duration,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
   }

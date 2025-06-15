@@ -1,11 +1,15 @@
 // lib/screens/home_screen.dart
-import 'package:cached_network_image/cached_network_image.dart'; // ✅ Adicionar import
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/services/notification_service.dart'; // Importar NotificationService
+import 'package:unlock/screens/mission_screen.dart';
+import 'package:unlock/widgtes/custom_app_bar.dart';
+import 'package:unlock/widgtes/custom_bottom_navigation.dart';
 
+// Tela Principal Otimizada
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -15,653 +19,439 @@ class HomeScreen extends ConsumerStatefulWidget {
 
 class _HomeScreenState extends ConsumerState<HomeScreen>
     with TickerProviderStateMixin {
-  // Animações
-  late AnimationController _fadeController;
-  late AnimationController _staggerController;
-  late List<Animation<Offset>> _cardAnimations;
-  late Animation<double> _fadeAnimation;
+  // Animation Controllers
+  late AnimationController _mainController;
+  late AnimationController _pulseController;
 
-  // Estado local
-  bool _isLocalLoading = false;
-  // late bool _areNotificationsEnabled; // REMOVIDO: Agora na SettingsScreen
+  // Animations
+  late Animation<double> _mainAnimation;
+  late Animation<double> _pulseAnimation;
+
+  // State Management
+  bool _isLoading = false;
+  int _activeConnections = 0;
+  String _currentMood = 'social';
+  int _currentNavIndex = 0;
+  bool _hasNotifications = true;
 
   @override
   void initState() {
     super.initState();
-    _initAnimations();
-    _startAnimations();
-    // Inicializa o estado do switch com o valor do NotificationService
-    // É importante que NotificationService.initialize() já tenha sido chamado
-    // e _loadNotificationPreference() concluído.
-    // Para garantir, podemos carregar aqui ou assumir que já está carregado.
-    // Para um carregamento mais robusto, você pode usar um FutureBuilder
-    // ou um provider Riverpod para o estado de _notificationsEnabled. // Comentário atualizado
-    // _areNotificationsEnabled = NotificationService.notificationsEnabled; // REMOVIDO
+    _initializeAnimations();
+    _initializeData();
   }
 
-  void _initAnimations() {
-    _fadeController = AnimationController(
-      duration: const Duration(milliseconds: 800),
-      vsync: this,
-    );
-
-    _staggerController = AnimationController(
+  void _initializeAnimations() {
+    _mainController = AnimationController(
       duration: const Duration(milliseconds: 1200),
       vsync: this,
     );
 
-    _fadeAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _fadeController, curve: Curves.easeOut));
+    _pulseController = AnimationController(
+      duration: const Duration(milliseconds: 2000),
+      vsync: this,
+    );
 
-    // Animações escalonadas para os cards
-    _cardAnimations = List.generate(4, (index) {
-      final start = index * 0.1;
-      final end = start + 0.4;
+    _mainAnimation = CurvedAnimation(
+      parent: _mainController,
+      curve: Curves.easeOutCubic,
+    );
 
-      return Tween<Offset>(
-        begin: const Offset(0, 0.5),
-        end: Offset.zero,
-      ).animate(
-        CurvedAnimation(
-          parent: _staggerController,
-          curve: Interval(
-            start,
-            end.clamp(0.0, 1.0),
-            curve: Curves.easeOutBack,
-          ),
-        ),
-      );
-    });
+    _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
+      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
+    );
+
+    _startAnimations();
   }
 
   void _startAnimations() {
-    Future.delayed(const Duration(milliseconds: 200), () {
-      if (mounted) {
-        _fadeController.forward();
-        _staggerController.forward();
-      }
-    });
+    _mainController.forward();
+    _pulseController.repeat(reverse: true);
   }
 
-  @override
-  void dispose() {
-    _fadeController.dispose();
-    _staggerController.dispose();
-    super.dispose();
-  }
-
-  Future<void> _handleLogout() async {
-    if (_isLocalLoading) return;
-
-    // Mostrar confirmação
-    final shouldLogout = await _showLogoutConfirmation();
-    if (!shouldLogout) return;
-
+  void _initializeData() {
     setState(() {
-      _isLocalLoading = true;
+      _activeConnections = 12;
     });
-
-    try {
-      final success = await ref.read(authProvider.notifier).signOut();
-
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Logout realizado com sucesso!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro no logout: $e'),
-            backgroundColor: Colors.red,
-            duration: const Duration(seconds: 3),
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLocalLoading = false;
-        });
-      }
-    }
-  }
-
-  Future<bool> _showLogoutConfirmation() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (context) => AlertDialog(
-            backgroundColor: const Color(0xFF1F2937),
-            title: const Text(
-              'Confirmar Logout',
-              style: TextStyle(color: Colors.white),
-            ),
-            content: const Text(
-              'Tem certeza de que deseja sair?',
-              style: TextStyle(color: Colors.white70),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
-                child: const Text('Cancelar'),
-              ),
-              ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
-                child: const Text('Sair'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final authState = ref.watch(authProvider);
     final user = authState.user;
 
-    if (user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
-    }
-
-    final theme = Theme.of(context); // Obter o tema atual
-
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor, // ✅ Usar cor do tema
+      backgroundColor: _getBackgroundColor(isDark),
+      appBar: CustomAppBar(
+        userName: user!.displayName,
+        userCode: user.codinome ?? 'Anonimo',
+        avatarId: user.avatar,
+        hasNotifications: _hasNotifications,
+        onNotificationTap: _onNotificationTap,
+        onAvatarTap: _onAvatarTap,
+      ),
       body: AnimatedBuilder(
-        animation: _fadeAnimation,
+        animation: _mainAnimation,
         builder: (context, child) {
-          return Opacity(
-            opacity: _fadeAnimation.value,
-            child: CustomScrollView(
-              slivers: [_buildAppBar(user), _buildContent(authState)],
-            ),
+          return FadeTransition(
+            opacity: _mainAnimation,
+            child: _buildCurrentPage(isDark, user),
           );
         },
+      ),
+      bottomNavigationBar: CustomBottomNavigation(
+        currentIndex: _currentNavIndex,
+        onTap: _onNavTap,
+        onCenterButtonTap: _onCenterButtonTap,
       ),
     );
   }
 
-  Widget _buildAppBar(user) {
-    final theme = Theme.of(context);
-    final isDarkMode = theme.brightness == Brightness.dark;
+  Color _getBackgroundColor(bool isDark) {
+    return isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FA);
+  }
 
-    return SliverAppBar(
-      expandedHeight: 200,
-      floating: false,
-      pinned: true,
-      backgroundColor:
-          theme.appBarTheme.backgroundColor ??
-          theme.colorScheme.surface, // ✅ Usar cor do tema
-      flexibleSpace: FlexibleSpaceBar(
-        background: Container(
-          decoration: BoxDecoration(
-            // ✅ O gradiente pode ser mais complexo de tematizar.
-            // Uma opção é definir gradientes diferentes no AppTheme ou usar uma cor sólida do tema.
-            // Por simplicidade, manteremos o gradiente por enquanto, mas idealmente seria temático.
-            gradient: LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF9333EA), Color(0xFF2563EB), Color(0xFF0D9488)],
+  Widget _buildCurrentPage(bool isDark, UserModel user) {
+    switch (_currentNavIndex) {
+      case 0:
+        return _buildHomePage(isDark, user);
+      case 1:
+        return MissionScreen();
+      case 2:
+        return _buildChatsPage(isDark);
+      case 3:
+        return _buildProfilePage(isDark);
+      default:
+        return _buildHomePage(isDark, user);
+    }
+  }
+
+  Widget _buildHomePage(bool isDark, UserModel user) {
+    return CustomScrollView(
+      physics: const BouncingScrollPhysics(),
+      slivers: [
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(20),
+            child: _buildConnectionPulse(isDark, user),
+          ),
+        ),
+        SliverPadding(
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+          sliver: SliverList(
+            delegate: SliverChildListDelegate([
+              // const SizedBox(height: 24),
+              _buildQuickStats(isDark),
+              const SizedBox(height: 24),
+              _buildMoodSelector(isDark),
+              const SizedBox(height: 24),
+              _buildRecentActivity(isDark),
+              const SizedBox(height: 24),
+              _buildConnectionsSuggestions(isDark, user),
+              const SizedBox(height: 24),
+            ]),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildChatsPage(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.chat_bubble,
+            size: 64,
+            color: isDark ? Colors.white38 : Colors.black38,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Página Chats',
+            style: TextStyle(
+              fontSize: 18,
+              color: isDark ? Colors.white70 : Colors.black87,
             ),
           ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildProfilePage(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.person,
+            size: 64,
+            color: isDark ? Colors.white38 : Colors.black38,
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Página Perfil',
+            style: TextStyle(
+              fontSize: 18,
+              color: isDark ? Colors.white70 : Colors.black87,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildConnectionPulse(bool isDark, UserModel user) {
+    return AnimatedBuilder(
+      animation: _pulseAnimation,
+      builder: (context, child) {
+        return Transform.scale(
+          scale: _pulseAnimation.value,
+          child: GestureDetector(
+            onTap: () => _onFindConnection(user.interesses),
+            child: Container(
+              width: double.infinity,
+              height: 120,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(24),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    Colors.deepPurple.shade400,
+                    Colors.indigo.shade400,
+                    Colors.blue.shade400,
+                  ],
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.deepPurple.withOpacity(0.4),
+                    blurRadius: 20,
+                    offset: const Offset(0, 8),
+                  ),
+                ],
+              ),
+              child: Stack(
                 children: [
-                  Row(
-                    children: [
-                      CircleAvatar(
-                        radius: 30,
-                        backgroundColor: Colors.white.withOpacity(0.2),
-                        // ✅ Substituir Text por CachedNetworkImage
-                        child: user.avatar.startsWith('http')
-                            ? ClipOval(
-                                child: CachedNetworkImage(
-                                  imageUrl: user.avatar,
-                                  placeholder: (context, url) =>
-                                      const CircularProgressIndicator(
-                                        valueColor:
-                                            AlwaysStoppedAnimation<Color>(
-                                              Colors.white70,
-                                            ),
-                                      ),
-                                  errorWidget: (context, url, error) =>
-                                      const Icon(
-                                        Icons.person,
-                                        size: 30,
-                                        color: Colors.white70,
-                                      ),
-                                  fit: BoxFit.cover,
-                                  width: 60,
-                                  height: 60,
-                                ),
-                              )
-                            : Text(
-                                user.avatar,
-                                style: const TextStyle(fontSize: 30),
-                              ), // Fallback para emoji/texto se não for URL
+                  // Efeito de partículas
+                  ...List.generate(8, (index) {
+                    return Positioned(
+                      left: (index * 45.0) % 300,
+                      top: (index * 23.0) % 80 + 20,
+                      child: AnimatedBuilder(
+                        animation: _pulseController,
+                        builder: (context, child) {
+                          return Opacity(
+                            opacity: (0.3 + (_pulseAnimation.value - 0.95) * 4)
+                                .clamp(0.0, 0.7),
+                            child: Container(
+                              width: 4,
+                              height: 4,
+                              decoration: const BoxDecoration(
+                                color: Colors.white,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                          );
+                        },
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Olá, ${user.displayName}!',
-                              style: theme.textTheme.headlineSmall?.copyWith(
-                                fontSize: 24,
-                                fontWeight: FontWeight.bold,
-                                color: isDarkMode
-                                    ? Colors.white
-                                    : theme
-                                          .colorScheme
-                                          .onPrimary, // Ajustar conforme o design
-                              ), // ✅ Usar estilo do tema
-                            ),
-                            Text(
-                              'Bem-vindo de volta',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                fontSize: 14,
-                                color:
-                                    (isDarkMode
-                                            ? Colors.white
-                                            : theme.colorScheme.onPrimary)
-                                        .withOpacity(0.8),
-                              ), // ✅ Usar estilo do tema
-                            ),
-                          ],
+                    );
+                  }),
+                  // Conteúdo principal
+                  Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          Icons.radio_button_checked,
+                          size: 32,
+                          color: Colors.white.withOpacity(0.9),
                         ),
-                      ),
-                    ],
+                        const SizedBox(height: 8),
+                        const Text(
+                          'Descobrir Conexões',
+                          style: TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          '$_activeConnections pessoas online agora',
+                          style: TextStyle(
+                            fontSize: 14,
+                            color: Colors.white.withOpacity(0.8),
+                          ),
+                        ),
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
           ),
-        ),
-      ),
-      actions: [
-        IconButton(
-          onPressed: _isLocalLoading ? null : _handleLogout,
-          icon: _isLocalLoading
-              ? SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(
-                      isDarkMode ? Colors.white : theme.colorScheme.onPrimary,
-                    ), // ✅ Usar cor do tema
-                  ),
-                )
-              : Icon(
-                  Icons.logout,
-                  color: isDarkMode
-                      ? Colors.white
-                      : theme.colorScheme.onPrimary,
-                ), // ✅ Usar cor do tema
-          tooltip: 'Sair',
-        ),
-      ],
-    );
-  }
-
-  Widget _buildContent(AuthState authState) {
-    final theme = Theme.of(context);
-
-    return SliverPadding(
-      padding: const EdgeInsets.all(20),
-      sliver: SliverList(
-        delegate: SliverChildListDelegate([
-          // Stats cards
-          _buildStatsSection(authState.user!),
-
-          const SizedBox(height: 30),
-
-          // Quick actions
-          _buildQuickActions(),
-
-          const SizedBox(height: 30),
-
-          // Recent activity
-          _buildRecentActivity(),
-
-          const SizedBox(height: 30),
-
-          // Debug section (only in debug mode)
-          if (authState.status == AuthStatus.authenticated)
-            _buildDebugSection(authState),
-
-          const SizedBox(height: 30),
-          // Seção de Teste de Notificações
-          _buildNotificationTestSection(), // Chama o método que contém o Switch
-        ]),
-      ),
-    );
-  }
-
-  Widget _buildNotificationTestSection() {
-    // Este widget agora precisa ser Stateful ou usar um Consumer para reconstruir
-    // quando _areNotificationsEnabled mudar. Como HomeScreen já é ConsumerStatefulWidget,
-    // podemos usar setState (que já está sendo usado para _areNotificationsEnabled na SettingsScreen).
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Testar Notificações',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
-          ),
-        ),
-        const SizedBox(height: 16),
-        // O SwitchListTile de notificações foi movido para SettingsScreen
-        ElevatedButton.icon(
-          icon: const Icon(Icons.notifications),
-          label: const Text('Enviar Notificação Local Simples'),
-          onPressed: () {
-            // Botão sempre habilitado
-            NotificationService.showSimpleLocalNotification(
-              title: '🔔 Teste Local',
-              body:
-                  'Esta é uma notificação local de teste disparada da HomeScreen!',
-              payload: 'local_test_payload',
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            // disabledBackgroundColor: Colors.blue.withOpacity(0.5), // Não mais necessário
-          ),
-        ),
-        const SizedBox(height: 10),
-        ElevatedButton.icon(
-          icon: const Icon(Icons.cloud_queue),
-          label: const Text('Simular Recebimento FCM (Local)'),
-          onPressed: () {
-            // Botão sempre habilitado
-            NotificationService.showSimpleLocalNotification(
-              title: '☁️ FCM Simulado',
-              body:
-                  'Esta notificação simula uma mensagem FCM recebida em primeiro plano.',
-              payload: 'fcm_foreground_sim_payload',
-            );
-          },
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.orange,
-            // disabledBackgroundColor: Colors.orange.withOpacity(0.5), // Não mais necessário
-          ),
-        ),
-        const SizedBox(height: 10),
-        Text(
-          'Para testar FCM real em background/terminado: envie uma notificação do console do Firebase.',
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onBackground.withOpacity(0.7),
-          ), // ✅ Usar estilo do tema
-          textAlign: TextAlign.center,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatsSection(user) {
-    final theme = Theme.of(context);
-
-    final stats = [
-      {'icon': Icons.stars, 'label': 'Nível', 'value': '${user.level}'},
-      {'icon': Icons.flash_on, 'label': 'XP', 'value': '${user.xp}'},
-      {
-        'icon': Icons.monetization_on,
-        'label': 'Moedas',
-        'value': '${user.coins}',
+        );
       },
-      {'icon': Icons.diamond, 'label': 'Gemas', 'value': '${user.gems}'},
+    );
+  }
+
+  Widget _buildQuickStats(bool isDark) {
+    final stats = [
+      {
+        'icon': Icons.favorite,
+        'label': 'Matches',
+        'value': '24',
+        'color': Colors.red,
+      },
+      {
+        'icon': Icons.chat_bubble,
+        'label': 'Chats',
+        'value': '12',
+        'color': Colors.blue,
+      },
+      {
+        'icon': Icons.visibility,
+        'label': 'Visitantes',
+        'value': '89',
+        'color': Colors.green,
+      },
+      {
+        'icon': Icons.star,
+        'label': 'XP',
+        'value': '1.2k',
+        'color': Colors.amber,
+      },
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade900.withOpacity(0.3) : Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        border: isDark ? Border.all(color: Colors.grey.shade800) : null,
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 10,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: stats.map((stat) {
+          return Column(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: (stat['color'] as Color).withOpacity(0.1),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  stat['icon'] as IconData,
+                  color: stat['color'] as Color,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                stat['value'] as String,
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: isDark ? Colors.white : Colors.black87,
+                ),
+              ),
+              Text(
+                stat['label'] as String,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                ),
+              ),
+            ],
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  Widget _buildMoodSelector(bool isDark) {
+    final moods = [
+      {'id': 'social', 'icon': Icons.people, 'label': 'Social'},
+      {'id': 'creative', 'icon': Icons.palette, 'label': 'Criativo'},
+      {'id': 'chill', 'icon': Icons.self_improvement, 'label': 'Relaxar'},
+      {'id': 'adventure', 'icon': Icons.explore, 'label': 'Aventura'},
     ];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Suas Estatísticas',
+          'Como você está se sentindo?',
           style: TextStyle(
-            fontSize: 20,
+            fontSize: 18,
             fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
+            color: isDark ? Colors.white : Colors.black87,
           ),
         ),
         const SizedBox(height: 16),
-        Row(
-          children: stats.asMap().entries.map((entry) {
-            final index = entry.key;
-            final stat = entry.value;
-
-            return Expanded(
-              child: SlideTransition(
-                position: _cardAnimations[index],
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: moods.map((mood) {
+              final isSelected = _currentMood == mood['id'];
+              return GestureDetector(
+                onTap: () =>
+                    setState(() => _currentMood = mood['id'] as String),
                 child: Container(
-                  margin: EdgeInsets.only(
-                    right: index < stats.length - 1 ? 12 : 0,
+                  margin: const EdgeInsets.only(right: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
                   ),
-                  padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color:
-                        theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
+                    color: isSelected
+                        ? Colors.deepPurple.withOpacity(0.2)
+                        : (isDark
+                              ? Colors.grey.shade800
+                              : Colors.grey.shade100),
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(
-                      color: theme.colorScheme.outline.withOpacity(0.3),
-                    ), // ✅ Usar cor do tema
+                    border: isSelected
+                        ? Border.all(color: Colors.deepPurple, width: 2)
+                        : null,
                   ),
-                  child: Column(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        stat['icon'] as IconData,
-                        color: const Color(0xFF9333EA),
-                        size: 24,
+                        mood['icon'] as IconData,
+                        size: 20,
+                        color: isSelected
+                            ? Colors.deepPurple
+                            : (isDark ? Colors.white70 : Colors.black54),
                       ),
-                      const SizedBox(height: 8),
+                      const SizedBox(width: 8),
                       Text(
-                        stat['value'] as String,
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ), // ✅ Usar estilo do tema
-                      ),
-                      Text(
-                        stat['label'] as String,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                            0.7,
-                          ),
-                        ), // ✅ Usar estilo do tema
+                        mood['label'] as String,
+                        style: TextStyle(
+                          color: isSelected
+                              ? Colors.deepPurple
+                              : (isDark ? Colors.white70 : Colors.black54),
+                          fontWeight: isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                        ),
                       ),
                     ],
                   ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildQuickActions() {
-    final theme = Theme.of(context);
-
-    final actions = [
-      {
-        'icon': Icons.person,
-        'label': 'Perfil',
-        'color': const Color(0xFF9333EA),
-        'onTap': () => context.push('/profile'),
-      },
-      {
-        'icon': Icons.pets,
-        'label': 'Pets',
-        'color': const Color(0xFF2563EB),
-        'onTap': () {},
-      },
-      {
-        'icon': Icons.settings,
-        'label': 'Configurações',
-        'color': const Color(0xFF0D9488),
-        'onTap': () =>
-            context.push('/settings'), // ✅ Navegar para SettingsScreen
-      },
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Ações Rápidas',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
-          ),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: actions.asMap().entries.map((entry) {
-            final index = entry.key;
-            final action = entry.value;
-
-            return Expanded(
-              child: SlideTransition(
-                position: _cardAnimations[index],
-                child: Container(
-                  margin: EdgeInsets.only(
-                    right: index < actions.length - 1 ? 12 : 0,
-                  ),
-                  child: Material(
-                    color:
-                        theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
-                    borderRadius: BorderRadius.circular(16),
-                    child: InkWell(
-                      onTap: action['onTap'] as VoidCallback,
-                      borderRadius: BorderRadius.circular(16),
-                      child: Container(
-                        padding: const EdgeInsets.all(20),
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(16),
-                          border: Border.all(
-                            color: theme.colorScheme.outline.withOpacity(
-                              0.3,
-                            ), // ✅ Usar cor do tema
-                          ),
-                        ),
-                        child: Column(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: (action['color'] as Color).withOpacity(
-                                  0.2,
-                                ),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Icon(
-                                action['icon'] as IconData,
-                                color: action['color'] as Color,
-                                size: 24,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            Text(
-                              action['label'] as String,
-                              style: theme.textTheme.titleSmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: theme.colorScheme.onSurfaceVariant,
-                              ), // ✅ Usar estilo do tema
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRecentActivity() {
-    final theme = Theme.of(context);
-
-    final activities = [
-      'Fez login às ${DateTime.now().hour}:${DateTime.now().minute}',
-      // 'Nível atualizado para ${authState.user?.level ?? 1}',
-      'Conquistou 50 XP hoje',
-    ];
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          'Atividade Recente',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: theme.colorScheme.onBackground, // ✅ Usar cor do tema
-          ),
-        ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceVariant, // ✅ Usar cor do tema
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: theme.colorScheme.outline.withOpacity(0.3),
-            ), // ✅ Usar cor do tema
-          ),
-          child: Column(
-            children: activities.map((activity) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(vertical: 8),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF9333EA),
-                        shape: BoxShape.circle,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Text(
-                        activity,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                            0.8,
-                          ),
-                        ), // ✅ Usar estilo do tema
-                      ),
-                    ),
-                  ],
                 ),
               );
             }).toList(),
@@ -671,53 +461,227 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
     );
   }
 
-  Widget _buildDebugSection(AuthState authState) {
-    final theme = Theme.of(context);
+  Widget _buildRecentActivity(bool isDark) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Text(
+              'Atividade Recente',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: isDark ? Colors.white : Colors.black87,
+              ),
+            ),
+            TextButton(
+              onPressed: () {},
+              child: Text(
+                'Ver tudo',
+                style: TextStyle(color: Colors.deepPurple.shade400),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _buildActivityItem(
+          'Nova conexão encontrada',
+          'Há 5 minutos',
+          Icons.person_add,
+          Colors.green,
+          isDark,
+        ),
+        _buildActivityItem(
+          'Mensagem recebida',
+          'Há 12 minutos',
+          Icons.message,
+          Colors.blue,
+          isDark,
+        ),
+        _buildActivityItem(
+          'Perfil visitado',
+          'Há 1 hora',
+          Icons.visibility,
+          Colors.orange,
+          isDark,
+        ),
+      ],
+    );
+  }
 
+  Widget _buildActivityItem(
+    String title,
+    String time,
+    IconData icon,
+    Color color,
+    bool isDark,
+  ) {
     return Container(
+      margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant.withOpacity(
-          0.5,
-        ), // ✅ Usar cor do tema
+        color: isDark ? Colors.grey.shade900.withOpacity(0.3) : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: Colors.orange.withOpacity(0.3),
-        ), // Manter laranja para debug ou usar theme.colorScheme.errorContainer
+        border: isDark ? Border.all(color: Colors.grey.shade800) : null,
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Row(
         children: [
-          const Row(
-            children: [
-              Icon(Icons.bug_report, color: Colors.orange, size: 16),
-              SizedBox(width: 8),
-              Text(
-                'Debug Info',
-                style: TextStyle(
-                  color: Colors.orange,
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.1),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, color: color, size: 20),
           ),
-          const SizedBox(height: 8),
-          Text(
-            'Status: ${authState.status}\n'
-            'Initialized: ${authState.isInitialized}\n'
-            'Loading: ${authState.isLoading}\n'
-            'User ID: ${authState.user?.uid ?? 'null'}',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant.withOpacity(
-                0.7,
-              ), // ✅ Usar estilo do tema
-              fontSize: 12,
-              fontFamily: 'monospace',
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w600,
+                    color: isDark ? Colors.white : Colors.black87,
+                  ),
+                ),
+                Text(
+                  time,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
+  }
+
+  Widget _buildConnectionsSuggestions(bool isDark, UserModel user) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Sugestões de Conexão',
+          style: TextStyle(
+            fontSize: 18,
+            fontWeight: FontWeight.bold,
+            color: isDark ? Colors.white : Colors.black87,
+          ),
+        ),
+        const SizedBox(height: 16),
+        SizedBox(
+          height: 120,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: 5,
+            itemBuilder: (context, index) {
+              return _buildSuggestionCard(index, isDark);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSuggestionCard(int index, bool isDark) {
+    final colors = [
+      Colors.red.shade300,
+      Colors.blue.shade300,
+      Colors.green.shade300,
+      Colors.purple.shade300,
+      Colors.orange.shade300,
+    ];
+
+    return Container(
+      width: 100,
+      margin: const EdgeInsets.only(right: 12),
+      decoration: BoxDecoration(
+        color: isDark ? Colors.grey.shade900.withOpacity(0.3) : Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: isDark ? Border.all(color: Colors.grey.shade800) : null,
+        boxShadow: isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: colors[index % colors.length],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.person, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Anônimo ${index + 1}',
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
+          ),
+          Text(
+            '95% match',
+            style: TextStyle(fontSize: 10, color: Colors.green.shade600),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Event Handlers
+  void _onNotificationTap() {
+    setState(() {
+      _hasNotifications = false;
+    });
+    // Implementar lógica de notificações
+  }
+
+  void _onAvatarTap() {
+    setState(() {
+      _currentNavIndex = 3; // Ir para perfil
+    });
+  }
+
+  void _onNavTap(int index) {
+    setState(() {
+      _currentNavIndex = index;
+    });
+  }
+
+  void _onCenterButtonTap() {
+    // Ação do botão central flutuante
+    context.go('/game');
+  }
+
+  void _onFindConnection(List<String> interesses) {
+    HapticFeedback.mediumImpact();
+    context.go('/match', extra: interesses);
+  }
+
+  @override
+  void dispose() {
+    _mainController.dispose();
+    _pulseController.dispose();
+
+    super.dispose();
   }
 }

@@ -2,10 +2,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/feature/games/ppt/ppt.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/screens/cadastro_screen.dart';
+import 'package:unlock/screens/chat_screen.dart';
+import 'package:unlock/screens/connection_test_screen.dart';
 import 'package:unlock/screens/home_screen.dart';
 import 'package:unlock/screens/login_screen.dart';
+import 'package:unlock/screens/matching_screen.dart';
+import 'package:unlock/screens/other_user_profile_screen.dart';
 import 'package:unlock/screens/profile_screen.dart';
 import 'package:unlock/screens/settings_screen.dart'; // ✅ Adicionar import
 import 'package:unlock/screens/splash_screen.dart';
@@ -104,6 +109,75 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           key: state.pageKey,
           child: const CadastroScreen(),
         ),
+      ),
+      GoRoute(
+        path: '/match',
+        name: 'match',
+        pageBuilder: (context, state) {
+          // Recuperar a lista do extra
+          final interessesUsuario = state.extra as List<String>? ?? [];
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: MatchingScreen(interessesUsuario: interessesUsuario),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/connection-test',
+        name: 'connection-test',
+        pageBuilder: (context, state) {
+          final extras = state.extra as Map<String, dynamic>? ?? {};
+          final interesses = extras['userInterests'] as List<String>? ?? [];
+          final connection = extras['chosenConnection'];
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: ConnectionTestScreen(
+              userInterests: interesses,
+              chosenConnection: connection,
+            ),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/game',
+        name: 'game',
+        pageBuilder: (context, state) => PageTransitions.fadeTransition(
+          // Ou outra transição de sua escolha
+          key: state.pageKey,
+          child: GameScreen(),
+        ),
+      ),
+
+      GoRoute(
+        path: '/other-perfil',
+        name: 'other-perfil',
+        pageBuilder: (context, state) {
+          final Map<String, dynamic> connectionData =
+              state.extra as Map<String, dynamic>;
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: OtherUserProfileScreen(connectionData: connectionData),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/chat-screen',
+        name: 'chat-screen',
+        pageBuilder: (context, state) {
+          // final Map<String, dynamic> connectionData =
+          //     state.extra as Map<String, dynamic>;
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: ChatScreen(),
+          );
+        },
       ),
     ],
 
