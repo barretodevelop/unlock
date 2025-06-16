@@ -271,7 +271,6 @@ class ProfilesNotifier extends StateNotifier<ProfilesState> {
   }
 
   static const int _pageSize = 10;
-  final Random _random = Random();
 
   // Carrega perfis iniciais
   Future<void> loadInitialProfiles() async {
@@ -576,29 +575,6 @@ class _ProfilesPageState extends ConsumerState<ProfilesPage>
             color: isDark ? Colors.white70 : Colors.black54,
           ),
           onPressed: _showFilters,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildStatItem(String label, int value, bool isDark) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          value.toString(),
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: isDark ? Colors.white : Colors.black87,
-          ),
-        ),
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 12,
-            color: isDark ? Colors.grey.shade400 : Colors.grey.shade600,
-          ),
         ),
       ],
     );

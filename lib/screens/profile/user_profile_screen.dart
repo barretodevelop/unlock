@@ -319,7 +319,7 @@ class UserProfileScreen extends ConsumerWidget {
 
                 // App Info
                 Text(
-                  'PetCare v1.0.0',
+                  'Unlock v1.0.0',
                   style: TextStyle(
                     fontSize: 12,
                     color: isDark

@@ -382,13 +382,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // ========== MÉTODOS AUXILIARES ==========
-
-  // Método interno para verificar status de auth (já existe como refreshUser, mantendo compatibilidade)
-  Future<void> _checkAuthStatus() async {
-    await refreshUser();
-  }
-
   // ========== UTILITÁRIOS ==========
 
   void _log(String message) {

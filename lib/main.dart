@@ -20,7 +20,7 @@ void main() async {
 
   try {
     if (kDebugMode) {
-      print('🚀 PetCare: Inicializando aplicação...');
+      print('🚀 Unlock: Inicializando aplicação...');
     }
     // É recomendado usar options para garantir a configuração correta da plataforma.
     await Firebase.initializeApp(

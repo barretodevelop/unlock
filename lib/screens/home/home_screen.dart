@@ -29,7 +29,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   late Animation<double> _pulseAnimation;
 
   // State Management
-  bool _isLoading = false;
   int _activeConnections = 0;
   String _currentMood = 'social';
   int _currentNavIndex = 0;
@@ -171,29 +170,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
           const SizedBox(height: 16),
           Text(
             'Página Chats',
-            style: TextStyle(
-              fontSize: 18,
-              color: isDark ? Colors.white70 : Colors.black87,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildProfilePage(bool isDark) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            Icons.person,
-            size: 64,
-            color: isDark ? Colors.white38 : Colors.black38,
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Página Perfil',
             style: TextStyle(
               fontSize: 18,
               color: isDark ? Colors.white70 : Colors.black87,

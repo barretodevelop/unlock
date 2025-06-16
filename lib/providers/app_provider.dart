@@ -20,7 +20,6 @@ class AppState {
   final bool isLoading;
   final String? error;
   final UserModel? user;
-  final int activePetIndex;
   final bool backgroundServiceActive;
   final bool isInitialized;
 
@@ -28,7 +27,6 @@ class AppState {
     this.isLoading = false,
     this.error,
     this.user,
-    this.activePetIndex = 0,
     this.backgroundServiceActive = false,
     this.isInitialized = false,
   });
@@ -37,14 +35,12 @@ class AppState {
     bool? isLoading,
     String? error,
     UserModel? user,
-    int? activePetIndex,
     bool? backgroundServiceActive,
     bool? isInitialized,
   }) => AppState(
     isLoading: isLoading ?? this.isLoading,
     error: error,
     user: user ?? this.user, // Permite definir user como null explicitamente
-    activePetIndex: activePetIndex ?? this.activePetIndex,
     backgroundServiceActive:
         backgroundServiceActive ?? this.backgroundServiceActive,
     isInitialized: isInitialized ?? this.isInitialized,
