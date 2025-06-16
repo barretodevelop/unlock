@@ -19,12 +19,12 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
     with TickerProviderStateMixin {
   late AnimationController _missionsController;
   late AnimationController _specialMissionController;
-  late AnimationController _petController;
+  late AnimationController _UnlockController;
 
   late Animation<double> _missionsAnimation;
   late Animation<double> _specialMissionAnimation;
-  late Animation<double> _petBounceAnimation;
-  late Animation<double> _petGlowAnimation;
+  late Animation<double> _UnlockBounceAnimation;
+  late Animation<double> _UnlockGlowAnimation;
 
   List<Map<String, dynamic>> _currentDailyMissions = [];
   Map<String, dynamic>? _specialMission;
@@ -49,7 +49,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
       vsync: this,
     );
 
-    _petController = AnimationController(
+    _UnlockController = AnimationController(
       duration: const Duration(milliseconds: 2000),
       vsync: this,
     );
@@ -65,18 +65,16 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
       ),
     );
 
-    _petBounceAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _petController, curve: Curves.bounceOut));
+    _UnlockBounceAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _UnlockController, curve: Curves.bounceOut),
+    );
 
-    _petGlowAnimation = Tween<double>(
-      begin: 0.5,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _petController, curve: Curves.easeInOut));
+    _UnlockGlowAnimation = Tween<double>(begin: 0.5, end: 1.0).animate(
+      CurvedAnimation(parent: _UnlockController, curve: Curves.easeInOut),
+    );
 
-    // Animação contínua para o pet
-    _petController.repeat(reverse: true);
+    // Animação contínua para o Unlock
+    _UnlockController.repeat(reverse: true);
   }
 
   void _initializeMissionPage() async {
@@ -95,8 +93,8 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
 
   Map<String, dynamic> _createSpecialMission() {
     return {
-      'id': 'special_pet_mission',
-      'title': '🐾 Missão Especial: Adote um Pet',
+      'id': 'special_Unlock_mission',
+      'title': '🐾 Missão Especial: Adote um Unlock',
       'description':
           'Complete 5 missões diárias consecutivas para desbloquear seu novo companheiro!',
       'icon': Icons.pets,
@@ -104,8 +102,8 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
       'moedas': 1000,
       'target': 5,
       'currentProgress': 3,
-      'petType': 'Dragon Bebê',
-      'petEmoji': 'assets/pets/dog2.png',
+      'UnlockType': 'Dragon Bebê',
+      'UnlockEmoji': 'assets/Unlocks/dog2.png',
       'isSpecial': true,
     };
   }
@@ -198,7 +196,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                 ),
                 const SizedBox(width: 8),
                 AnimatedBuilder(
-                  animation: _petGlowAnimation,
+                  animation: _UnlockGlowAnimation,
                   builder: (context, child) {
                     return Container(
                       padding: const EdgeInsets.symmetric(
@@ -209,10 +207,10 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                         gradient: LinearGradient(
                           colors: [
                             Colors.purple.withOpacity(
-                              _petGlowAnimation.value * 0.3,
+                              _UnlockGlowAnimation.value * 0.3,
                             ),
                             Colors.pink.withOpacity(
-                              _petGlowAnimation.value * 0.3,
+                              _UnlockGlowAnimation.value * 0.3,
                             ),
                           ],
                         ),
@@ -300,11 +298,12 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                       left: (index * 30.0) % 320,
                       top: (index * 15.0) % 140 + 20,
                       child: AnimatedBuilder(
-                        animation: _petController,
+                        animation: _UnlockController,
                         builder: (context, child) {
                           return Opacity(
-                            opacity: (0.2 + (_petGlowAnimation.value - 0.5) * 2)
-                                .clamp(0.0, 0.6),
+                            opacity:
+                                (0.2 + (_UnlockGlowAnimation.value - 0.5) * 2)
+                                    .clamp(0.0, 0.6),
                             child: Container(
                               width: 3,
                               height: 3,
@@ -324,15 +323,16 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        // Header com pet e título
+                        // Header com Unlock e título
                         Row(
                           children: [
                             AnimatedBuilder(
-                              animation: _petBounceAnimation,
+                              animation: _UnlockBounceAnimation,
                               builder: (context, child) {
                                 return Transform.scale(
                                   scale:
-                                      0.9 + (_petBounceAnimation.value * 0.1),
+                                      0.9 +
+                                      (_UnlockBounceAnimation.value * 0.1),
                                   child: Container(
                                     padding: const EdgeInsets.all(12),
                                     decoration: BoxDecoration(
@@ -344,11 +344,11 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                                       ),
                                     ),
                                     // child: Text(
-                                    //   mission['petEmoji'] as String,
+                                    //   mission['UnlockEmoji'] as String,
                                     //   style: const TextStyle(fontSize: 28),
                                     // ),
                                     child: Image.asset(
-                                      mission['petEmoji'] as String,
+                                      mission['UnlockEmoji'] as String,
                                       width: 58,
                                       height: 58,
                                       fit: BoxFit.contain,
@@ -363,7 +363,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '🐾 Adote um Pet',
+                                    '🐾 Adote um Unlock',
                                     style: const TextStyle(
                                       fontSize: 18,
                                       fontWeight: FontWeight.bold,
@@ -372,7 +372,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
                                   ),
                                   const SizedBox(height: 2),
                                   Text(
-                                    mission['petType'] as String,
+                                    mission['UnlockType'] as String,
                                     style: TextStyle(
                                       fontSize: 13,
                                       color: Colors.white.withOpacity(0.8),
@@ -650,7 +650,7 @@ class _MissionScreenState extends ConsumerState<MissionScreen>
   void dispose() {
     _missionsController.dispose();
     _specialMissionController.dispose();
-    _petController.dispose();
+    _UnlockController.dispose();
     super.dispose();
   }
 }

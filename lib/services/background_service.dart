@@ -9,8 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:workmanager/workmanager.dart';
 
 class BackgroundService {
-  static const String _taskName = 'petCareCheck';
-  static const String _periodicTaskName = 'petCarePeriodicCheck';
+  static const String _taskName = 'UnlockCareCheck';
+  static const String _periodicTaskName = 'UnlockCarePeriodicCheck';
   static const Duration _checkInterval = Duration(hours: 4);
 
   static FlutterLocalNotificationsPlugin? _notificationsPlugin;

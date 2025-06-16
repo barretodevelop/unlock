@@ -38,6 +38,13 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
+
+    // if (kDebugMode) {
+    //   WidgetsBinding.instance.addPostFrameCallback((_) {
+    //     QuickSetup.autoSetupIfNeeded(); // Cria usuários automaticamente se não existirem
+    //   });
+    // }
+
     _initializeAnimations();
     _initializeData();
   }

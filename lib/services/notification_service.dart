@@ -252,16 +252,16 @@ Future<void> firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   final type = data['type'];
 
   switch (type) {
-    case 'pet_critical':
-      // Executar verificação imediata de pets
+    case 'Unlock_critical':
+      // Executar verificação imediata de Unlocks
       if (kDebugMode) {
-        print('🚨 Executando verificação crítica de pets');
+        print('🚨 Executando verificação crítica de Unlocks');
       }
       break;
     case 'force_check':
       // Forçar verificação manual
       if (kDebugMode) {
-        print('🔄 Forçando verificação manual de pets');
+        print('🔄 Forçando verificação manual de Unlocks');
       }
       break;
   }

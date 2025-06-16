@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/feature/games/ppt/ppt.dart';
+import 'package:unlock/feature/games/social/screens/enhanced_matching_screen.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/screens/cadastro_screen.dart';
 import 'package:unlock/screens/chat_screen.dart';
@@ -10,11 +11,11 @@ import 'package:unlock/screens/connection_test_screen.dart';
 import 'package:unlock/screens/home_screen.dart';
 import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/login_screen.dart';
-import 'package:unlock/screens/matching_screen.dart';
 import 'package:unlock/screens/other_user_profile_screen.dart';
 import 'package:unlock/screens/profile_screen.dart';
 import 'package:unlock/screens/settings_screen.dart'; // ✅ Adicionar import
 import 'package:unlock/screens/splash_screen.dart';
+import 'package:unlock/services/support/test_users_admin_screen.dart';
 import 'package:unlock/utils/page_transitions.dart';
 
 // ✅ CORREÇÃO: RouterNotifier para escutar mudanças do AuthProvider
@@ -120,7 +121,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 
           return PageTransitions.fadeTransition(
             key: state.pageKey,
-            child: MatchingScreen(interessesUsuario: interessesUsuario),
+            child: EnhancedMatchingScreen(interessesUsuario: interessesUsuario),
           );
         },
       ),
@@ -195,6 +196,20 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           return PageTransitions.fadeTransition(
             key: state.pageKey,
             child: ProfilesPage(),
+          );
+        },
+      ),
+
+      GoRoute(
+        path: '/admin/test-users',
+        name: 'test-users',
+        pageBuilder: (context, state) {
+          // final Map<String, dynamic> connectionData =
+          //     state.extra as Map<String, dynamic>;
+
+          return PageTransitions.fadeTransition(
+            key: state.pageKey,
+            child: TestUsersAdminScreen(),
           );
         },
       ),

@@ -105,15 +105,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
             ),
             actions: [
               TextButton(
-                onPressed: () => Navigator.of(context).pop(false),
+                onPressed: () => context.pop(false),
                 child: const Text('Cancelar'),
               ),
               ElevatedButton(
-                onPressed: () => Navigator.of(context).pop(true),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  foregroundColor: Colors.white,
-                ),
+                onPressed: () => context.pop(true),
                 child: const Text('Sair'),
               ),
             ],
@@ -137,7 +133,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
         elevation: 0,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () => context.pop(),
+          onPressed: () => context.go('/home'),
         ),
       ),
       body: FadeTransition(
@@ -201,7 +197,9 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                     icon: Icons.help_outline,
                     title: 'Central de Ajuda',
                     subtitle: 'FAQ e tutoriais',
-                    onTap: () {}, // TODO: Implementar
+                    onTap: () {
+                      context.go('/admin/test-users');
+                    }, // TODO: Implementar
                   ),
                   _buildAccountOption(
                     icon: Icons.feedback,
@@ -452,7 +450,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen>
                 ),
                 Text(
                   _areNotificationsEnabled
-                      ? 'Receba lembretes sobre seus pets'
+                      ? 'Receba lembretes sobre seus Unlocks'
                       : 'Notificações desativadas',
                   style: TextStyle(
                     fontSize: 14,

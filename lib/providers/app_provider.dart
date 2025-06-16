@@ -20,7 +20,7 @@ class AppState {
   final bool isLoading;
   final String? error;
   final UserModel? user;
-  final int activePetIndex;
+  final int activeUnlockIndex;
   final bool backgroundServiceActive;
   final bool isInitialized;
 
@@ -28,7 +28,7 @@ class AppState {
     this.isLoading = false,
     this.error,
     this.user,
-    this.activePetIndex = 0,
+    this.activeUnlockIndex = 0,
     this.backgroundServiceActive = false,
     this.isInitialized = false,
   });
@@ -37,14 +37,14 @@ class AppState {
     bool? isLoading,
     String? error,
     UserModel? user,
-    int? activePetIndex,
+    int? activeUnlockIndex,
     bool? backgroundServiceActive,
     bool? isInitialized,
   }) => AppState(
     isLoading: isLoading ?? this.isLoading,
     error: error,
     user: user ?? this.user, // Permite definir user como null explicitamente
-    activePetIndex: activePetIndex ?? this.activePetIndex,
+    activeUnlockIndex: activeUnlockIndex ?? this.activeUnlockIndex,
     backgroundServiceActive:
         backgroundServiceActive ?? this.backgroundServiceActive,
     isInitialized: isInitialized ?? this.isInitialized,
@@ -422,7 +422,7 @@ class AppNotifier extends StateNotifier<AppState> {
     }
   }
 
-  Future<void> forceCheckPets() async {
+  Future<void> forceCheckUnlocks() async {
     if (!state.isAuthenticated) return; // Só permite se autenticado
     try {
       if (kDebugMode) {
