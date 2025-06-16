@@ -4,7 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/data/mock_data_provider.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/screens/home_screen.dart';
+import 'package:unlock/screens/enhanced_home_screen.dart';
 import 'package:unlock/widgtes/animated_button.dart';
 
 class CadastroScreen extends ConsumerStatefulWidget {
@@ -159,7 +159,7 @@ class _CadastroScreenState extends ConsumerState<CadastroScreen>
           context,
           PageRouteBuilder(
             pageBuilder: (context, animation, secondaryAnimation) =>
-                const HomeScreen(),
+                const EnhancedHomeScreen(),
             transitionsBuilder:
                 (context, animation, secondaryAnimation, child) {
                   return SlideTransition(

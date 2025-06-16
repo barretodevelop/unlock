@@ -8,7 +8,7 @@ import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/screens/cadastro_screen.dart';
 import 'package:unlock/screens/chat_screen.dart';
 import 'package:unlock/screens/connection_test_screen.dart';
-import 'package:unlock/screens/home_screen.dart';
+import 'package:unlock/screens/enhanced_home_screen.dart';
 import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/login_screen.dart';
 import 'package:unlock/screens/other_user_profile_screen.dart';
@@ -77,7 +77,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'home',
         pageBuilder: (context, state) => PageTransitions.slideFromRight(
           key: state.pageKey,
-          child: const HomeScreen(),
+          child: const EnhancedHomeScreen(),
         ),
       ),
 
