@@ -106,7 +106,9 @@ class UserModel {
     );
   }
 
-  /// Verifica se o usuário precisa completar o onboarding
+  // ✅ CORREÇÃO: UserModel.needsOnboarding mais robusto
+  // Substitua o getter needsOnboarding no user_model.dart
+
   bool get needsOnboarding {
     // ✅ DEBUG: Log detalhado para diagnóstico
     if (kDebugMode) {
@@ -119,9 +121,19 @@ class UserModel {
       );
     }
 
-    // ✅ LÓGICA CORRIGIDA: Mais restritiva para detectar onboarding incompleto
+    // ✅ CORREÇÃO: Lógica mais permissiva
+    // Se onboardingCompleted for true, considerar como completo
+    if (onboardingCompleted == true) {
+      if (kDebugMode) {
+        print(
+          '  resultado: needsOnboarding = false (onboardingCompleted = true)',
+        );
+      }
+      return false;
+    }
+
+    // ✅ CORREÇÃO: Verificação mais flexível dos campos obrigatórios
     final needsOnboard =
-        !onboardingCompleted ||
         codinome == null ||
         codinome!.trim().isEmpty ||
         interesses.isEmpty ||

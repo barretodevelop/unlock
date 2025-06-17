@@ -1,10 +1,11 @@
 // lib/screens/cadastro_screen.dart
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unlock/data/mock_data_provider.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/screens/enhanced_home_screen.dart';
 import 'package:unlock/widgtes/animated_button.dart';
 
 class CadastroScreen extends ConsumerStatefulWidget {
@@ -138,7 +139,9 @@ class _CadastroScreenState extends ConsumerState<CadastroScreen>
       final authState = ref.read(authProvider);
 
       if (userState == null && authState.user != null) {
-        print('🔄 Sincronizando UserProvider...');
+        if (kDebugMode) {
+          print('🔄 Sincronizando UserProvider...');
+        }
         ref.read(userProvider.notifier).setUser(authState.user!);
       }
 
@@ -155,24 +158,25 @@ class _CadastroScreenState extends ConsumerState<CadastroScreen>
 
       if (mounted) {
         // Navegação com animação personalizada
-        Navigator.pushReplacement(
-          context,
-          PageRouteBuilder(
-            pageBuilder: (context, animation, secondaryAnimation) =>
-                const EnhancedHomeScreen(),
-            transitionsBuilder:
-                (context, animation, secondaryAnimation, child) {
-                  return SlideTransition(
-                    position: Tween<Offset>(
-                      begin: const Offset(1.0, 0.0),
-                      end: Offset.zero,
-                    ).animate(animation),
-                    child: child,
-                  );
-                },
-            transitionDuration: const Duration(milliseconds: 500),
-          ),
-        );
+        // Navigator.pushReplacement(
+        //   context,
+        //   PageRouteBuilder(
+        //     pageBuilder: (context, animation, secondaryAnimation) =>
+        //         const EnhancedHomeScreen(),
+        //     transitionsBuilder:
+        //         (context, animation, secondaryAnimation, child) {
+        //           return SlideTransition(
+        //             position: Tween<Offset>(
+        //               begin: const Offset(1.0, 0.0),
+        //               end: Offset.zero,
+        //             ).animate(animation),
+        //             child: child,
+        //           );
+        //         },
+        //     transitionDuration: const Duration(milliseconds: 500),
+        //   ),
+        // );
+        context.go('/home');
       }
     } catch (e) {
       setState(() {

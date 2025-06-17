@@ -1,6 +1,6 @@
-// lib/feature/games/social/screens/enhanced_test_screen_ui.dart
+// lib/feature/social/screens/enhanced_test_screen_ui.dart - VERSÃO FUNCIONAL
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/feature/social/providers/enhanced_test_session_provider.dart';
@@ -8,7 +8,6 @@ import 'package:unlock/feature/social/providers/test_session_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/widgtes/animated_button.dart';
-import 'package:unlock/widgtes/custom_card.dart';
 
 class EnhancedTestScreenUI extends ConsumerStatefulWidget {
   final Map<String, dynamic> chosenConnection;
@@ -32,7 +31,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
   // ============== ANIMATION CONTROLLERS ==============
   late AnimationController _questionController;
   late AnimationController _progressController;
-  late AnimationController _gameController;
   late AnimationController _resultController;
   late AnimationController _pulseController;
 
@@ -40,45 +38,57 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
   late Animation<double> _questionFade;
   late Animation<Offset> _questionSlide;
   late Animation<double> _progressAnimation;
-  late Animation<double> _gameScale;
   late Animation<double> _resultFade;
   late Animation<double> _pulseAnimation;
 
   // ============== STATE ==============
-  int? _selectedAnswer;
+  int? _selectedAnswerIndex;
   bool _isSubmitting = false;
 
   @override
   void initState() {
     super.initState();
+    if (kDebugMode) {
+      print('🚀 === ENHANCED TEST SCREEN INIT ===');
+      print('📝 Dados recebidos:');
+      print('  chosenConnection: ${widget.chosenConnection}');
+      print('  userInterests: ${widget.userInterests}');
+      print('  inviteId: "${widget.inviteId}"');
+      print('  inviteId.isEmpty: ${widget.inviteId.isEmpty}');
+    }
+
     _initializeAnimations();
-    _startRealSession();
+
+    // ✅ CORREÇÃO: Inicializar sessão apenas se inviteId não estiver vazio
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.inviteId.isNotEmpty) {
+        _initializeTestSession();
+      } else {
+        if (kDebugMode) {
+          print('⚠️ InviteId vazio - sessão não será inicializada');
+        }
+      }
+    });
   }
 
   void _initializeAnimations() {
-    // Controllers
     _questionController = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 600),
       vsync: this,
     );
     _progressController = AnimationController(
-      duration: const Duration(milliseconds: 500),
-      vsync: this,
-    );
-    _gameController = AnimationController(
-      duration: const Duration(milliseconds: 2000),
+      duration: const Duration(milliseconds: 300),
       vsync: this,
     );
     _resultController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 800),
       vsync: this,
     );
     _pulseController = AnimationController(
-      duration: const Duration(seconds: 2),
+      duration: const Duration(milliseconds: 2000),
       vsync: this,
-    );
+    )..repeat(reverse: true);
 
-    // Animations
     _questionFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _questionController, curve: Curves.easeOut),
     );
@@ -86,66 +96,112 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
         Tween<Offset>(begin: const Offset(0.3, 0), end: Offset.zero).animate(
           CurvedAnimation(parent: _questionController, curve: Curves.easeOut),
         );
-
     _progressAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _progressController, curve: Curves.easeOut),
     );
-
-    _gameScale = Tween<double>(begin: 0.8, end: 1.2).animate(
-      CurvedAnimation(parent: _gameController, curve: Curves.easeInOut),
-    );
-
     _resultFade = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _resultController, curve: Curves.easeOut),
     );
-
     _pulseAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
     );
 
-    // Start initial animations
     _questionController.forward();
-    _pulseController.repeat(reverse: true);
   }
 
-  void _startRealSession() async {
-    final otherUser = UserModel(
-      uid: widget.chosenConnection['id'],
-      username: widget.chosenConnection['nome'] ?? 'Usuário',
-      displayName: widget.chosenConnection['nome'] ?? 'Usuário',
-      avatar: widget.chosenConnection['avatarId'] ?? 'default',
-      email: '',
-      level: 1,
-      xp: 0,
-      coins: 0,
-      gems: 0,
-      createdAt: DateTime.now(),
-      lastLoginAt: DateTime.now(),
-      aiConfig: {},
-      interesses: List<String>.from(
-        widget.chosenConnection['interesses'] ?? [],
+  // ✅ CORREÇÃO: Método de inicialização da sessão melhorado
+  Future<void> _initializeTestSession() async {
+    if (kDebugMode) {
+      print('🎮 === INICIALIZANDO SESSÃO DE TESTE ===');
+    }
+
+    try {
+      final currentUser = ref.read(authProvider).user;
+      if (currentUser == null) {
+        if (kDebugMode) {
+          print('❌ Usuário não autenticado');
+        }
+        return;
+      }
+
+      // Verificar se já existe uma sessão ativa
+      final testState = ref.read(enhancedTestSessionProvider);
+      if (testState.sessionId != null) {
+        if (kDebugMode) {
+          print('✅ Sessão já existe: ${testState.sessionId}');
+        }
+        return;
+      }
+
+      // Criar UserModel do outro usuário
+      final otherUser = _createOtherUser();
+      if (kDebugMode) {
+        print('✅ UserModel criado: ${otherUser.uid}');
+      }
+
+      // Inicializar sessão
+      final success = await ref
+          .read(enhancedTestSessionProvider.notifier)
+          .startRealSession(inviteId: widget.inviteId, otherUser: otherUser);
+
+      if (kDebugMode) {
+        print('🎮 Resultado startRealSession: $success');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ Exceção em _initializeTestSession: $e');
+      }
+    }
+  }
+
+  // ✅ Criar UserModel com todos os campos obrigatórios
+  UserModel _createOtherUser() {
+    return UserModel(
+      uid: widget.chosenConnection['id'] as String? ?? 'unknown',
+      username:
+          widget.chosenConnection['username'] as String? ??
+          widget.chosenConnection['nome']?.toString().toLowerCase().replaceAll(
+            ' ',
+            '_',
+          ) ??
+          'user_${DateTime.now().millisecondsSinceEpoch}',
+      displayName: widget.chosenConnection['nome'] as String? ?? 'Usuário',
+      avatar: widget.chosenConnection['avatarId'] as String? ?? 'avatar1',
+      email:
+          widget.chosenConnection['email'] as String? ??
+          '${widget.chosenConnection['id'] ?? 'user'}@temp.com',
+      level: widget.chosenConnection['level'] as int? ?? 1,
+      xp: widget.chosenConnection['xp'] as int? ?? 0,
+      coins: widget.chosenConnection['coins'] as int? ?? 0,
+      gems: widget.chosenConnection['gems'] as int? ?? 0,
+      createdAt:
+          DateTime.tryParse(
+            widget.chosenConnection['createdAt'] as String? ?? '',
+          ) ??
+          DateTime.now(),
+      lastLoginAt:
+          DateTime.tryParse(
+            widget.chosenConnection['lastLoginAt'] as String? ?? '',
+          ) ??
+          DateTime.now(),
+      aiConfig: Map<String, dynamic>.from(
+        widget.chosenConnection['aiConfig'] as Map? ?? {},
       ),
+      codinome: widget.chosenConnection['codinome'] as String?,
+      interesses: List<String>.from(
+        widget.chosenConnection['interesses'] as List? ?? [],
+      ),
+      relationshipInterest:
+          widget.chosenConnection['relationshipInterest'] as String?,
+      onboardingCompleted:
+          widget.chosenConnection['onboardingCompleted'] as bool? ?? true,
     );
-
-    await ref
-        .read(enhancedTestSessionProvider.notifier)
-        .startRealSession(inviteId: widget.inviteId, otherUser: otherUser);
-  }
-
-  @override
-  void dispose() {
-    _questionController.dispose();
-    _progressController.dispose();
-    _gameController.dispose();
-    _resultController.dispose();
-    _pulseController.dispose();
-    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final testState = ref.watch(enhancedTestSessionProvider);
-    final authState = ref.watch(authProvider);
+    final currentUser = ref.watch(authProvider).user;
 
     return PopScope(
       canPop:
@@ -153,95 +209,38 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
           testState.phase == TestPhase.result,
       onPopInvoked: (didPop) {
         if (!didPop && testState.hasActiveSession) {
-          _showExitDialog();
+          _showExitConfirmDialog();
         }
       },
       child: Scaffold(
-        backgroundColor: Colors.grey[50],
-        appBar: _buildAppBar(testState),
-        body: _buildBody(testState, authState.user),
-      ),
-    );
-  }
-
-  // ============== APP BAR ==============
-  PreferredSizeWidget _buildAppBar(TestSessionState testState) {
-    return AppBar(
-      backgroundColor: Colors.white,
-      elevation: 0,
-      shadowColor: Colors.black12,
-      leading:
-          testState.phase == TestPhase.completed ||
-              testState.phase == TestPhase.result
-          ? Container(
-              margin: const EdgeInsets.all(8),
-              decoration: BoxDecoration(
-                color: Colors.grey[100],
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: IconButton(
-                icon: const Icon(Icons.arrow_back_ios_new, size: 20),
-                onPressed: () => context.go('/home'),
-              ),
-            )
-          : null,
-      automaticallyImplyLeading: false,
-      title: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
+        appBar: AppBar(
+          title: Text(
             'Teste com ${widget.chosenConnection['nome']?.toString().split(' ')[0] ?? 'Usuário'}',
-            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
           ),
-          if (testState.questions.isNotEmpty)
-            Text(
-              'Pergunta ${testState.currentQuestionIndex + 1} de ${testState.questions.length}',
-              style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-            ),
-        ],
-      ),
-      actions: [
-        if (testState.hasActiveSession &&
-            testState.phase == TestPhase.questions)
-          Container(
-            margin: const EdgeInsets.all(8),
-            decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: IconButton(
-              icon: Icon(Icons.help_outline, color: Colors.blue[700]),
-              onPressed: _showTestInfo,
-            ),
-          ),
-      ],
-      bottom: testState.phase == TestPhase.questions
-          ? _buildProgressBar(testState)
-          : null,
-    );
-  }
-
-  PreferredSize _buildProgressBar(TestSessionState testState) {
-    final progress = testState.questions.isEmpty
-        ? 0.0
-        : testState.currentQuestionIndex / testState.questions.length;
-
-    return PreferredSize(
-      preferredSize: const Size.fromHeight(4),
-      child: AnimatedBuilder(
-        animation: _progressAnimation,
-        builder: (context, child) {
-          return LinearProgressIndicator(
-            value: progress * _progressAnimation.value,
-            backgroundColor: Colors.grey[200],
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.blue[600]!),
-          );
-        },
+          elevation: 0,
+          leading:
+              testState.phase == TestPhase.completed ||
+                  testState.phase == TestPhase.result
+              ? IconButton(
+                  icon: const Icon(Icons.arrow_back),
+                  onPressed: () => context.go('/home'),
+                )
+              : null,
+          automaticallyImplyLeading: false,
+          actions: [
+            if (testState.hasActiveSession &&
+                testState.phase != TestPhase.result)
+              IconButton(
+                icon: const Icon(Icons.info_outline),
+                onPressed: _showTestInfo,
+              ),
+          ],
+        ),
+        body: _buildBody(testState, currentUser),
       ),
     );
   }
 
-  // ============== BODY ==============
   Widget _buildBody(TestSessionState testState, UserModel? currentUser) {
     if (testState.error != null) {
       return _buildErrorView(testState.error!);
@@ -261,7 +260,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     }
   }
 
-  // ============== WAITING VIEW ==============
   Widget _buildWaitingView() {
     return Container(
       padding: const EdgeInsets.all(32),
@@ -270,20 +268,18 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
         children: [
           AnimatedBuilder(
             animation: _pulseAnimation,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _pulseAnimation.value,
-                child: Container(
-                  width: 120,
-                  height: 120,
-                  decoration: BoxDecoration(
-                    color: Colors.blue[100],
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(Icons.sync, size: 60, color: Colors.blue[600]),
+            builder: (context, child) => Transform.scale(
+              scale: _pulseAnimation.value,
+              child: Container(
+                width: 120,
+                height: 120,
+                decoration: BoxDecoration(
+                  color: Colors.blue[100],
+                  shape: BoxShape.circle,
                 ),
-              );
-            },
+                child: Icon(Icons.sync, size: 60, color: Colors.blue[600]),
+              ),
+            ),
           ),
           const SizedBox(height: 32),
           const Text(
@@ -302,11 +298,9 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     );
   }
 
-  // ============== QUESTIONS VIEW ==============
   Widget _buildQuestionsView(TestSessionState testState) {
-    if (testState.questions.isEmpty) {
+    if (testState.questions.isEmpty)
       return const Center(child: CircularProgressIndicator());
-    }
 
     final currentQuestion =
         testState.currentQuestionIndex < testState.questions.length
@@ -317,231 +311,125 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
       return const Center(child: Text('Todas as perguntas foram respondidas!'));
     }
 
-    return SingleChildScrollView(
+    return Container(
       padding: const EdgeInsets.all(24),
-      child: FadeTransition(
-        opacity: _questionFade,
-        child: SlideTransition(
-          position: _questionSlide,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Card da pergunta
-              CustomCard(
-                padding: const EdgeInsets.all(24),
-                borderRadius: 0,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.blue[100],
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        currentQuestion.category,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue[700],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      currentQuestion.text,
-                      style: const TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        height: 1.3,
-                      ),
-                    ),
-                  ],
+      child: Column(
+        children: [
+          // Progress bar
+          Container(
+            width: double.infinity,
+            height: 8,
+            decoration: BoxDecoration(
+              color: Colors.grey[200],
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: FractionallySizedBox(
+              alignment: Alignment.centerLeft,
+              widthFactor:
+                  (testState.currentQuestionIndex + 1) /
+                  testState.questions.length,
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Colors.purple, Colors.blue],
+                  ),
+                  borderRadius: BorderRadius.circular(4),
                 ),
               ),
+            ),
+          ),
+          const SizedBox(height: 32),
 
-              const SizedBox(height: 24),
+          // Question
+          FadeTransition(
+            opacity: _questionFade,
+            child: SlideTransition(
+              position: _questionSlide,
+              child: Column(
+                children: [
+                  Text(
+                    currentQuestion.text,
+                    style: const TextStyle(
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 32),
 
-              // Opções de resposta
-              ...currentQuestion.options.asMap().entries.map((entry) {
-                final index = entry.key;
-                final option = entry.value;
-                final isSelected = _selectedAnswer == index;
-
-                return Container(
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 200),
-                    child: Material(
-                      color: Colors.transparent,
-                      child: InkWell(
-                        onTap: _isSubmitting
-                            ? null
-                            : () => _selectAnswer(index),
-                        borderRadius: BorderRadius.circular(16),
+                  // Options
+                  ...currentQuestion.options.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final option = entry.value;
+                    return Container(
+                      margin: const EdgeInsets.only(bottom: 16),
+                      child: AnimatedButton(
+                        onPressed: () =>
+                            setState(() => _selectedAnswerIndex = index),
+                        backgroundColor: _selectedAnswerIndex == index
+                            ? Colors.purple
+                            : Colors.grey[100]!,
+                        foregroundColor: _selectedAnswerIndex == index
+                            ? Colors.white
+                            : Colors.black87,
                         child: Container(
                           width: double.infinity,
                           padding: const EdgeInsets.all(20),
-                          decoration: BoxDecoration(
-                            color: isSelected ? Colors.blue[50] : Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: isSelected
-                                  ? Colors.blue[300]!
-                                  : Colors.grey[200]!,
-                              width: isSelected ? 2 : 1,
-                            ),
-                            boxShadow: isSelected
-                                ? [
-                                    BoxShadow(
-                                      color: Colors.blue.withOpacity(0.1),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ]
-                                : [
-                                    BoxShadow(
-                                      color: Colors.black.withOpacity(0.05),
-                                      blurRadius: 4,
-                                      offset: const Offset(0, 2),
-                                    ),
-                                  ],
-                          ),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 24,
-                                height: 24,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isSelected
-                                      ? Colors.blue[600]
-                                      : Colors.grey[300],
-                                ),
-                                child: isSelected
-                                    ? const Icon(
-                                        Icons.check,
-                                        size: 16,
-                                        color: Colors.white,
-                                      )
-                                    : null,
-                              ),
-                              const SizedBox(width: 16),
-                              Expanded(
-                                child: Text(
-                                  option,
-                                  style: TextStyle(
-                                    fontSize: 16,
-                                    fontWeight: isSelected
-                                        ? FontWeight.w600
-                                        : FontWeight.normal,
-                                    color: isSelected
-                                        ? Colors.blue[700]
-                                        : Colors.grey[800],
-                                  ),
-                                ),
-                              ),
-                            ],
+                          child: Text(
+                            option,
+                            style: const TextStyle(fontSize: 16),
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
-                    ),
-                  ),
-                );
-              }).toList(),
-
-              const SizedBox(height: 32),
-
-              // Botão de enviar
-              SizedBox(
-                width: double.infinity,
-                child: AnimatedButton(
-                  onPressed: _selectedAnswer != null && !_isSubmitting
-                      ? _submitAnswer
-                      : null,
-                  backgroundColor: _selectedAnswer != null
-                      ? Colors.blue[600]!
-                      : Colors.grey[300]!,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: _isSubmitting
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              Colors.white,
-                            ),
-                          ),
-                        )
-                      : const Text(
-                          'Confirmar Resposta',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
+                    );
+                  }).toList(),
+                ],
               ),
-            ],
+            ),
           ),
-        ),
+
+          const Spacer(),
+
+          // Submit button
+          if (_selectedAnswerIndex != null)
+            SizedBox(
+              width: double.infinity,
+              child: AnimatedButton(
+                onPressed: _isSubmitting ? null : _submitAnswer,
+                backgroundColor: Colors.green,
+                foregroundColor: Colors.white,
+                child: _isSubmitting
+                    ? const CircularProgressIndicator(color: Colors.white)
+                    : const Text(
+                        'Confirmar Resposta',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              ),
+            ),
+        ],
       ),
     );
   }
 
-  // ============== MINI GAME VIEW ==============
   Widget _buildMiniGameView(TestSessionState testState) {
     return Container(
       padding: const EdgeInsets.all(32),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          AnimatedBuilder(
-            animation: _gameScale,
-            builder: (context, child) {
-              return Transform.scale(
-                scale: _gameScale.value,
-                child: Container(
-                  width: 140,
-                  height: 140,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: RadialGradient(
-                      colors: [
-                        Colors.purple.withOpacity(0.3),
-                        Colors.blue.withOpacity(0.2),
-                        Colors.transparent,
-                      ],
-                    ),
-                  ),
-                  child: const Center(
-                    child: Icon(
-                      Icons.psychology,
-                      size: 80,
-                      color: Colors.purple,
-                    ),
-                  ),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 40),
+          Icon(Icons.games, size: 100, color: Colors.purple[600]),
+          const SizedBox(height: 32),
           const Text(
-            'Analisando Compatibilidade',
-            style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
+            'Mini Jogo',
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Text(
-            testState.isLoading
-                ? 'Aguardando o outro usuário finalizar...'
-                : 'Calculando afinidade baseada nas respostas...',
+            'Aguardando o outro usuário finalizar...',
             style: TextStyle(fontSize: 16, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
@@ -552,15 +440,13 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     );
   }
 
-  // ============== RESULT VIEW ==============
   Widget _buildResultView(TestSessionState testState) {
     final passed = testState.result == TestResult.passed;
     final score = testState.compatibilityScore;
 
-    // Trigger result animation
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _resultController.forward();
-    });
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _resultController.forward(),
+    );
 
     return Container(
       padding: const EdgeInsets.all(32),
@@ -569,189 +455,71 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Ícone do resultado
-            ScaleTransition(
-              scale: Tween<double>(begin: 0.5, end: 1.0).animate(
-                CurvedAnimation(
-                  parent: _resultController,
-                  curve: Curves.elasticOut,
+            Container(
+              width: 140,
+              height: 140,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: passed
+                    ? Colors.green.withOpacity(0.1)
+                    : Colors.orange.withOpacity(0.1),
+                border: Border.all(
+                  color: passed ? Colors.green : Colors.orange,
+                  width: 3,
                 ),
               ),
-              child: Container(
-                width: 140,
-                height: 140,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: passed
-                      ? Colors.green.withOpacity(0.1)
-                      : Colors.orange.withOpacity(0.1),
-                  border: Border.all(
-                    color: passed ? Colors.green : Colors.orange,
-                    width: 3,
-                  ),
-                ),
-                child: Icon(
-                  passed ? Icons.favorite : Icons.favorite_border,
-                  size: 80,
-                  color: passed ? Colors.green : Colors.orange,
-                ),
+              child: Icon(
+                passed ? Icons.favorite : Icons.favorite_border,
+                size: 80,
+                color: passed ? Colors.green : Colors.orange,
               ),
             ),
-
             const SizedBox(height: 40),
-
-            // Título
             Text(
               passed ? '💕 Conexão Desbloqueada!' : '🤝 Boa Tentativa!',
               style: TextStyle(
                 fontSize: 28,
                 fontWeight: FontWeight.bold,
-                color: passed ? Colors.green[700] : Colors.orange[700],
+                color: passed ? Colors.green : Colors.orange,
               ),
               textAlign: TextAlign.center,
             ),
-
-            const SizedBox(height: 20),
-
-            // Score card
-            CustomCard(
-              padding: const EdgeInsets.all(24),
-              borderRadius: 0,
-              child: Column(
-                children: [
-                  Text(
-                    'Compatibilidade',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    '${score.toStringAsFixed(1)}%',
-                    style: TextStyle(
-                      fontSize: 48,
-                      fontWeight: FontWeight.bold,
-                      color: passed ? Colors.green[600] : Colors.orange[600],
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    passed
-                        ? 'Vocês têm ótima afinidade!'
-                        : 'Continue tentando com outros usuários!',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                    textAlign: TextAlign.center,
-                  ),
-                ],
+            const SizedBox(height: 16),
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: passed ? Colors.green.shade50 : Colors.orange.shade50,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: passed
+                      ? Colors.green.shade200
+                      : Colors.orange.shade200,
+                ),
+              ),
+              child: Text(
+                'Score de Compatibilidade: ${score.toStringAsFixed(1)}%',
+                style: TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold,
+                  color: passed
+                      ? Colors.green.shade700
+                      : Colors.orange.shade700,
+                ),
               ),
             ),
-
             const SizedBox(height: 40),
-
-            // Botões de ação
-            if (passed) ...[
-              SizedBox(
-                width: double.infinity,
-                child: AnimatedButton(
-                  onPressed: () => ref
-                      .read(enhancedTestSessionProvider.notifier)
-                      .navigateToChat(),
-                  backgroundColor: Colors.green[600]!,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.chat_bubble_outline, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Iniciar Conversa',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              SizedBox(
-                width: double.infinity,
-                child: AnimatedButton(
-                  onPressed: () => ref
-                      .read(enhancedTestSessionProvider.notifier)
-                      .navigateToUnlockedProfile(),
-                  backgroundColor: Colors.white,
-                  foregroundColor: Colors.green[600]!,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.person_outline, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Ver Perfil Completo',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ] else ...[
-              SizedBox(
-                width: double.infinity,
-                child: AnimatedButton(
-                  onPressed: () => context.go('/home'),
-                  backgroundColor: Colors.orange[600]!,
-                  foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(vertical: 16),
-                  child: const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.search, size: 20),
-                      SizedBox(width: 8),
-                      Text(
-                        'Buscar Outras Conexões',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-
-            const SizedBox(height: 12),
-
-            // Botão voltar
             SizedBox(
               width: double.infinity,
               child: AnimatedButton(
                 onPressed: () => context.go('/home'),
-                backgroundColor: Colors.grey[200]!,
-                foregroundColor: Colors.grey[700]!,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: const Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.home_outlined, size: 20),
-                    SizedBox(width: 8),
-                    Text(
-                      'Voltar ao Início',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ],
+                backgroundColor: passed ? Colors.green : Colors.orange,
+                foregroundColor: Colors.white,
+                child: Text(
+                  passed ? 'Iniciar Conversa' : 'Voltar ao Início',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ),
@@ -761,7 +529,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     );
   }
 
-  // ============== COMPLETED VIEW ==============
   Widget _buildCompletedView() {
     return Container(
       padding: const EdgeInsets.all(32),
@@ -773,7 +540,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
           const Text(
             'Teste Finalizado',
             style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-            textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
           Text(
@@ -788,7 +554,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
               onPressed: () => context.go('/home'),
               backgroundColor: Colors.blue[600]!,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
               child: const Text(
                 'Voltar ao Início',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -800,7 +565,6 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     );
   }
 
-  // ============== ERROR VIEW ==============
   Widget _buildErrorView(String error) {
     return Container(
       padding: const EdgeInsets.all(32),
@@ -811,12 +575,7 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
           const SizedBox(height: 32),
           const Text(
             'Erro no Teste',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-              color: Colors.red,
-            ),
-            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: 16),
           Text(
@@ -829,9 +588,8 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
             width: double.infinity,
             child: AnimatedButton(
               onPressed: () => context.go('/home'),
-              backgroundColor: Colors.red[600]!,
+              backgroundColor: Colors.red,
               foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 16),
               child: const Text(
                 'Voltar ao Início',
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
@@ -843,56 +601,33 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
     );
   }
 
-  // ============== ACTIONS ==============
-  void _selectAnswer(int index) {
-    HapticFeedback.lightImpact();
-    setState(() {
-      _selectedAnswer = index;
-    });
-  }
+  Future<void> _submitAnswer() async {
+    if (_selectedAnswerIndex == null) return;
 
-  void _submitAnswer() async {
-    if (_selectedAnswer == null || _isSubmitting) return;
+    setState(() => _isSubmitting = true);
 
-    final testState = ref.read(enhancedTestSessionProvider);
-    if (testState.questions.isEmpty ||
-        testState.currentQuestionIndex >= testState.questions.length)
-      return;
-
-    setState(() {
-      _isSubmitting = true;
-    });
-
-    final currentQuestion = testState.questions[testState.currentQuestionIndex];
-
-    final success = await ref
+    await ref
         .read(enhancedTestSessionProvider.notifier)
-        .submitRealAnswer(
-          questionId: currentQuestion.id,
-          selectedAnswer: _selectedAnswer!,
+        .submitAnswer(
+          questionId: ref
+              .read(enhancedTestSessionProvider)
+              .questions[ref
+                  .read(enhancedTestSessionProvider)
+                  .currentQuestionIndex]
+              .id,
+          answerIndex: _selectedAnswerIndex!,
         );
 
-    if (success) {
-      // Reset para próxima pergunta
-      setState(() {
-        _selectedAnswer = null;
-        _isSubmitting = false;
-      });
+    setState(() {
+      _isSubmitting = false;
+      _selectedAnswerIndex = null;
+    });
 
-      // Animar transição para próxima pergunta
-      _questionController.reset();
-      _questionController.forward();
-      _progressController.forward();
-
-      HapticFeedback.mediumImpact();
-    } else {
-      setState(() {
-        _isSubmitting = false;
-      });
-    }
+    _questionController.reset();
+    _questionController.forward();
   }
 
-  void _showExitDialog() {
+  void _showExitConfirmDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -923,19 +658,12 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Como Funciona o Teste'),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              '• Responda as perguntas com sinceridade\n'
-              '• Não há respostas certas ou erradas\n'
-              '• A compatibilidade é calculada comparando suas respostas\n'
-              '• É necessário 65% ou mais para desbloquear a conexão\n'
-              '• O resultado é baseado em afinidade real',
-              style: TextStyle(fontSize: 14),
-            ),
-          ],
+        content: const Text(
+          '• Responda as perguntas com sinceridade\n'
+          '• Não há respostas certas ou erradas\n'
+          '• A compatibilidade é calculada comparando suas respostas\n'
+          '• É necessário 65% ou mais para desbloquear a conexão\n'
+          '• O resultado é baseado em afinidade real',
         ),
         actions: [
           TextButton(
@@ -945,5 +673,14 @@ class _EnhancedTestScreenUIState extends ConsumerState<EnhancedTestScreenUI>
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _questionController.dispose();
+    _progressController.dispose();
+    _resultController.dispose();
+    _pulseController.dispose();
+    super.dispose();
   }
 }

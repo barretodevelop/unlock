@@ -1,14 +1,13 @@
-// lib/widgets/pending_invites_card.dart
+// lib/widgets/pending_invites_card.dart - CORREÇÃO FINAL COMPLETA
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/feature/social/providers/enhanced_test_session_provider.dart'; // ✅ CORREÇÃO: Provider correto
 import 'package:unlock/feature/social/providers/test_invite_provider.dart';
-import 'package:unlock/feature/social/providers/test_session_provider.dart';
 import 'package:unlock/utils/helpers.dart';
 import 'package:unlock/widgtes/animated_button.dart';
 
-/// Widget que aparece na HomeScreen quando há convites pendentes
-/// Fornece feedback visual imediato e ações rápidas
 class PendingInvitesCard extends ConsumerStatefulWidget {
   const PendingInvitesCard({super.key});
 
@@ -106,7 +105,6 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
     }
   }
 
-  /// Card para um convite único - mais detalhado
   Widget _buildSingleInviteCard(TestInvite invite) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -135,9 +133,9 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
+                    const Text(
                       '🎯 Novo Convite de Teste!',
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: Colors.white,
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -164,7 +162,6 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
     );
   }
 
-  /// Card para múltiplos convites - mais compacto
   Widget _buildMultipleInvitesCard(int count) {
     return Padding(
       padding: const EdgeInsets.all(20),
@@ -177,7 +174,7 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
               color: Colors.white.withOpacity(0.2),
               shape: BoxShape.circle,
             ),
-            child: Icon(Icons.group, color: Colors.white, size: 30),
+            child: const Icon(Icons.group, color: Colors.white, size: 30),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -280,20 +277,31 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
     );
   }
 
-  /// Responder ao convite com navegação automática
+  // ✅ CORREÇÃO FINAL COMPLETA: Método _respondToInvite corrigido
   Future<void> _respondToInvite(String inviteId, bool accept) async {
+    if (kDebugMode) {
+      print('🚀 === _respondToInvite INÍCIO ===');
+      print('  inviteId: "$inviteId"');
+      print('  accept: $accept');
+    }
+
     final success = await ref
         .read(testInviteProvider.notifier)
         .respondToInvite(inviteId, accept);
-
     if (!mounted) return;
 
     if (success && accept) {
-      // FLUXO MELHORADO: Navegação automática após aceitar
       final invite = ref
           .read(testInviteProvider)
           .pendingReceivedInvites
           .firstWhere((i) => i.id == inviteId);
+
+      if (kDebugMode) {
+        print('✅ Convite aceito, dados do invite:');
+        print('  invite.id: "${invite.id}"');
+        print('  senderUser.uid: "${invite.senderUser.uid}"');
+        print('  senderUser.username: "${invite.senderUser.username}"');
+      }
 
       AppHelpers.showCustomSnackBar(
         context,
@@ -302,27 +310,80 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
         icon: Icons.check_circle,
       );
 
-      // Aguardar um momento para feedback visual
       await Future.delayed(const Duration(milliseconds: 500));
 
-      // Iniciar sessão de teste automaticamente
+      // ✅ CORREÇÃO 1: Usar provider correto
       final sessionStarted = await ref
-          .read(testSessionProvider.notifier)
-          .startSession(inviteId, invite.senderUser);
+          .read(enhancedTestSessionProvider.notifier)
+          .startRealSession(inviteId: inviteId, otherUser: invite.senderUser);
+
+      if (kDebugMode) {
+        print('🎮 sessionStarted: $sessionStarted');
+      }
 
       if (sessionStarted && mounted) {
-        // Navegar automaticamente para tela de teste
-        context.go(
-          '/connection-test',
-          extra: {
-            'userInterests': invite.receiverUser.interesses,
-            'chosenConnection': {
-              'id': invite.senderUser.uid,
-              'nome': invite.senderUser.preferredDisplayName,
-              'avatarId': invite.senderUser.avatar,
-              'interesses': invite.senderUser.interesses,
-            },
-          },
+        // ✅ CORREÇÃO 2: Dados COMPLETOS da conexão
+        final chosenConnection = {
+          // Campos obrigatórios do UserModel
+          'id': invite.senderUser.uid,
+          'username': invite.senderUser.username,
+          'nome': invite.senderUser.preferredDisplayName,
+          'email': invite.senderUser.email,
+          'level': invite.senderUser.level,
+          'xp': invite.senderUser.xp,
+          'coins': invite.senderUser.coins,
+          'gems': invite.senderUser.gems,
+          'createdAt': invite.senderUser.createdAt.toIso8601String(),
+          'lastLoginAt': invite.senderUser.lastLoginAt.toIso8601String(),
+          'aiConfig': invite.senderUser.aiConfig,
+          // Campos específicos
+          'avatarId': invite.senderUser.avatar,
+          'codinome': invite.senderUser.codinome,
+          'interesses': invite.senderUser.interesses,
+          'relationshipInterest': invite.senderUser.relationshipInterest,
+          'onboardingCompleted': invite.senderUser.onboardingCompleted,
+        };
+
+        final navigationData = {
+          'userInterests': invite.receiverUser.interesses,
+          'chosenConnection': chosenConnection,
+          'inviteId': inviteId, // ✅ CRÍTICO: Passar inviteId!
+        };
+
+        if (kDebugMode) {
+          print('🗺️ === DADOS DE NAVEGAÇÃO ===');
+          print('  navigationData.keys: ${navigationData.keys.toList()}');
+          print('  inviteId na navegação: "${navigationData['inviteId']}"');
+          print(
+            '  inviteId.isEmpty: ${(navigationData['inviteId'] as String).isEmpty}',
+          );
+        }
+
+        try {
+          context.go('/connection-test', extra: navigationData);
+          if (kDebugMode) {
+            print('✅ Navegação executada com sucesso!');
+          }
+        } catch (e) {
+          if (kDebugMode) {
+            print('❌ ERRO na navegação: $e');
+          }
+          AppHelpers.showCustomSnackBar(
+            context,
+            'Erro na navegação: $e',
+            backgroundColor: Colors.red,
+            icon: Icons.error,
+          );
+        }
+      } else {
+        if (kDebugMode) {
+          print('❌ FALHA: sessionStarted=$sessionStarted, mounted=$mounted');
+        }
+        AppHelpers.showCustomSnackBar(
+          context,
+          'Erro ao iniciar teste. Tente novamente.',
+          backgroundColor: Colors.red,
+          icon: Icons.error,
         );
       }
     } else if (success && !accept) {
@@ -333,6 +394,9 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
         icon: Icons.cancel,
       );
     } else {
+      if (kDebugMode) {
+        print('❌ FALHA ao responder convite: success=$success');
+      }
       AppHelpers.showCustomSnackBar(
         context,
         'Erro ao responder convite. Tente novamente.',
@@ -340,9 +404,12 @@ class _PendingInvitesCardState extends ConsumerState<PendingInvitesCard>
         icon: Icons.error,
       );
     }
+
+    if (kDebugMode) {
+      print('🏁 === _respondToInvite FIM ===');
+    }
   }
 
-  /// Mostrar tela com todos os convites (implementar depois)
   void _showAllInvites() {
     context.go('/notifications');
   }

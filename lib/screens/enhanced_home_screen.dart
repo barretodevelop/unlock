@@ -868,6 +868,7 @@ class _HomeScreenState extends ConsumerState<EnhancedHomeScreen>
               'avatarId': invite.senderUser.avatar,
               'interesses': invite.senderUser.interesses,
             },
+            inviteId: invite.id,
           },
         );
       }

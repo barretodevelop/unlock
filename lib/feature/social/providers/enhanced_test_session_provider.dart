@@ -1,17 +1,15 @@
-// lib/feature/games/social/providers/enhanced_test_session_provider.dart
+// lib/feature/social/providers/enhanced_test_session_provider.dart - CORRIGIDO
 import 'dart:async';
+import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/feature/social/providers/test_invite_provider.dart';
 import 'package:unlock/feature/social/providers/test_session_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/services/firebase_test_session_service.dart';
 import 'package:unlock/services/notification_service.dart';
 
-/// Provider aprimorado com integração Firebase real
 final enhancedTestSessionProvider =
     StateNotifierProvider<EnhancedTestSessionNotifier, TestSessionState>((ref) {
       return EnhancedTestSessionNotifier(ref);
@@ -19,486 +17,432 @@ final enhancedTestSessionProvider =
 
 class EnhancedTestSessionNotifier extends StateNotifier<TestSessionState> {
   final Ref _ref;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   StreamSubscription<DocumentSnapshot>? _sessionSubscription;
   Timer? _timeoutTimer;
   Timer? _heartbeatTimer;
 
+  static const Duration _sessionTimeout = Duration(minutes: 15);
+  static const Duration _heartbeatInterval = Duration(seconds: 30);
+
   EnhancedTestSessionNotifier(this._ref) : super(const TestSessionState());
 
-  @override
-  void dispose() {
-    _sessionSubscription?.cancel();
-    _timeoutTimer?.cancel();
-    _heartbeatTimer?.cancel();
-    super.dispose();
-  }
-
-  // ============== INICIAR SESSÃO REAL ==============
+  // ============== ✅ CORREÇÃO 5: INICIALIZAÇÃO MELHORADA ==============
   Future<bool> startRealSession({
     required String inviteId,
     required UserModel otherUser,
   }) async {
-    // Modificação de estado inicial síncrona.
-    // A chamada para startRealSession já foi adiada pelo initState da UI.
-    if (mounted) {
-      state = state.copyWith(
-        isLoading: true,
-        error: null,
-        phase: TestPhase.waiting,
-        inviteId: inviteId,
-      );
-    } else {
-      return false; // Notifier não está montado, não prosseguir.
-    }
+    if (kDebugMode)
+      print('🚀 EnhancedTestSession: Iniciando sessão para invite $inviteId');
 
     try {
+      // Validações iniciais
+      if (inviteId.isEmpty) {
+        _handleError('ID do convite é obrigatório');
+        return false;
+      }
+
       final currentUser = _ref.read(authProvider).user;
       if (currentUser == null) {
         _handleError('Usuário não autenticado');
         return false;
       }
 
-      // Criar sessão no Firebase
-      final sessionId = await FirebaseTestSessionService.createTestSession(
-        inviteId: inviteId,
-        currentUser: currentUser,
-        otherUser: otherUser,
-      );
+      // ✅ Estado de loading
+      if (mounted) {
+        state = state.copyWith(
+          isLoading: true,
+          error: null,
+          phase: TestPhase.waiting,
+          inviteId: inviteId,
+          otherUser: otherUser,
+        );
+      }
 
+      // Verificar se sessão já existe
+      final existingSession = await _checkExistingSession(inviteId);
+      if (existingSession != null) {
+        if (kDebugMode)
+          print('📋 Retomando sessão existente: $existingSession');
+        await _resumeSession(existingSession);
+        return true;
+      }
+
+      // Criar nova sessão
+      final sessionId = await _createNewSession(
+        inviteId,
+        currentUser,
+        otherUser,
+      );
       if (sessionId == null) {
-        _handleError('Erro ao criar sessão de teste');
+        _handleError('Falha ao criar sessão de teste');
         return false;
       }
 
-      // Atualização de estado após operações async é geralmente segura.
+      // ✅ Atualizar estado com sucesso
       if (mounted) {
+        final questions = _generateQuestions(currentUser, otherUser);
         state = state.copyWith(
           sessionId: sessionId,
-          otherUser: otherUser,
+          questions: questions,
+          phase: TestPhase.questions,
           sessionStartedAt: DateTime.now(),
           isLoading: false,
-          phase: TestPhase.questions,
-          // inviteId já foi definido
-        );
-      } else {
-        return false;
-      }
-
-      // Iniciar listeners
-      _startSessionListener(sessionId);
-      _startHeartbeat();
-      _startTimeoutTimer();
-
-      // Notificar sucesso
-      NotificationService.showSuccess('Teste de compatibilidade iniciado!');
-
-      if (kDebugMode) {
-        print('✅ EnhancedTestSession: Sessão real iniciada: $sessionId');
-      }
-
-      return true;
-    } catch (e) {
-      _handleError('Erro ao iniciar sessão: $e');
-      return false;
-    }
-  }
-
-  // ============== LISTENER REAL-TIME ==============
-  void _startSessionListener(String sessionId) {
-    _sessionSubscription?.cancel();
-
-    _sessionSubscription = FirebaseTestSessionService.watchSession(sessionId)
-        .listen(
-          (snapshot) => _handleSessionUpdate(snapshot),
-          onError: (error) => _handleError('Erro no listener: $error'),
-        );
-  }
-
-  void _handleSessionUpdate(DocumentSnapshot<Map<String, dynamic>> snapshot) {
-    if (!snapshot.exists) {
-      _handleError('Sessão não encontrada');
-      return;
-    }
-
-    try {
-      // Não modificar estado diretamente aqui se for chamado por um listener síncrono
-      final data = snapshot.data()!;
-
-      // Extrair perguntas
-      final questionsData = List<Map<String, dynamic>>.from(
-        data['questions'] ?? [],
-      );
-      final questions = questionsData
-          .map((q) => TestQuestion.fromJson(q))
-          .toList();
-
-      // Extrair respostas
-      final answersData = Map<String, dynamic>.from(data['answers'] ?? {});
-      final Map<String, UserAnswer> allSessionAnswers = {};
-      answersData.forEach((key, value) {
-        if (value is Map<String, dynamic>) {
-          allSessionAnswers[key] = UserAnswer.fromJson(value);
-        }
-      });
-
-      // Determinar fase atual
-      final phaseString = data['phase'] as String? ?? 'questions';
-      final phase = TestPhase.values.firstWhere(
-        (p) => p.name == phaseString,
-        orElse: () => TestPhase.questions,
-      );
-
-      // Determinar resultado
-      final resultString = data['result'] as String? ?? 'pending';
-      final result = TestResult.values.firstWhere(
-        (r) => r.name == resultString,
-        orElse: () => TestResult.pending,
-      );
-
-      final currentUser = _ref.read(authProvider).user;
-      final currentUserAnswersCount = currentUser != null
-          ? allSessionAnswers.values
-                .where((ans) => ans.userId == currentUser.uid)
-                .length
-          : 0;
-
-      if (mounted) {
-        state = state.copyWith(
-          questions: questions,
-          answers: allSessionAnswers,
-          phase: phase,
-          result: result,
-          inviteId:
-              data['inviteId']
-                  as String?, // Garante que o inviteId seja atualizado se vier do Firestore
-          compatibilityScore:
-              (data['compatibilityScore'] as num?)?.toDouble() ?? 0.0,
-          currentQuestionIndex: currentUserAnswersCount,
-          isLoading: false, // Reset isLoading
-        );
-      }
-      // Ações baseadas na fase
-      _handlePhaseChange(phase, result);
-    } catch (e) {
-      _handleError('Erro ao processar atualização: $e');
-    }
-  }
-
-  void _handlePhaseChange(TestPhase phase, TestResult result) {
-    switch (phase) {
-      case TestPhase.miniGame:
-        _triggerMiniGame();
-        break;
-      case TestPhase.result:
-        _handleTestResult(result);
-        break;
-      case TestPhase.completed:
-        _handleTestCompleted();
-        break;
-      default:
-        break;
-    }
-  }
-
-  // ============== SUBMETER RESPOSTA ==============
-  Future<bool> submitRealAnswer({
-    required String questionId,
-    required int selectedAnswer,
-  }) async {
-    try {
-      final currentUser = _ref.read(authProvider).user;
-      final sessionId = state.sessionId;
-
-      if (currentUser == null || sessionId == null) {
-        _handleError('Dados da sessão inválidos');
-        return false;
-      }
-
-      final success = await FirebaseTestSessionService.submitAnswer(
-        sessionId: sessionId,
-        userId: currentUser.uid,
-        questionId: questionId,
-        selectedAnswer: selectedAnswer,
-      );
-
-      if (success) {
-        final answer = UserAnswer(
-          userId: currentUser.uid,
-          questionId: questionId,
-          selectedAnswer: selectedAnswer,
-          answeredAt: DateTime.now(),
         );
 
-        // Usar estrutura Map correta
-        final newAnswersMap = Map<String, UserAnswer>.from(state.answers);
-        final answerKey = '${currentUser.uid}_$questionId';
-        newAnswersMap[answerKey] = answer;
+        // Iniciar monitoramento
+        _startSessionListener(sessionId);
+        _startHeartbeat();
+        _startTimeoutTimer();
 
-        final currentUserAnswersCount = newAnswersMap.values
-            .where((ans) => ans.userId == currentUser.uid)
-            .length;
-
-        if (mounted) {
-          state = state.copyWith(
-            answers: newAnswersMap,
-            currentQuestionIndex: currentUserAnswersCount,
-          );
-        }
-
-        if (currentUserAnswersCount >= state.questions.length) {
-          await _attemptCompleteTest();
-        }
-
+        if (kDebugMode) print('✅ Sessão criada com sucesso: $sessionId');
         return true;
       }
 
       return false;
     } catch (e) {
-      _handleError('Erro ao enviar resposta: $e');
+      _handleError('Erro inesperado ao iniciar sessão: $e');
       return false;
     }
   }
 
-  // ============== COMPLETAR TESTE ==============
-  Future<void> _attemptCompleteTest() async {
+  // ============== VERIFICAR SESSÃO EXISTENTE ==============
+  Future<String?> _checkExistingSession(String inviteId) async {
     try {
-      final sessionId = state.sessionId;
-      final currentUser = _ref.read(authProvider).user;
+      final query = await _firestore
+          .collection('test_sessions')
+          .where('inviteId', isEqualTo: inviteId)
+          .where('phase', whereIn: ['questions', 'miniGame'])
+          .limit(1)
+          .get();
 
-      if (sessionId == null || currentUser == null) return;
-
-      // A transição para miniGame deve ocorrer após todas as perguntas serem respondidas.
-      // E a chamada para completeTest deve ocorrer após o minigame ser concluído por ambos.
-      // Esta função _attemptCompleteTest provavelmente deve ser chamada após
-      // a conclusão do minigame por ambos os usuários.
-
-      // Verificar se todas as perguntas foram respondidas por ambos
-      // (esta lógica pode precisar ser mais robusta, verificando o número de respostas por participante)
-      final allQuestionsAnsweredByBoth =
-          state.answers.length >= state.questions.length * 2;
-      final miniGameCompletedByBoth =
-          state.miniGameResults.length >= 2; // Supondo 2 participantes
-
-      if (!allQuestionsAnsweredByBoth || !miniGameCompletedByBoth) {
-        if (mounted)
-          state = state.copyWith(
-            isLoading: false,
-          ); // Reset isLoading se não for completar
-        return; // Não tentar completar se as condições não forem atendidas
-      }
-
-      // Completar teste no Firebase
-      final result = await FirebaseTestSessionService.completeTest(
-        sessionId: sessionId,
-        userId: currentUser.uid,
-      );
-
-      if (result != null) {
-        final status = result['status'] as String;
-
-        if (status == 'waiting') {
-          // Ainda aguardando outro usuário
-          // Isso não deveria acontecer se a lógica acima (allQuestionsAnsweredByBoth, etc.) estiver correta
-          if (mounted) {
-            state = state.copyWith(phase: TestPhase.miniGame, isLoading: false);
-          }
-          NotificationService.showInfo(result['message'] as String);
-        } else if (status == 'completed') {
-          // Teste finalizado
-          final passed = result['passed'] as bool;
-          final compatibility = result['compatibility'] as double;
-
-          if (mounted) {
-            state = state.copyWith(
-              phase: TestPhase.result,
-              result: passed ? TestResult.passed : TestResult.failed,
-              compatibilityScore: compatibility,
-              isLoading: false,
-            );
-          }
-          // Após Firebase service completar o teste, atualizar o convite original
-          if (state.inviteId != null) {
-            final Map<String, dynamic> testResultsForInvite = {
-              'compatibilityScore': compatibility,
-              'result': (passed ? TestResult.passed : TestResult.failed).name,
-            };
-            _ref
-                .read(testInviteProvider.notifier)
-                .completeTest(state.inviteId!, testResultsForInvite);
-          }
-        }
-      }
+      return query.docs.isNotEmpty ? query.docs.first.id : null;
     } catch (e) {
-      _handleError('Erro ao completar teste: $e');
+      if (kDebugMode) print('❌ Erro ao verificar sessão existente: $e');
+      return null;
     }
   }
 
-  // ============== MINI-GAME SUBMISSION (REAL) ==============
-  Future<bool> submitMiniGameRealResult(bool completed, int score) async {
+  // ============== CRIAR NOVA SESSÃO ==============
+  Future<String?> _createNewSession(
+    String inviteId,
+    UserModel currentUser,
+    UserModel otherUser,
+  ) async {
     try {
-      final currentUser = _ref.read(authProvider).user;
-      final sessionId = state.sessionId;
+      final sessionRef = _firestore.collection('test_sessions').doc();
+      final questions = _generateQuestions(currentUser, otherUser);
 
-      if (currentUser == null || sessionId == null) {
-        _handleError('Dados da sessão inválidos para submeter mini-game');
-        return false;
-      }
+      final sessionData = {
+        'id': sessionRef.id,
+        'inviteId': inviteId,
+        'participants': [currentUser.uid, otherUser.uid],
+        'questions': questions.map((q) => q.toJson()).toList(),
+        'answers': <String, dynamic>{},
+        'miniGameResults': <String, dynamic>{},
+        'phase': TestPhase.questions.name,
+        'result': TestResult.pending.name,
+        'compatibilityScore': 0.0,
+        'createdAt': DateTime.now().toIso8601String(),
+        'expiresAt': DateTime.now().add(_sessionTimeout).toIso8601String(),
+        'lastHeartbeat': {currentUser.uid: DateTime.now().toIso8601String()},
+      };
 
-      // Este método deve chamar FirebaseTestSessionService.submitMiniGameResult
-      // e o FirebaseTestSessionService.completeTest deve ser chamado depois que
-      // AMBOS os usuários submeterem seus resultados do minigame.
-      // A lógica de transição para _attemptCompleteTest precisará ser ajustada
-      // para considerar a conclusão do minigame por ambos.
-      final success = await FirebaseTestSessionService.submitMiniGameResult(
-        sessionId: sessionId,
-        userId: currentUser.uid,
-        resultData: {'completed': completed, 'score': score},
-      );
-
-      if (success) {
-        // O listener _handleSessionUpdate irá pegar a mudança e atualizar o state.miniGameResults.
-        // Então, _checkPhaseProgression (ou uma lógica similar em _handleSessionUpdate)
-        // pode chamar _attemptCompleteTest se ambos os jogadores completaram o minigame.
-      }
-      return success;
+      await sessionRef.set(sessionData);
+      return sessionRef.id;
     } catch (e) {
-      _handleError('Erro ao enviar resultado do mini-jogo: $e');
-      return false;
+      if (kDebugMode) print('❌ Erro ao criar sessão: $e');
+      return null;
     }
   }
 
-  // ============== MINI-GAME ==============
-  void _triggerMiniGame() {
-    if (kDebugMode) {
-      print('🎮 Iniciando mini-game...');
-    }
-    // A UI deve mudar para a visualização do minigame.
-    // A lógica de submissão do resultado do minigame é separada.
-  }
-
-  // ============== RESULTADO ==============
-  void _handleTestResult(TestResult result) {
-    final passed = result == TestResult.passed;
-    final score = state.compatibilityScore;
-
-    if (passed) {
-      NotificationService.showSuccess(
-        '🎉 Conexão desbloqueada! Compatibilidade: ${score.toStringAsFixed(1)}%',
-      );
-    } else {
-      NotificationService.showInfo(
-        '😔 Compatibilidade insuficiente: ${score.toStringAsFixed(1)}%',
-      );
-    }
-  }
-
-  void _handleTestCompleted() {
-    // Limpar timers
-    _timeoutTimer?.cancel();
-    _heartbeatTimer?.cancel();
-
-    if (kDebugMode) {
-      print('✅ Teste finalizado completamente');
-    }
-    if (mounted) {
-      state = state.copyWith(phase: TestPhase.completed);
-    }
-  }
-
-  // ============== TIMEOUT E HEARTBEAT ==============
-  void _startTimeoutTimer() {
-    _timeoutTimer?.cancel();
-    _timeoutTimer = Timer(const Duration(minutes: 15), () {
-      _handleError('Teste expirado - tempo limite atingido');
-      // TODO: Chamar endSession() ou uma lógica de finalização por timeout
-    });
-  }
-
-  void _startHeartbeat() {
-    _heartbeatTimer?.cancel();
-    _heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      _sendHeartbeat();
-    });
-  }
-
-  void _sendHeartbeat() {
-    // Manter sessão ativa
-    final sessionId = state.sessionId;
-    if (sessionId != null) {
-      FirebaseFirestore.instance
+  // ============== RETOMAR SESSÃO ==============
+  Future<void> _resumeSession(String sessionId) async {
+    try {
+      final sessionDoc = await _firestore
           .collection('test_sessions')
           .doc(sessionId)
-          .update({'lastActivity': FieldValue.serverTimestamp()});
-    }
-  }
+          .get();
+      if (!sessionDoc.exists) {
+        _handleError('Sessão não encontrada');
+        return;
+      }
 
-  // ============== NAVEGAÇÃO ==============
-  Future<void> navigateToUnlockedProfile() async {
-    final otherUser = state.otherUser;
-    if (otherUser != null && state.result == TestResult.passed) {
-      // Implementar navegação para perfil desbloqueado
-      if (kDebugMode) {
-        print(
-          '🔓 Navegando para perfil desbloqueado: ${otherUser.displayName}',
+      final data = sessionDoc.data()!;
+      final questions = (data['questions'] as List)
+          .map((q) => TestQuestion.fromJson(q))
+          .toList();
+
+      if (mounted) {
+        state = state.copyWith(
+          sessionId: sessionId,
+          questions: questions,
+          phase: TestPhase.values.firstWhere(
+            (p) => p.name == data['phase'],
+            orElse: () => TestPhase.questions,
+          ),
+          currentQuestionIndex: (data['answers'] as Map).length,
+          isLoading: false,
         );
+
+        _startSessionListener(sessionId);
+        _startHeartbeat();
+        _startTimeoutTimer();
       }
+    } catch (e) {
+      _handleError('Erro ao retomar sessão: $e');
     }
   }
 
-  Future<void> navigateToChat() async {
-    final otherUser = state.otherUser;
-    if (otherUser != null && state.result == TestResult.passed) {
-      // Implementar navegação para chat
-      if (kDebugMode) {
-        print('💬 Navegando para chat: ${otherUser.displayName}');
-      }
-    }
+  // ============== GERAR PERGUNTAS ==============
+  List<TestQuestion> _generateQuestions(UserModel user1, UserModel user2) {
+    final commonInterests = user1.interesses
+        .where((interest) => user2.interesses.contains(interest))
+        .toList();
+
+    final questions = <TestQuestion>[
+      // Pergunta sobre valores
+      TestQuestion(
+        id: 'valores_1',
+        text: 'O que é mais importante em um relacionamento?',
+        category: 'Valores',
+        options: ['Confiança', 'Diversão', 'Crescimento mútuo', 'Estabilidade'],
+        correctAnswer: 0,
+      ),
+      // Pergunta sobre lifestyle
+      TestQuestion(
+        id: 'lifestyle_1',
+        text: 'Como você prefere passar o tempo livre?',
+        category: 'Lifestyle',
+        options: [
+          'Em casa relaxando',
+          'Explorando novos lugares',
+          'Com amigos',
+          'Aprendendo algo novo',
+        ],
+        correctAnswer: 0,
+      ),
+      // Pergunta baseada em interesse comum
+      if (commonInterests.isNotEmpty)
+        TestQuestion(
+          id: 'interesse_comum_1',
+          text: 'Sobre ${commonInterests.first}, o que mais te atrai?',
+          category: commonInterests.first,
+          options: [
+            'A criatividade',
+            'A comunidade',
+            'O desafio',
+            'A diversão',
+          ],
+          correctAnswer: 0,
+        ),
+    ];
+
+    return questions;
   }
 
-  // ============== BUSCAR SESSÕES ATIVAS ==============
-  Future<void> loadActiveSessions() async {
+  // ============== SUBMETER RESPOSTA ==============
+  Future<void> submitAnswer({
+    required String questionId,
+    required int answerIndex,
+  }) async {
+    if (state.sessionId == null) {
+      _handleError('Nenhuma sessão ativa');
+      return;
+    }
+
     try {
       final currentUser = _ref.read(authProvider).user;
       if (currentUser == null) return;
 
-      final sessions = await FirebaseTestSessionService.getUserActiveSessions(
-        currentUser.uid,
-      );
+      // Atualizar Firestore
+      await _firestore.collection('test_sessions').doc(state.sessionId).update({
+        'answers.${currentUser.uid}_$questionId': answerIndex,
+        'lastUpdated': DateTime.now().toIso8601String(),
+      });
 
-      if (sessions.isNotEmpty) {
-        // Retomar sessão mais recente se existir
-        final mostRecent = sessions.first;
-        final sessionId = mostRecent['id'] as String;
+      // Atualizar estado local
+      if (mounted) {
+        final newAnswers = Map<String, UserAnswer>.from(state.answers);
+        newAnswers['${currentUser.uid}_$questionId'] = UserAnswer(
+          questionId: questionId,
+          selectedAnswer: answerIndex,
+          userId: currentUser.uid,
+          answeredAt: DateTime.now(),
+        );
 
-        if (mounted) {
-          state = state.copyWith(
-            sessionId: sessionId,
-            inviteId: mostRecent['inviteId'] as String?,
-            phase: TestPhase.values.firstWhere(
-              (p) => p.name == mostRecent['phase'],
-              orElse: () => TestPhase.questions,
-            ),
-          );
+        final nextIndex = state.currentQuestionIndex + 1;
+        final isLastQuestion = nextIndex >= state.questions.length;
+
+        state = state.copyWith(
+          answers: newAnswers,
+          currentQuestionIndex: isLastQuestion
+              ? state.currentQuestionIndex
+              : nextIndex,
+          phase: isLastQuestion ? TestPhase.miniGame : TestPhase.questions,
+        );
+
+        if (isLastQuestion) {
+          await _checkIfBothUsersFinished();
         }
-        _startSessionListener(sessionId);
       }
     } catch (e) {
-      if (kDebugMode) {
-        print('❌ Erro ao carregar sessões ativas: $e');
-      }
+      _handleError('Erro ao enviar resposta: $e');
     }
   }
 
-  // ============== ERROR HANDLING ==============
+  // ============== VERIFICAR SE AMBOS TERMINARAM ==============
+  Future<void> _checkIfBothUsersFinished() async {
+    if (state.sessionId == null) return;
+
+    try {
+      final sessionDoc = await _firestore
+          .collection('test_sessions')
+          .doc(state.sessionId)
+          .get();
+      if (!sessionDoc.exists) return;
+
+      final data = sessionDoc.data()!;
+      final answers = data['answers'] as Map<String, dynamic>;
+      final participants = List<String>.from(data['participants']);
+      final totalQuestions = state.questions.length;
+
+      final user1Answers = answers.keys
+          .where((k) => k.startsWith(participants[0]))
+          .length;
+      final user2Answers = answers.keys
+          .where((k) => k.startsWith(participants[1]))
+          .length;
+
+      if (user1Answers >= totalQuestions && user2Answers >= totalQuestions) {
+        await _calculateFinalResult();
+      }
+    } catch (e) {
+      if (kDebugMode) print('❌ Erro ao verificar progresso: $e');
+    }
+  }
+
+  // ============== CALCULAR RESULTADO ==============
+  Future<void> _calculateFinalResult() async {
+    if (state.sessionId == null) return;
+
+    try {
+      // Simular cálculo de compatibilidade
+      final score = 65.0 + Random().nextDouble() * 30; // 65-95%
+      final passed = score >= 65.0;
+
+      await _firestore.collection('test_sessions').doc(state.sessionId).update({
+        'compatibilityScore': score,
+        'result': passed ? TestResult.passed.name : TestResult.failed.name,
+        'phase': TestPhase.result.name,
+        'completedAt': DateTime.now().toIso8601String(),
+      });
+
+      if (mounted) {
+        state = state.copyWith(
+          compatibilityScore: score,
+          result: passed ? TestResult.passed : TestResult.failed,
+          phase: TestPhase.result,
+        );
+
+        // Notificar resultado
+        if (passed) {
+          NotificationService.showSuccess(
+            '🎉 Conexão desbloqueada com ${score.toStringAsFixed(1)}% de compatibilidade!',
+          );
+        } else {
+          NotificationService.showInfo(
+            'Compatibilidade de ${score.toStringAsFixed(1)}%. Continue tentando!',
+          );
+        }
+      }
+    } catch (e) {
+      _handleError('Erro ao calcular resultado: $e');
+    }
+  }
+
+  // ============== LISTENERS E TIMERS ==============
+  void _startSessionListener(String sessionId) {
+    _sessionSubscription?.cancel();
+    _sessionSubscription = _firestore
+        .collection('test_sessions')
+        .doc(sessionId)
+        .snapshots()
+        .listen((snapshot) {
+          if (snapshot.exists && mounted) {
+            final data = snapshot.data()!;
+            // Sincronizar estado com Firebase
+            _syncWithFirebase(data);
+          }
+        });
+  }
+
+  void _syncWithFirebase(Map<String, dynamic> data) {
+    if (!mounted) return;
+
+    final newPhase = TestPhase.values.firstWhere(
+      (p) => p.name == data['phase'],
+      orElse: () => state.phase,
+    );
+
+    if (newPhase != state.phase) {
+      state = state.copyWith(
+        phase: newPhase,
+        compatibilityScore: (data['compatibilityScore'] ?? 0.0).toDouble(),
+        result: TestResult.values.firstWhere(
+          (r) => r.name == data['result'],
+          orElse: () => state.result,
+        ),
+      );
+    }
+  }
+
+  void _startHeartbeat() {
+    _heartbeatTimer?.cancel();
+    _heartbeatTimer = Timer.periodic(
+      _heartbeatInterval,
+      (_) => _sendHeartbeat(),
+    );
+  }
+
+  Future<void> _sendHeartbeat() async {
+    if (state.sessionId == null) return;
+
+    final currentUser = _ref.read(authProvider).user;
+    if (currentUser == null) return;
+
+    try {
+      await _firestore.collection('test_sessions').doc(state.sessionId).update({
+        'lastHeartbeat.${currentUser.uid}': DateTime.now().toIso8601String(),
+      });
+    } catch (e) {
+      if (kDebugMode) print('❌ Erro no heartbeat: $e');
+    }
+  }
+
+  void _startTimeoutTimer() {
+    _timeoutTimer?.cancel();
+    _timeoutTimer = Timer(_sessionTimeout, () {
+      if (mounted) {
+        _handleError('Sessão expirou');
+        clearSession();
+      }
+    });
+  }
+
+  // ============== ERROR HANDLING MELHORADO ==============
   void _handleError(String message) {
+    if (kDebugMode) print('❌ EnhancedTestSession: $message');
+
     if (mounted) {
       state = state.copyWith(error: message, isLoading: false);
     }
 
-    NotificationService.showError(message);
-
-    if (kDebugMode) {
-      print('❌ EnhancedTestSession: $message');
+    // Notificar usuário apenas para erros importantes
+    if (message.contains('expirou') ||
+        message.contains('falha') ||
+        message.contains('autenticado')) {
+      NotificationService.showError(message);
     }
   }
 
@@ -511,18 +455,44 @@ class EnhancedTestSessionNotifier extends StateNotifier<TestSessionState> {
     if (mounted) {
       state = const TestSessionState();
     }
+
+    if (kDebugMode) print('🧹 Sessão limpa');
   }
 
-  // ============== DEBUGGING ==============
-  void debugPrintState() {
+  void clearError() {
+    if (mounted) {
+      state = state.copyWith(error: null);
+    }
+  }
+
+  @override
+  void dispose() {
+    clearSession();
+    super.dispose();
+  }
+}
+
+// ============== EXTENSION HELPERS ==============
+extension EnhancedTestSessionX on WidgetRef {
+  EnhancedTestSessionNotifier get enhancedTestSession =>
+      read(enhancedTestSessionProvider.notifier);
+  TestSessionState get enhancedTestSessionState =>
+      watch(enhancedTestSessionProvider);
+}
+
+// ============== DEBUGGING ==============
+extension TestSessionDebug on TestSessionState {
+  void debugPrint() {
     if (kDebugMode) {
-      print('🐛 TestSession Debug:');
-      print('  SessionId: ${state.sessionId}');
-      print('  Phase: ${state.phase}');
-      print('  Questions: ${state.questions.length}');
-      print('  Answers: ${state.answers.length}');
-      print('  Score: ${state.compatibilityScore}');
-      print('  Result: ${state.result}');
+      print('🐛 TestSession State:');
+      print('  SessionId: $sessionId');
+      print('  Phase: $phase');
+      print('  Questions: ${questions.length}');
+      print('  CurrentIndex: $currentQuestionIndex');
+      print('  Score: $compatibilityScore');
+      print('  Result: $result');
+      print('  Error: $error');
+      print('  IsLoading: $isLoading');
     }
   }
 }
