@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/features/home/screens/home_screen.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/screens/home_screen.dart';
 import 'package:unlock/services/auth_service.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {

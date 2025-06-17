@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/screens/login_screen.dart';
 import 'package:unlock/services/auth_service.dart';
 
 class HomeScreen extends ConsumerWidget {
