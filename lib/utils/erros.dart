@@ -1,4 +1,4 @@
-import 'package:unlock/feature/games/social/providers/enums/enums.dart';
+import 'package:unlock/feature/social/providers/enums/enums.dart';
 
 class AuthError {
   final AuthErrorType type;

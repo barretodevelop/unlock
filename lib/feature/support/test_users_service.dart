@@ -1,4 +1,4 @@
-// lib/services/test_users_service.dart
+// lib/services/support/test_users_service.dart
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -51,6 +51,17 @@ class TestUsersService {
     'Mateus',
     'Natalia',
     'Otavio',
+    'Valmira',
+    'Enzo',
+    'yann',
+    'Matheus',
+    'Gabriele',
+    'Maria Eduarda',
+    'Humberto',
+    'Graciane',
+    'Leilane',
+    'Silma',
+    'Marcia',
   ];
 
   static const List<String> _sobrenomes = [
@@ -156,60 +167,49 @@ class TestUsersService {
     'amizade',
     'namoro',
     'casual',
-    'mentoria',
     'networking',
+    'mentoria',
   ];
 
   static const List<String> _avatarIds = [
-    'person',
     'star',
     'bolt',
-    'palette',
+    'heart',
     'diamond',
+    'crown',
+    'fire',
+    'leaf',
+    'wave',
+    'moon',
+    'sun',
+    'palette',
+    'music',
+    'camera',
+    'plane',
+    'rocket',
   ];
 
-  static const List<String> _bordersIds = [
-    'none',
-    'blue',
-    'green',
-    'purple',
-    'rainbow',
-  ];
-
-  static const List<String> _badgesIds = ['connected', 'social', 'legendary'];
-
-  // ============== CRIAR USUÁRIOS DE TESTE ==============
-  static Future<List<UserModel>> createTestUsers({int count = 20}) async {
-    final List<UserModel> createdUsers = [];
+  // ============== CRIAR USUÁRIOS ALEATÓRIOS ==============
+  static Future<List<UserModel>> createTestUsers({int count = 10}) async {
+    final List<UserModel> users = [];
 
     try {
       if (kDebugMode) {
-        print('🧪 TestUsersService: Criando $count usuários de teste...');
+        print('🎯 TestUsersService: Criando $count usuários de teste...');
       }
 
       for (int i = 0; i < count; i++) {
         final user = _generateRandomUser(i);
-
-        // Salvar no Firestore
         await _firestore.collection('users').doc(user.uid).set(user.toJson());
-
-        // Marcar como online
         await _setUserOnline(user.uid);
-
-        createdUsers.add(user);
-
-        if (kDebugMode && (i + 1) % 5 == 0) {
-          print('✅ TestUsersService: ${i + 1}/$count usuários criados');
-        }
+        users.add(user);
       }
 
       if (kDebugMode) {
-        print(
-          '🎉 TestUsersService: $count usuários de teste criados com sucesso!',
-        );
+        print('✅ TestUsersService: $count usuários criados com sucesso');
       }
 
-      return createdUsers;
+      return users;
     } catch (e) {
       if (kDebugMode) {
         print('❌ TestUsersService: Erro ao criar usuários: $e');
@@ -218,38 +218,29 @@ class TestUsersService {
     }
   }
 
-  // ============== GERAR USUÁRIO ALEATÓRIO ==============
   static UserModel _generateRandomUser(int index) {
     final nome = _nomes[_random.nextInt(_nomes.length)];
     final sobrenome = _sobrenomes[_random.nextInt(_sobrenomes.length)];
-    final codinome =
-        '${_codinomes[_random.nextInt(_codinomes.length)]}${10 + _random.nextInt(90)}';
-
-    // Gerar UID único
+    final codinome = _codinomes[_random.nextInt(_codinomes.length)];
     final uid = 'test_user_${DateTime.now().millisecondsSinceEpoch}_$index';
-
-    // Gerar email
     final email = '${nome.toLowerCase()}.${sobrenome.toLowerCase()}@test.com';
 
-    // Selecionar interesses (3-7 aleatórios)
-    final numInteresses = 3 + _random.nextInt(5);
-    final interessesEscolhidos = <String>[];
+    // Gerar interesses aleatórios (2-5 interesses)
+    final numInteresses = 2 + _random.nextInt(4);
+    final interessesUsuario = <String>[];
     final interessesDisponiveis = List<String>.from(_interesses);
-    interessesDisponiveis.shuffle();
 
-    for (
-      int i = 0;
-      i < numInteresses && i < interessesDisponiveis.length;
-      i++
-    ) {
-      interessesEscolhidos.add(interessesDisponiveis[i]);
+    for (int i = 0; i < numInteresses; i++) {
+      if (interessesDisponiveis.isNotEmpty) {
+        final interesse = interessesDisponiveis.removeAt(
+          _random.nextInt(interessesDisponiveis.length),
+        );
+        interessesUsuario.add(interesse);
+      }
     }
 
-    // Gerar dados variados
-    final level = 1 + _random.nextInt(30);
-    final xp = level * 100 + _random.nextInt(100);
-    final coins = 50 + _random.nextInt(500);
-    final gems = 1 + _random.nextInt(20);
+    final level = 1 + _random.nextInt(25);
+    final xp = level * 100 + _random.nextInt(50);
 
     return UserModel(
       uid: uid,
@@ -259,16 +250,15 @@ class TestUsersService {
       email: email,
       level: level,
       xp: xp,
-      coins: coins,
-      gems: gems,
-      createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(365))),
+      coins: 50 + _random.nextInt(200),
+      gems: 1 + _random.nextInt(10),
+      createdAt: DateTime.now().subtract(Duration(days: _random.nextInt(90))),
       lastLoginAt: DateTime.now().subtract(
-        Duration(minutes: _random.nextInt(10)),
+        Duration(minutes: _random.nextInt(30)),
       ),
       aiConfig: {},
-      // Campos específicos do social matching
-      codinome: codinome,
-      interesses: interessesEscolhidos,
+      codinome: '$codinome${10 + _random.nextInt(90)}',
+      interesses: interessesUsuario,
       relationshipInterest:
           _relationshipTypes[_random.nextInt(_relationshipTypes.length)],
       onboardingCompleted: true,
@@ -416,6 +406,69 @@ class TestUsersService {
     );
   }
 
+  // ============== CRIAR CENÁRIOS DE TESTE ==============
+  static Future<void> createTestScenarios() async {
+    try {
+      if (kDebugMode) {
+        print('🎯 TestUsersService: Criando cenários de teste...');
+      }
+
+      // Cenário 1: Grupo de usuários interessados em música
+      await _createCompatibilityGroup(
+        theme: 'Music',
+        interests: ['Música', 'Dança', 'Teatro', 'Artes'],
+        relationshipType: 'amizade',
+        count: 3,
+      );
+
+      // Cenário 2: Grupo tech
+      await _createCompatibilityGroup(
+        theme: 'Tech',
+        interests: ['Tecnologia', 'Programação', 'Jogos', 'Ciência'],
+        relationshipType: 'networking',
+        count: 3,
+      );
+
+      // Cenário 3: Grupo fitness
+      await _createCompatibilityGroup(
+        theme: 'Fitness',
+        interests: ['Fitness', 'Esportes', 'Yoga', 'Natureza'],
+        relationshipType: 'namoro',
+        count: 2,
+      );
+
+      if (kDebugMode) {
+        print('✅ TestUsersService: Cenários de teste criados');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ TestUsersService: Erro ao criar cenários: $e');
+      }
+    }
+  }
+
+  static Future<void> _createCompatibilityGroup({
+    required String theme,
+    required List<String> interests,
+    required String relationshipType,
+    required int count,
+  }) async {
+    for (int i = 0; i < count; i++) {
+      final user = _createSpecificUser(
+        index: 2000 + DateTime.now().millisecondsSinceEpoch % 1000 + i,
+        nome: '${theme}User${i + 1}',
+        sobrenome: 'Test',
+        codinome: '${theme}Lover${10 + i}',
+        interesses: interests,
+        relationshipInterest: relationshipType,
+        level: 10 + _random.nextInt(15),
+      );
+
+      await _firestore.collection('users').doc(user.uid).set(user.toJson());
+      await _setUserOnline(user.uid);
+    }
+  }
+
   // ============== MANTER USUÁRIOS ONLINE ==============
   static Future<void> keepUsersOnline() async {
     try {
@@ -473,15 +526,17 @@ class TestUsersService {
       // Deletar usuários de teste (@test.com)
       final testSnapshot = await _firestore
           .collection('users')
-          .where('email', isGreaterThanOrEqualTo: '@test.com')
-          .where('email', isLessThanOrEqualTo: '@test.com\uf8ff')
+          .where('uid', isGreaterThanOrEqualTo: 'test_user_')
+          // .where('email', isGreaterThanOrEqualTo: '@test.com')
+          // .where('email', isLessThanOrEqualTo: '@test.com\uf8ff')
           .get();
 
       // Deletar usuários específicos (@specific.com)
       final specificSnapshot = await _firestore
           .collection('users')
-          .where('email', isGreaterThanOrEqualTo: '@specific.com')
-          .where('email', isLessThanOrEqualTo: '@specific.com\uf8ff')
+          .where('uid', isGreaterThanOrEqualTo: 'specific_user_')
+          // .where('email', isGreaterThanOrEqualTo: '@specific.com')
+          // .where('email', isLessThanOrEqualTo: '@specific.com\uf8ff')
           .get();
 
       final batch = _firestore.batch();
@@ -500,76 +555,12 @@ class TestUsersService {
           testSnapshot.docs.length + specificSnapshot.docs.length;
 
       if (kDebugMode) {
-        print('✅ TestUsersService: $totalDeleted usuários de teste removidos');
+        print('✅ TestUsersService: $totalDeleted usuários removidos');
       }
     } catch (e) {
       if (kDebugMode) {
-        print('❌ TestUsersService: Erro ao remover usuários de teste: $e');
+        print('❌ TestUsersService: Erro ao deletar usuários: $e');
       }
-      rethrow;
-    }
-  }
-
-  // ============== CRIAR CENÁRIOS DE TESTE ==============
-  static Future<void> createTestScenarios() async {
-    try {
-      if (kDebugMode) {
-        print('🎬 TestUsersService: Criando cenários de teste...');
-      }
-
-      // Cenário 1: Usuários com alta compatibilidade musical
-      await _createCompatibilityGroup(
-        theme: 'Música',
-        interests: ['Música', 'Podcasts', 'Artes'],
-        relationshipType: 'amizade',
-        count: 3,
-      );
-
-      // Cenário 2: Grupo de gamers
-      await _createCompatibilityGroup(
-        theme: 'Gaming',
-        interests: ['Jogos', 'Tecnologia', 'Séries'],
-        relationshipType: 'amizade',
-        count: 3,
-      );
-
-      // Cenário 3: Pessoas buscando namoro com interesses fitness
-      await _createCompatibilityGroup(
-        theme: 'Fitness',
-        interests: ['Fitness', 'Esportes', 'Yoga', 'Natureza'],
-        relationshipType: 'namoro',
-        count: 4,
-      );
-
-      if (kDebugMode) {
-        print('✅ TestUsersService: Cenários de teste criados');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ TestUsersService: Erro ao criar cenários: $e');
-      }
-    }
-  }
-
-  static Future<void> _createCompatibilityGroup({
-    required String theme,
-    required List<String> interests,
-    required String relationshipType,
-    required int count,
-  }) async {
-    for (int i = 0; i < count; i++) {
-      final user = _createSpecificUser(
-        index: 2000 + DateTime.now().millisecondsSinceEpoch % 1000 + i,
-        nome: '${theme}User${i + 1}',
-        sobrenome: 'Test',
-        codinome: '${theme}Lover${10 + i}',
-        interesses: interests,
-        relationshipInterest: relationshipType,
-        level: 10 + _random.nextInt(15),
-      );
-
-      await _firestore.collection('users').doc(user.uid).set(user.toJson());
-      await _setUserOnline(user.uid);
     }
   }
 
@@ -605,6 +596,202 @@ class TestUsersService {
         print('❌ TestUsersService: Erro ao obter estatísticas: $e');
       }
       return {'error': e.toString()};
+    }
+  }
+
+  // ============== GERAR CONVITE ALEATÓRIO - NOVA FUNCIONALIDADE ==============
+  static Future<Map<String, dynamic>?> createRandomInviteForCurrentUser(
+    String currentUserId,
+  ) async {
+    try {
+      if (kDebugMode) {
+        print(
+          '🎯 TestUsersService: Gerando convite aleatório para $currentUserId',
+        );
+      }
+
+      // 1. Buscar usuários de teste disponíveis (excluindo o usuário atual)
+      final testUsersSnapshot = await _firestore
+          .collection('users')
+          // .where('email', isGreaterThanOrEqualTo: '@test.com')
+          // .where('email', isLessThanOrEqualTo: '@test.com\uf8ff')
+          .get();
+
+      final specificUsersSnapshot = await _firestore
+          .collection('users')
+          // .where('email', isGreaterThanOrEqualTo: '@specific.com')
+          // .where('email', isLessThanOrEqualTo: '@specific.com\uf8ff')
+          .get();
+
+      // Combinar todos os usuários disponíveis
+      final allAvailableUsers = [
+        ...testUsersSnapshot.docs,
+        ...specificUsersSnapshot.docs,
+      ].where((doc) => doc.id != currentUserId).toList();
+
+      if (allAvailableUsers.isEmpty) {
+        if (kDebugMode) {
+          print('❌ TestUsersService: Nenhum usuário disponível para convite');
+        }
+        return null;
+      }
+
+      // 2. Selecionar usuário aleatório
+      final randomUser =
+          allAvailableUsers[_random.nextInt(allAvailableUsers.length)];
+      final userData = randomUser.data() as Map<String, dynamic>;
+
+      // 3. Verificar se já existe convite pendente entre esses usuários
+      final existingInvite = await _checkExistingInvite(
+        randomUser.id,
+        currentUserId,
+      );
+      if (existingInvite != null) {
+        if (kDebugMode) {
+          print('⚠️ TestUsersService: Já existe convite entre usuários');
+        }
+        return {
+          'status': 'existing',
+          'message': 'Já existe um convite entre vocês',
+          'senderUser': userData,
+        };
+      }
+
+      // 4. Criar convite no Firestore
+      final inviteRef = _firestore.collection('test_invites').doc();
+
+      final inviteData = {
+        'id': inviteRef.id,
+        'senderId': randomUser.id,
+        'receiverId': currentUserId,
+        'participants': [randomUser.id, currentUserId],
+        'status': 'pending',
+        'createdAt': DateTime.now().toIso8601String(),
+        'expiresAt': DateTime.now()
+            .add(const Duration(hours: 24))
+            .toIso8601String(),
+        'senderName': userData['displayName'] ?? 'Usuário de Teste',
+        'senderAvatar': userData['avatar'] ?? 'default',
+        // 'testData': {
+        //   'senderInterests': userData['interesses'] ?? [],
+        //   'senderName': userData['displayName'] ?? 'Usuário de Teste',
+        //   'senderAvatar': userData['avatar'] ?? 'default',
+        //   'compatibility': 70 + _random.nextInt(25), // Simular compatibilidade
+        // },
+      };
+
+      await inviteRef.set(inviteData);
+
+      if (kDebugMode) {
+        print(
+          '✅ TestUsersService: Convite criado de ${userData['displayName']} para usuário atual',
+        );
+      }
+
+      return {
+        'status': 'created',
+        'message': 'Convite criado com sucesso!',
+        'inviteId': inviteRef.id,
+        'senderUser': userData,
+        'senderName': userData['displayName'] ?? 'Usuário de Teste',
+        'senderInterests': userData['interesses'] ?? [],
+      };
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ TestUsersService: Erro ao criar convite aleatório: $e');
+      }
+      return {'status': 'error', 'message': 'Erro ao criar convite: $e'};
+    }
+  }
+
+  // ============== VERIFICAR CONVITE EXISTENTE ==============
+  static Future<Map<String, dynamic>?> _checkExistingInvite(
+    String userId1,
+    String userId2,
+  ) async {
+    try {
+      // Verificar convites em ambas as direções
+      final query1 = await _firestore
+          .collection('test_invites')
+          .where('senderId', isEqualTo: userId1)
+          .where('receiverId', isEqualTo: userId2)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .limit(1)
+          .get();
+
+      if (query1.docs.isNotEmpty) {
+        return query1.docs.first.data();
+      }
+
+      final query2 = await _firestore
+          .collection('test_invites')
+          .where('senderId', isEqualTo: userId2)
+          .where('receiverId', isEqualTo: userId1)
+          .where('status', whereIn: ['pending', 'accepted'])
+          .limit(1)
+          .get();
+
+      if (query2.docs.isNotEmpty) {
+        return query2.docs.first.data();
+      }
+
+      return null;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ TestUsersService: Erro ao verificar convite existente: $e');
+      }
+      return null;
+    }
+  }
+
+  // ============== LISTAR CONVITES ATIVOS PARA USUÁRIO ==============
+  static Future<List<Map<String, dynamic>>> getActiveInvitesForUser(
+    String userId,
+  ) async {
+    try {
+      final receivedInvites = await _firestore
+          .collection('test_invites')
+          .where('receiverId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      final sentInvites = await _firestore
+          .collection('test_invites')
+          .where('senderId', isEqualTo: userId)
+          .where('status', isEqualTo: 'pending')
+          .orderBy('createdAt', descending: true)
+          .limit(10)
+          .get();
+
+      final allInvites = <Map<String, dynamic>>[];
+
+      for (final doc in receivedInvites.docs) {
+        final data = doc.data();
+        data['type'] = 'received';
+        allInvites.add(data);
+      }
+
+      for (final doc in sentInvites.docs) {
+        final data = doc.data();
+        data['type'] = 'sent';
+        allInvites.add(data);
+      }
+
+      // Ordenar por data de criação
+      allInvites.sort((a, b) {
+        final dateA = DateTime.tryParse(a['createdAt'] ?? '') ?? DateTime.now();
+        final dateB = DateTime.tryParse(b['createdAt'] ?? '') ?? DateTime.now();
+        return dateB.compareTo(dateA);
+      });
+
+      return allInvites;
+    } catch (e) {
+      if (kDebugMode) {
+        print('❌ TestUsersService: Erro ao buscar convites ativos: $e');
+      }
+      return [];
     }
   }
 }

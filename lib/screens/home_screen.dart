@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/feature/social/screens/list_profiles.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/mission_screen.dart';
 import 'package:unlock/widgtes/custom_app_bar.dart';
 import 'package:unlock/widgtes/custom_bottom_navigation.dart';
@@ -38,12 +38,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
   @override
   void initState() {
     super.initState();
-
-    // if (kDebugMode) {
-    //   WidgetsBinding.instance.addPostFrameCallback((_) {
-    //     QuickSetup.autoSetupIfNeeded(); // Cria usuários automaticamente se não existirem
-    //   });
-    // }
 
     _initializeAnimations();
     _initializeData();

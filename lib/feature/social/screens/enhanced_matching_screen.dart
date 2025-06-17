@@ -2,8 +2,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/feature/games/social/providers/discovery_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/providers/discovery_provider.dart';
+import 'package:unlock/feature/social/providers/test_invite_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/utils/helpers.dart';
 import 'package:unlock/widgtes/animated_button.dart';

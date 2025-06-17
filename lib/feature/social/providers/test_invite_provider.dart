@@ -174,7 +174,10 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
         // Usuário fez login
         _initializeInvitesListener();
         _startExpirationTimer(); // Iniciar timer de expiração apenas quando logado
-      } else if (nextUser == null && prevUser != null) {
+      } else if (nextUser == null &&
+          (prevUser != null || previous?.isAuthenticated == true)) {
+        // Usuário fez logout ou estado de autenticação mudou para não autenticado
+
         // Usuário fez logout
         _disposeInvitesListener();
         _expirationTimer?.cancel(); // Parar timer de expiração
@@ -281,16 +284,21 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
       // Lógica para determinar o activeInvite (se necessário)
       final activeInvite = _determineActiveInvite(sentInvites, receivedInvites);
 
-      state = state.copyWith(
-        sentInvites: sentInvites,
-        receivedInvites: receivedInvites,
-        activeInvite: activeInvite,
-      );
-
-      if (kDebugMode) {
-        print(
-          '📨 TestInviteProvider: ${sentInvites.length} enviados, ${receivedInvites.length} recebidos',
+      if (mounted) {
+        state = state.copyWith(
+          sentInvites: sentInvites,
+          receivedInvites: receivedInvites,
+          activeInvite:
+              activeInvite, // Pode ser null se nenhum convite ativo for encontrado
+          isLoading: false, // Certifique-se de resetar isLoading
+          error: null, // Limpar erro anterior em caso de sucesso
         );
+
+        if (kDebugMode) {
+          print(
+            '📨 TestInviteProvider: ${sentInvites.length} enviados, ${receivedInvites.length} recebidos. ActiveInvite: ${activeInvite?.id}',
+          );
+        }
       }
     } catch (e) {
       _handleError('Erro ao processar convites: $e');
@@ -301,12 +309,21 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
     List<TestInvite> sentInvites,
     List<TestInvite> receivedInvites,
   ) {
-    final allInvites = [...sentInvites, ...receivedInvites];
+    // Priorizar convites em progresso, depois aceitos, mais recentes primeiro.
+    final allInvites = [
+      ...receivedInvites,
+      ...sentInvites,
+    ]; // Processar recebidos primeiro ou conforme sua prioridade
+    allInvites.sort(
+      (a, b) => b.createdAt.compareTo(a.createdAt),
+    ); // Processar mais novos primeiro
+
     for (final invite in allInvites) {
-      if (invite.status == TestInviteStatus.accepted && !invite.isExpired) {
+      if ((invite.status == TestInviteStatus.inProgress ||
+              invite.status == TestInviteStatus.accepted) &&
+          !invite.isExpired) {
         return invite;
       }
-      // Você pode adicionar lógica para TestInviteStatus.inProgress aqui se necessário
     }
     return null;
   }
@@ -365,12 +382,13 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
       // Enviar notificação para o usuário alvo
       await _sendInviteNotification(targetUser, currentUser);
 
-      state = state.copyWith(isLoading: false);
-
-      if (kDebugMode) {
-        print(
-          '✅ TestInviteProvider: Convite enviado para ${targetUser.preferredDisplayName}',
-        );
+      if (mounted) {
+        state = state.copyWith(isLoading: false);
+        if (kDebugMode) {
+          print(
+            '✅ TestInviteProvider: Convite enviado para ${targetUser.preferredDisplayName}',
+          );
+        }
       }
 
       return true;
@@ -460,12 +478,13 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
         }
       }
 
-      state = state.copyWith(isLoading: false);
-
-      if (kDebugMode) {
-        print(
-          '✅ TestInviteProvider: Convite ${accept ? 'aceito' : 'rejeitado'}',
-        );
+      if (mounted) {
+        state = state.copyWith(isLoading: false);
+        if (kDebugMode) {
+          print(
+            '✅ TestInviteProvider: Convite ${accept ? 'aceito' : 'rejeitado'}',
+          );
+        }
       }
 
       return true;
@@ -530,13 +549,18 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
       });
 
       // Limpar convite ativo
-      state = state.copyWith(activeInvite: null);
-
-      if (kDebugMode) {
-        print('✅ TestInviteProvider: Teste finalizado para convite $inviteId');
+      if (mounted) {
+        state = state.copyWith(
+          activeInvite: null,
+        ); // Limpa o activeInvite se o teste concluído era o ativo
+        if (kDebugMode) {
+          print(
+            '✅ TestInviteProvider: Teste finalizado para convite $inviteId',
+          );
+        }
       }
 
-      return true;
+      return true; // Retorna true mesmo se não estiver montado, pois a operação no Firestore foi feita.
     } catch (e) {
       _handleError('Erro ao finalizar teste: $e');
       return false;
@@ -591,15 +615,18 @@ class TestInviteNotifier extends StateNotifier<TestInviteState> {
 
   // ============== CONTROLE DE ESTADO ==============
   void clearError() {
-    state = state.copyWith(error: null);
+    if (mounted) {
+      state = state.copyWith(error: null);
+    }
   }
 
   void _handleError(String error) {
     if (kDebugMode) {
       print('❌ TestInviteProvider: $error');
     }
-
-    state = state.copyWith(isLoading: false, error: error);
+    if (mounted) {
+      state = state.copyWith(isLoading: false, error: error);
+    }
   }
 
   @override

@@ -143,6 +143,7 @@ class TestSessionState {
   final String? error;
   final DateTime? sessionStartedAt;
   final Duration? timeRemaining;
+  final String? inviteId; // Adicionar inviteId
 
   const TestSessionState({
     this.sessionId,
@@ -158,6 +159,7 @@ class TestSessionState {
     this.error,
     this.sessionStartedAt,
     this.timeRemaining,
+    this.inviteId,
   });
 
   TestSessionState copyWith({
@@ -174,6 +176,7 @@ class TestSessionState {
     String? error,
     DateTime? sessionStartedAt,
     Duration? timeRemaining,
+    String? inviteId,
   }) {
     return TestSessionState(
       sessionId: sessionId ?? this.sessionId,
@@ -189,6 +192,7 @@ class TestSessionState {
       error: error,
       sessionStartedAt: sessionStartedAt ?? this.sessionStartedAt,
       timeRemaining: timeRemaining ?? this.timeRemaining,
+      inviteId: inviteId ?? this.inviteId,
     );
   }
 
@@ -345,6 +349,7 @@ class TestSessionNotifier extends StateNotifier<TestSessionState> {
         phase: TestPhase.questions,
         sessionStartedAt: DateTime.now(),
         isLoading: false,
+        inviteId: inviteId, // Store the inviteId
       );
 
       // Iniciar listener da sessão

@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/feature/games/social/providers/connection_lifecycle_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_invite_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_session_provider.dart';
+import 'package:unlock/feature/social/providers/connection_lifecycle_provider.dart';
+import 'package:unlock/feature/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/providers/test_session_provider.dart';
 
 /// Widget que mostra o status geral das conexões do usuário
 /// Aparece na HomeScreen como um dashboard resumido

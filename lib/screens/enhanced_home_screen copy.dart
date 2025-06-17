@@ -5,12 +5,12 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/feature/games/social/providers/discovery_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/providers/discovery_provider.dart';
+import 'package:unlock/feature/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/widgets/connection_status_widget.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/widgtes/animated_button.dart';
-import 'package:unlock/widgtes/connection_status_widget.dart';
 import 'package:unlock/widgtes/custom_app_bar.dart';
 import 'package:unlock/widgtes/custom_bottom_navigation.dart';
 import 'package:unlock/widgtes/pending_invites_card.dart';
@@ -20,14 +20,15 @@ import 'package:unlock/widgtes/pending_invites_card.dart';
 /// - Dashboard de conexões ativo
 /// - Navegação fluída e intuitiva
 /// - Animações que comunicam status
-class EnhancedHomeScreen extends ConsumerStatefulWidget {
-  const EnhancedHomeScreen({super.key});
+class OldEnhancedHomeScreen extends ConsumerStatefulWidget {
+  const OldEnhancedHomeScreen({super.key});
 
   @override
-  ConsumerState<EnhancedHomeScreen> createState() => _EnhancedHomeScreenState();
+  ConsumerState<OldEnhancedHomeScreen> createState() =>
+      _EnhancedHomeScreenState();
 }
 
-class _EnhancedHomeScreenState extends ConsumerState<EnhancedHomeScreen>
+class _EnhancedHomeScreenState extends ConsumerState<OldEnhancedHomeScreen>
     with TickerProviderStateMixin {
   late AnimationController _mainController;
   late AnimationController _floatingButtonController;

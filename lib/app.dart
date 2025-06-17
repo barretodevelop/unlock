@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/config/app_router.dart';
 import 'package:unlock/config/app_theme.dart';
+import 'package:unlock/config/updated_app_router.dart';
 import 'package:unlock/providers/theme_provider.dart';
 
 class UnlockApp extends ConsumerWidget {
@@ -10,7 +10,7 @@ class UnlockApp extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isDark = ref.watch(themeProvider);
-    final router = ref.watch(appRouterProvider);
+    final router = ref.watch(AppRouterProvider);
 
     return MaterialApp.router(
       title: 'Unlock',

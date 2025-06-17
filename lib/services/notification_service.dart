@@ -238,6 +238,30 @@ class NotificationService {
     final prefs = await SharedPreferences.getInstance();
     return prefs.getString('fcm_token');
   }
+
+  static Future<void> showSuccess(String message) async {
+    await showSimpleLocalNotification(
+      title: '✅ Sucesso',
+      body: message,
+      payload: 'success',
+    );
+  }
+
+  static Future<void> showError(String message) async {
+    await showSimpleLocalNotification(
+      title: '❌ Erro',
+      body: message,
+      payload: 'error',
+    );
+  }
+
+  static Future<void> showInfo(String message) async {
+    await showSimpleLocalNotification(
+      title: 'ℹ️ Informação',
+      body: message,
+      payload: 'info',
+    );
+  }
 }
 
 // ✅ Handler para mensagens FCM em background (top-level function)

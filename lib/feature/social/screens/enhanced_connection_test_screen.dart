@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/feature/games/social/providers/test_session_provider.dart';
+import 'package:unlock/feature/social/providers/test_session_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/utils/helpers.dart';

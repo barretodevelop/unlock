@@ -4,11 +4,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/feature/games/social/providers/discovery_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/providers/discovery_provider.dart';
+import 'package:unlock/feature/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/screens/list_profiles.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/screens/list_profiles.dart';
 import 'package:unlock/screens/mission_screen.dart';
 import 'package:unlock/widgtes/custom_app_bar.dart';
 import 'package:unlock/widgtes/custom_bottom_navigation.dart';
@@ -902,93 +902,375 @@ class _HomeScreenState extends ConsumerState<EnhancedHomeScreen>
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     return Container(
-      height: MediaQuery.of(context).size.height * 0.8,
+      height: MediaQuery.of(context).size.height * 0.85,
       decoration: BoxDecoration(
-        color: isDark ? Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.only(
-          topLeft: Radius.circular(20),
-          topRight: Radius.circular(20),
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: isDark
+              ? [
+                  const Color(0xFF0F172A),
+                  const Color(0xFF1E293B).withOpacity(0.98),
+                ]
+              : [Colors.white, const Color(0xFFFAFBFF)],
         ),
+        borderRadius: const BorderRadius.only(
+          topLeft: Radius.circular(24),
+          topRight: Radius.circular(24),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 20,
+            offset: const Offset(0, -5),
+          ),
+        ],
       ),
       child: Column(
         children: [
+          // Handle indicator
           Container(
-            padding: EdgeInsets.all(20),
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: isDark ? Colors.grey.shade600 : Colors.grey.shade300,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(24, 16, 16, 24),
             child: Row(
               children: [
-                Text(
-                  'Seus Convites',
-                  style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: isDark ? Colors.white : Colors.black87,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.blue.shade900.withOpacity(0.3)
+                        : Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    Icons.mail_outline,
+                    size: 20,
+                    color: isDark ? Colors.blue.shade300 : Colors.blue.shade600,
                   ),
                 ),
-                Spacer(),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Seus Convites',
+                        style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w700,
+                          color: isDark ? Colors.white : Colors.black87,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        '${testInviteState.pendingReceivedInvites.length} convite${testInviteState.pendingReceivedInvites.length != 1 ? 's' : ''} pendente${testInviteState.pendingReceivedInvites.length != 1 ? 's' : ''}',
+                        style: TextStyle(
+                          fontSize: 14,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: Icon(
-                    Icons.close,
-                    color: isDark ? Colors.white : Colors.black87,
+                  icon: Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: isDark
+                          ? Colors.grey.shade800.withOpacity(0.5)
+                          : Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Icon(
+                      Icons.close,
+                      size: 20,
+                      color: isDark
+                          ? Colors.grey.shade300
+                          : Colors.grey.shade600,
+                    ),
                   ),
                 ),
               ],
             ),
           ),
+
+          // Content
           Expanded(
-            child: ListView.builder(
-              padding: EdgeInsets.symmetric(horizontal: 20),
-              itemCount: testInviteState.pendingReceivedInvites.length,
-              itemBuilder: (context, index) {
-                final invite = testInviteState.pendingReceivedInvites[index];
-                return Container(
-                  margin: EdgeInsets.only(bottom: 12),
-                  padding: EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.grey.shade800 : Colors.grey.shade100,
-                    borderRadius: BorderRadius.circular(12),
+            child: testInviteState.pendingReceivedInvites.isEmpty
+                ? _buildEmptyState(isDark)
+                : ListView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 24),
+                    itemCount: testInviteState.pendingReceivedInvites.length,
+                    itemBuilder: (context, index) {
+                      final invite =
+                          testInviteState.pendingReceivedInvites[index];
+                      return _buildInviteCard(invite, isDark, index);
+                    },
                   ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildEmptyState(bool isDark) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: isDark
+                    ? [
+                        Colors.grey.shade800.withOpacity(0.2),
+                        Colors.grey.shade800.withOpacity(0.1),
+                        Colors.blue.shade900.withOpacity(0.05),
+                      ]
+                    : [
+                        Colors.grey.shade50,
+                        const Color(0xFFF8FAFF),
+                        const Color(0xFFE0F2FE).withOpacity(0.2),
+                      ],
+              ),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Icon(
+              Icons.inbox_outlined,
+              size: 48,
+              color: isDark ? Colors.grey.shade500 : Colors.grey.shade400,
+            ),
+          ),
+          const SizedBox(height: 16),
+          Text(
+            'Nenhum convite pendente',
+            style: TextStyle(
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
+              color: isDark ? Colors.grey.shade300 : Colors.grey.shade700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Você está em dia com seus convites!',
+            style: TextStyle(
+              fontSize: 14,
+              color: isDark ? Colors.grey.shade500 : Colors.grey.shade500,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildInviteCard(dynamic invite, bool isDark, int index) {
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 200 + (index * 50)),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 16),
+      child: Container(
+        padding: const EdgeInsets.all(20),
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: isDark
+                ? [
+                    const Color(0xFF1E293B),
+                    const Color(0xFF1E293B).withOpacity(0.95),
+                    const Color(0xFF2563EB).withOpacity(0.15),
+                  ]
+                : [
+                    Colors.white,
+                    const Color(0xFFF1F5F9),
+                    const Color(0xFFDEEAFE).withOpacity(0.6),
+                  ],
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isDark
+                ? const Color(0xFF475569).withOpacity(0.8)
+                : const Color(0xFF2563EB).withOpacity(0.15),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: isDark
+                  ? Colors.black.withOpacity(0.3)
+                  : const Color(0xFF2563EB).withOpacity(0.08),
+              blurRadius: 12,
+              offset: const Offset(0, 3),
+            ),
+            BoxShadow(
+              color: isDark
+                  ? const Color(0xFF2563EB).withOpacity(0.1)
+                  : const Color(0xFF2563EB).withOpacity(0.04),
+              blurRadius: 6,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // User info
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 20,
+                  backgroundColor: isDark
+                      ? Colors.blue.shade800
+                      : Colors.blue.shade100,
+                  child: Text(
+                    invite.senderUser.preferredDisplayName[0].toUpperCase(),
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      color: isDark
+                          ? Colors.blue.shade200
+                          : Colors.blue.shade800,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
                         'Convite de ${invite.senderUser.preferredDisplayName}',
                         style: TextStyle(
-                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          fontWeight: FontWeight.w600,
                           color: isDark ? Colors.white : Colors.black87,
                         ),
                       ),
-                      SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _respondToInvite(invite.id, false);
-                              },
-                              child: Text('Recusar'),
-                            ),
-                          ),
-                          SizedBox(width: 12),
-                          Expanded(
-                            child: ElevatedButton(
-                              onPressed: () {
-                                Navigator.pop(context);
-                                _respondToInvite(invite.id, true);
-                              },
-                              child: Text('Aceitar'),
-                            ),
-                          ),
-                        ],
+                      const SizedBox(height: 2),
+                      Text(
+                        'Quer se conectar com você',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: isDark
+                              ? Colors.grey.shade400
+                              : Colors.grey.shade600,
+                          fontWeight: FontWeight.w500,
+                        ),
                       ),
                     ],
                   ),
-                );
-              },
+                ),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 4,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.orange.shade900.withOpacity(0.3)
+                        : Colors.orange.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: Text(
+                    'Pendente',
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: isDark
+                          ? Colors.orange.shade300
+                          : Colors.orange.shade700,
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        ],
+
+            const SizedBox(height: 16),
+
+            // Action buttons
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _respondToInvite(invite.id, false);
+                    },
+                    icon: Icon(
+                      Icons.close,
+                      size: 16,
+                      color: isDark ? Colors.red.shade300 : Colors.red.shade600,
+                    ),
+                    label: const Text('Recusar'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: isDark
+                          ? Colors.red.shade300
+                          : Colors.red.shade600,
+                      side: BorderSide(
+                        color: isDark
+                            ? Colors.red.shade300
+                            : Colors.red.shade600,
+                        width: 1.5,
+                      ),
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: () {
+                      Navigator.pop(context);
+                      _respondToInvite(invite.id, true);
+                    },
+                    icon: const Icon(
+                      Icons.check,
+                      size: 16,
+                      color: Colors.white,
+                    ),
+                    label: const Text(
+                      'Aceitar',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: isDark
+                          ? Colors.blue.shade600
+                          : Colors.blue.shade600,
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }

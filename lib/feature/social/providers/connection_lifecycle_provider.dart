@@ -3,9 +3,9 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/feature/games/social/providers/discovery_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_invite_provider.dart';
-import 'package:unlock/feature/games/social/providers/test_session_provider.dart';
+import 'package:unlock/feature/social/providers/discovery_provider.dart';
+import 'package:unlock/feature/social/providers/test_invite_provider.dart';
+import 'package:unlock/feature/social/providers/test_session_provider.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/services/notification_service.dart';
 
@@ -76,33 +76,45 @@ class ConnectionLifecycleNotifier
   }
 
   // ============== INICIALIZAÇÃO ==============
-  void _initialize() async {
-    try {
-      if (kDebugMode) {
-        print('🔄 ConnectionLifecycle: Inicializando...');
+  void _initialize() {
+    // Defer initialization to after the current build cycle to avoid modifying
+    // providers while the widget tree is building.
+    Future.microtask(() async {
+      try {
+        if (kDebugMode) {
+          print('🔄 ConnectionLifecycle: Inicializando (microtask)...');
+        }
+
+        // Escutar mudanças de autenticação
+        // The fireImmediately: true callback will execute within this microtask context.
+        _authSubscription = _ref.listen<AuthState>(authProvider, (
+          previous,
+          next,
+        ) {
+          _handleAuthChange(previous, next);
+        }, fireImmediately: true);
+
+        // Escutar mudanças nos providers relacionados
+        _setupProviderListeners();
+
+        if (mounted) {
+          // Check if the notifier is still active
+          state = state.copyWith(isInitialized: true);
+        }
+
+        if (kDebugMode) {
+          print('✅ ConnectionLifecycle: Inicializado (microtask)');
+        }
+      } catch (e) {
+        if (kDebugMode) {
+          print('❌ ConnectionLifecycle: Erro na inicialização (microtask): $e');
+        }
+        if (mounted) {
+          // Optionally update state to reflect initialization error
+          // state = state.copyWith(isInitialized: false, currentActivity: 'Erro de inicialização');
+        }
       }
-
-      // Escutar mudanças de autenticação
-      _authSubscription = _ref.listen<AuthState>(authProvider, (
-        previous,
-        next,
-      ) {
-        _handleAuthChange(previous, next);
-      }, fireImmediately: true);
-
-      // Escutar mudanças nos providers relacionados
-      _setupProviderListeners();
-
-      state = state.copyWith(isInitialized: true);
-
-      if (kDebugMode) {
-        print('✅ ConnectionLifecycle: Inicializado');
-      }
-    } catch (e) {
-      if (kDebugMode) {
-        print('❌ ConnectionLifecycle: Erro na inicialização: $e');
-      }
-    }
+    });
   }
 
   void _handleAuthChange(AuthState? previous, AuthState next) {
@@ -117,26 +129,34 @@ class ConnectionLifecycleNotifier
 
   void _setupProviderListeners() {
     // Escutar mudanças no estado de convites
-    _ref.listen(testInviteProvider, (previous, next) {
-      state = state.copyWith(
-        pendingInvites: next?.pendingReceivedInvites.length,
-        hasActiveConnections:
-            next!.sentInvites.isNotEmpty || next!.receivedInvites.isNotEmpty,
-      );
-
-      _updateCurrentActivity(next);
+    _ref.listen(testInviteProvider, (Object? previous, Object? next) {
+      if (!mounted) return;
+      // Assuming TestInviteState is the actual type and it's non-nullable
+      // as _updateCurrentActivity expects TestInviteState.
+      if (next is TestInviteState) {
+        state = state.copyWith(
+          pendingInvites: next.pendingReceivedInvites.length,
+          hasActiveConnections:
+              next.sentInvites.isNotEmpty || next.receivedInvites.isNotEmpty,
+        );
+        _updateCurrentActivity(next);
+      }
     });
 
     // Escutar mudanças no estado da sessão de teste
-    _ref.listen(testSessionProvider, (previous, next) {
+    _ref.listen<TestSessionState>(testSessionProvider, (previous, next) {
+      if (!mounted) return;
       state = state.copyWith(hasActiveTest: next.hasActiveSession);
-
       _updateTestActivity(next);
     });
 
     // Escutar mudanças no discovery
-    _ref.listen(discoveryProvider, (previous, next) {
-      if (next.isSearching) {
+    _ref.listen(discoveryProvider, (Object? previous, Object? next) {
+      if (!mounted) return;
+      // Assuming 'next' has an 'isSearching' property.
+      // A more robust check would involve knowing the actual type of 'next'.
+      final dynamic discoveryState = next;
+      if (discoveryState != null && discoveryState.isSearching == true) {
         state = state.copyWith(currentActivity: 'Buscando conexões...');
       }
     });
@@ -177,7 +197,10 @@ class ConnectionLifecycleNotifier
     }
 
     // Limpar estado
-    state = const ConnectionLifecycleState();
+    if (mounted) {
+      // Check if the notifier is still active
+      state = const ConnectionLifecycleState();
+    }
   }
 
   void _startHeartbeat() {
@@ -203,7 +226,10 @@ class ConnectionLifecycleNotifier
       // Atualizar atividade do usuário
       _ref.read(discoveryProvider.notifier).updateUserActivity();
 
-      state = state.copyWith(lastHeartbeat: DateTime.now());
+      if (mounted) {
+        // Check if the notifier is still active
+        state = state.copyWith(lastHeartbeat: DateTime.now());
+      }
 
       if (kDebugMode) {
         print('💗 ConnectionLifecycle: Heartbeat enviado');
@@ -232,7 +258,10 @@ class ConnectionLifecycleNotifier
     }
 
     if (activity != state.currentActivity) {
-      state = state.copyWith(currentActivity: activity);
+      if (mounted) {
+        // Check if the notifier is still active
+        state = state.copyWith(currentActivity: activity);
+      }
 
       // Enviar notificação se necessário
       if (activity != null &&
@@ -264,7 +293,10 @@ class ConnectionLifecycleNotifier
     }
 
     if (activity != state.currentActivity) {
-      state = state.copyWith(currentActivity: activity);
+      if (mounted) {
+        // Check if the notifier is still active
+        state = state.copyWith(currentActivity: activity);
+      }
     }
   }
 
