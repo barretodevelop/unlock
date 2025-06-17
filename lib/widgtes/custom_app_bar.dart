@@ -19,6 +19,7 @@ class CustomAppBar extends StatelessWidget implements PreferredSizeWidget {
     this.hasNotifications = false,
     this.onNotificationTap,
     this.onAvatarTap,
+    required int notificationCount,
   });
 
   @override

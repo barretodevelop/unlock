@@ -89,7 +89,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         userName: user!.displayName,
         userCode: user.codinome ?? 'Anonimo',
         avatarId: user.avatar,
-        hasNotifications: _hasNotifications,
+        notificationCount: 0,
         onNotificationTap: _onNotificationTap,
         onAvatarTap: _onAvatarTap,
       ),

@@ -86,7 +86,7 @@ class _EnhancedHomeScreenState extends ConsumerState<OldEnhancedHomeScreen>
         userName: user?.displayName ?? 'Usuário',
         userCode: user?.codinome ?? 'USER001',
         avatarId: user?.avatar ?? 'avatar_1',
-        hasNotifications: notificationCount > 0,
+        notificationCount: notificationCount,
         onNotificationTap: () => context.go('/notifications'),
         onAvatarTap: () => context.go('/profile'),
       ),
