@@ -366,20 +366,21 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
-          // ElevatedButton.icon(
-          //   onPressed: () => _onRefresh(
-          //      ref.watch(missionprovider.notifier)
-          //   ),
-          //   icon: const Icon(Icons.refresh),
-          //   label: const Text('Atualizar'),
-          //   style: ElevatedButton.styleFrom(
-          //     backgroundColor: theme.colorScheme.primary,
-          //     foregroundColor: theme.colorScheme.onPrimary,
-          //     shape: RoundedRectangleBorder(
-          //       borderRadius: BorderRadius.circular(12),
-          //     ),
-          //   ),
-          // ),
+          ElevatedButton.icon(
+            onPressed: () {},
+            // onPressed: () => _onRefresh(
+            //   Provider.of<ProviderContainer>(context, listen: false).read,
+            // ),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Atualizar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ],
       ),
     );

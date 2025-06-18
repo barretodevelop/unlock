@@ -1,4 +1,4 @@
-﻿# MISSIONS README
+﻿# REWARDS README
 Implementado na Fase 3 - Home e MissÃµes Gamificadas
 
 ## Status: Em Desenvolvimento 

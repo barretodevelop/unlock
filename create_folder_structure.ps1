@@ -1,261 +1,165 @@
-# PowerShell Script para criar estrutura de pastas do projeto Unlock
-# Execute este script na raiz do projeto Flutter
+# ================================================================================================
+# SCRIPT POWERSHELL - CRIAÇÃO ESTRUTURA FASE 3
+# App: Unlock - Home e Missões Gamificadas
+# ================================================================================================
 
-Write-Host "Criando estrutura de pastas para o projeto Unlock..." -ForegroundColor Green
+Write-Host "Criando estrutura da Fase 3 - Home e Missões..." -ForegroundColor Cyan
 
-# Função para criar diretório se não existir
-function New-DirectoryIfNotExists {
-    param([string]$Path)
-    if (!(Test-Path $Path)) {
-        New-Item -ItemType Directory -Path $Path -Force | Out-Null
-        Write-Host "Criado: $Path" -ForegroundColor Cyan
+# Verificar se estamos no diretório correto
+if (-not (Test-Path "lib")) {
+    Write-Host "Erro: Execute o script na raiz do projeto Flutter (onde está o pubspec.yaml)" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "Criando estrutura de pastas..." -ForegroundColor Yellow
+
+# ================================================================================================
+# FEATURES - HOME (expandir existente)
+# ================================================================================================
+$homeFeature = @(
+    "lib/features/home/screens",
+    "lib/features/home/widgets", 
+    "lib/features/home/providers"
+)
+
+foreach ($folder in $homeFeature) {
+    if (-not (Test-Path $folder)) {
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
+        Write-Host "$folder" -ForegroundColor Green
     } else {
-        Write-Host "Já existe: $Path" -ForegroundColor Yellow
+        Write-Host "$folder (já existe)" -ForegroundColor Gray
     }
 }
 
-# Criar estrutura principal
-$folders = @(
-    # Core (configurações centrais)
-    "lib/core",
-    "lib/core/constants",
-    "lib/core/theme", 
-    "lib/core/utils",
-    "lib/core/router",
-    "lib/core/validators",
-    "lib/core/extensions",
-    
-    # Features (funcionalidades por módulo)
-    "lib/features",
-    "lib/features/auth",
-    "lib/features/auth/screens",
-    "lib/features/auth/widgets", 
-    "lib/features/auth/providers",
-    
-    "lib/features/onboarding",
-    "lib/features/onboarding/screens",
-    "lib/features/onboarding/widgets",
-    "lib/features/onboarding/providers",
-    
-    "lib/features/home",
-    "lib/features/home/screens", 
-    "lib/features/home/widgets",
-    "lib/features/home/providers",
-    
+# ================================================================================================
+# FEATURES - MISSIONS (nova)
+# ================================================================================================
+$missionsFeature = @(
     "lib/features/missions",
+    "lib/features/missions/models",
+    "lib/features/missions/screens", 
+    "lib/features/missions/widgets",
+    "lib/features/missions/providers",
+    "lib/features/missions/services"
+)
+
+foreach ($folder in $missionsFeature) {
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    Write-Host "$folder" -ForegroundColor Green
+}
+
+# ================================================================================================
+# FEATURES - REWARDS (nova)
+# ================================================================================================
+$rewardsFeature = @(
+    "lib/features/rewards",
+    "lib/features/rewards/models",
+    "lib/features/rewards/providers", 
+    "lib/features/rewards/services"
+)
+
+foreach ($folder in $rewardsFeature) {
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    Write-Host "$folder" -ForegroundColor Green
+}
+
+# ================================================================================================
+# FEATURES - NAVIGATION (nova)
+# ================================================================================================
+$navigationFeature = @(
+    "lib/features/navigation",
+    "lib/features/navigation/widgets",
+    "lib/features/navigation/providers"
+)
+
+foreach ($folder in $navigationFeature) {
+    New-Item -ItemType Directory -Path $folder -Force | Out-Null
+    Write-Host "$folder" -ForegroundColor Green
+}
+
+# ================================================================================================
+# CORE EXPANSÕES
+# ================================================================================================
+$coreExpansions = @(
+    "lib/core/constants",
+    "lib/core/utils", 
+    "lib/core/services"
+)
+
+foreach ($folder in $coreExpansions) {
+    if (-not (Test-Path $folder)) {
+        New-Item -ItemType Directory -Path $folder -Force | Out-Null
+        Write-Host "$folder" -ForegroundColor Green
+    } else {
+        Write-Host "$folder (já existe)" -ForegroundColor Gray
+    }
+}
+
+# ================================================================================================
+# CRIAR ARQUIVOS README INICIAIS
+# ================================================================================================
+Write-Host "Criando arquivos README..." -ForegroundColor Yellow
+
+$readmeContent = @"
+# Feature README
+Implementado na Fase 3 - Home e Missões Gamificadas
+
+## Status: Em Desenvolvimento 
+
+## Arquivos principais:
+- [ ] Models
+- [ ] Providers  
+- [ ] Services
+- [ ] Widgets
+- [ ] Screens
+
+Atualizado em: $(Get-Date -Format 'dd/MM/yyyy HH:mm')
+"@
+
+# README para features novas
+$newFeatures = @("missions", "rewards", "navigation")
+foreach ($feature in $newFeatures) {
+    $readmePath = "lib/features/$feature/README.md"
+    $readmeContent.Replace("Feature README", "$feature README".ToUpper()) | Out-File -FilePath $readmePath -Encoding UTF8
+    Write-Host "$readmePath" -ForegroundColor Cyan
+}
+
+# ================================================================================================
+# CRIAR ARQUIVOS .gitkeep PARA PASTAS VAZIAS
+# ================================================================================================
+$emptyFolders = @(
+    "lib/features/missions/models",
     "lib/features/missions/screens",
     "lib/features/missions/widgets", 
     "lib/features/missions/providers",
-    "lib/features/missions/models",
-    
-    "lib/features/profile",
-    "lib/features/profile/screens",
-    "lib/features/profile/widgets",
-    "lib/features/profile/providers",
-    
-    "lib/features/connections",
-    "lib/features/connections/screens", 
-    "lib/features/connections/widgets",
-    "lib/features/connections/providers",
-    "lib/features/connections/models",
-    
-    "lib/features/shop",
-    "lib/features/shop/screens",
-    "lib/features/shop/widgets",
-    "lib/features/shop/providers",
-    
-    "lib/features/games",
-    "lib/features/games/screens",
-    "lib/features/games/widgets", 
-    "lib/features/games/providers",
-    "lib/features/games/models",
-    
-    # Models (modelos de dados globais)
-    "lib/models",
-    
-    # Providers (providers globais)
-    "lib/providers",
-    
-    # Services (serviços globais)
-    "lib/services",
-    "lib/services/security",
-    "lib/services/api",
-    "lib/services/cache",
-    "lib/services/notifications",
-    
-    # Shared (componentes compartilhados)
-    "lib/shared",
-    "lib/shared/widgets",
-    "lib/shared/widgets/buttons",
-    "lib/shared/widgets/cards", 
-    "lib/shared/widgets/forms",
-    "lib/shared/widgets/loading",
-    "lib/shared/widgets/dialogs",
-    "lib/shared/screens",
-    "lib/shared/utils",
-    
-    # Assets organization
-    "assets",
-    "assets/images",
-    "assets/images/avatars",
-    "assets/images/icons", 
-    "assets/images/backgrounds",
-    "assets/animations",
-    "assets/fonts",
-    "assets/sounds",
-    
-    # Configuration files
-    "config",
-    "config/firebase",
-    "config/environments",
-    
-    # Documentation
-    "docs",
-    "docs/api",
-    "docs/architecture", 
-    "docs/features",
-    
-    # Tests
-    "test",
-    "test/unit",
-    "test/widget", 
-    "test/integration",
-    "test/mocks",
-    
-    # Scripts
-    "scripts",
-    "scripts/build",
-    "scripts/deploy"
+    "lib/features/missions/services",
+    "lib/features/rewards/models",
+    "lib/features/rewards/providers",
+    "lib/features/rewards/services",
+    "lib/features/navigation/widgets",
+    "lib/features/navigation/providers"
 )
 
-# Criar todas as pastas
-foreach ($folder in $folders) {
-    New-DirectoryIfNotExists -Path $folder
-}
-
-Write-Host ""
-Write-Host "Criando arquivos de documentação da estrutura..." -ForegroundColor Green
-
-# Criar arquivo README para cada feature
-$features = @("auth", "onboarding", "home", "missions", "profile", "connections", "shop", "games")
-
-foreach ($feature in $features) {
-    $readmePath = "lib/features/$feature/README.md"
-    if (!(Test-Path $readmePath)) {
-        $readmeContent = @"
-#Feature: $($feature.ToUpper())
-
-## Estrutura
-- `screens/` - Telas da funcionalidade
-- `widgets/` - Widgets específicos
-- `providers/` - Gerenciamento de estado
-- `models/` - Modelos de dados específicos (se aplicável)
-
-## Responsabilidades
-TODO: Documentar responsabilidades desta feature
-
-## Dependências
-TODO: Listar dependências de outras features
-
-## Implementação
-- [ ] Screens
-- [ ] Widgets  
-- [ ] Providers
-- [ ] Models
-- [ ] Testes
-"@
-        $readmeContent | Out-File -FilePath $readmePath -Encoding UTF8
-        Write-Host "Criado: $readmePath" -ForegroundColor Cyan
-    }
-}
-
-# Criar arquivo de arquitetura
-$archPath = "docs/architecture/README.md"
-if (!(Test-Path $archPath)) {
-    $archContent = @"
-#  Arquitetura do Projeto Unlock
-
-## Princípios
-- **Clean Architecture**: Separação clara de responsabilidades
-- **Feature-Based**: Organização por funcionalidades
-- **Provider Pattern**: Gerenciamento de estado com Riverpod
-- **Single Responsibility**: Cada arquivo tem uma responsabilidade específica
-
-## Estrutura de Pastas
-
-### `/lib/core/`
-Configurações centrais e utilitários compartilhados por todo o app.
-
-### `/lib/features/`
-Funcionalidades organizadas em módulos independentes.
-
-### `/lib/shared/`
-Componentes reutilizáveis entre diferentes features.
-
-### `/lib/services/`
-Serviços globais (Firebase, APIs, Cache, etc.).
-
-## Fluxo de Dados
-User Interaction → Widget → Provider → Service → Backend → Provider → Widget
-
-## Convenções de Nomenclatura
-- Arquivos: `snake_case.dart`
-- Classes: `PascalCase`
-- Variáveis: `camelCase`
-- Constantes: `UPPER_SNAKE_CASE`
-"@
-    $archContent | Out-File -FilePath $archPath -Encoding UTF8
-    Write-Host "Criado: $archPath" -ForegroundColor Cyan
-}
-
-# Criar .gitkeep para pastas vazias importantes
-$gitkeepFolders = @(
-    "assets/images/avatars",
-    "assets/animations", 
-    "assets/sounds",
-    "test/mocks",
-    "config/environments"
-)
-
-foreach ($folder in $gitkeepFolders) {
+foreach ($folder in $emptyFolders) {
     $gitkeepPath = "$folder/.gitkeep"
-    if (!(Test-Path $gitkeepPath)) {
-        "" | Out-File -FilePath $gitkeepPath -Encoding UTF8
-        Write-Host "Criado: $gitkeepPath" -ForegroundColor Cyan
-    }
+    "" | Out-File -FilePath $gitkeepPath -Encoding UTF8
 }
 
-# Criar arquivo de configuração de ambiente exemplo
-$envExamplePath = "config/environments/.env.example"
-if (!(Test-Path $envExamplePath)) {
-    $envContent = @"
-# Firebase Configuration
-FIREBASE_API_KEY=your_api_key_here
-FIREBASE_APP_ID=your_app_id_here
-FIREBASE_PROJECT_ID=your_project_id_here
-
-# Development
-DEBUG_MODE=true
-LOG_LEVEL=debug
-
-# Features Flags
-ENABLE_ANALYTICS=false
-ENABLE_CRASHLYTICS=false
-ENABLE_PERFORMANCE=false
-
-# API Configuration  
-API_BASE_URL=https://api.unlock.app
-API_TIMEOUT=30000
-"@
-    $envContent | Out-File -FilePath $envExamplePath -Encoding UTF8
-    Write-Host "Criado: $envExamplePath" -ForegroundColor Cyan
-}
-
+# ================================================================================================
+# RESUMO FINAL
+# ================================================================================================
 Write-Host ""
-Write-Host "Estrutura de pastas criada com sucesso!" -ForegroundColor Green
-Write-Host "Próximos passos:" -ForegroundColor Yellow
-Write-Host "   1. Mover arquivos existentes para a nova estrutura" -ForegroundColor White
-Write-Host "   2. Atualizar imports nos arquivos" -ForegroundColor White  
-Write-Host "   3. Implementar sistema de logs" -ForegroundColor White
-Write-Host "   4. Configurar ambientes (.env)" -ForegroundColor White
+Write-Host " ESTRUTURA FASE 3 CRIADA COM SUCESSO!" -ForegroundColor Green
 Write-Host ""
+Write-Host "Resumo:" -ForegroundColor Cyan
+Write-Host "   • Features expandidas: home" -ForegroundColor White  
+Write-Host "   • Features novas: missions, rewards, navigation" -ForegroundColor White
+Write-Host "   • Core expansions: constants, utils, services" -ForegroundColor White
+Write-Host ""
+Write-Host " Próximos passos:" -ForegroundColor Yellow
+Write-Host "   1. Copiar arquivos de código dos artefatos" -ForegroundColor White
+Write-Host "   2. Executar flutter pub get" -ForegroundColor White
+Write-Host "   3. Verificar imports" -ForegroundColor White
+Write-Host "   4. Testar compilação" -ForegroundColor White
+Write-Host ""
+Write-Host " Estrutura pronta para implementação da Fase 3!" -ForegroundColor Green

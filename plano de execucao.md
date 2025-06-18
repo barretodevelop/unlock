@@ -73,10 +73,13 @@ Fase 3 – Home e Missões (Estimativa: 3-4 Semanas)
 Objetivo: Criar a tela inicial e o sistema básico de gamificação (moedas, XP, missões).
 Tarefas:
 
-3.1. Desenvolvimento da Tela Home:
-Projetar e desenvolver UI para a tela inicial (layout, navegação devera conter um appbar com informacoes do usuario e economia alem de botao para configuracao no actions).
+3.1. Desenvolvimento da Tela Home: usando UX layout responsivo cores equilibradas usando themenotifier para dark 
+Projetar e desenvolver UI para a tela inicial .
+devera conter um appbar(custom) com informacoes do usuario e economia alem de botao para configuracao no actions
+o navigatebottom com 4 botoees e um floatingbutton no centro 
 Exibir indicadores de Coins, Gems, XP.
-Integrar botão "Localizar conexões".
+exibir cards de conteudo baseado no usermodel pelo modelo e possivel indetificar as funcionalidades e criar card que exibiram os dados 
+Integrar botão "Localizar conexões". que sera aproxima fase
 
 3.2. Sistema de Missões:
 Desenvolver modelo de dados para missões (diárias, semanais).
