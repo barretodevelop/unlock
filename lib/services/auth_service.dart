@@ -1,4 +1,4 @@
-// lib/services/auth_service.dart - Com Analytics de Auth
+// lib/services/auth_service.dart - ATUALIZADO para Onboarding
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:unlock/core/utils/logger.dart';
@@ -119,6 +119,8 @@ class AuthService {
           'is_new_user': isNewUser,
           'user_level': userModel.level,
           'user_coins': userModel.coins,
+          'onboarding_completed': userModel.onboardingCompleted,
+          'needs_onboarding': userModel.needsOnboarding,
         });
 
         // 📊 Analytics: Performance do login
@@ -154,7 +156,7 @@ class AuthService {
     }
   }
 
-  /// Buscar ou criar usuário no Firestore com analytics
+  /// Buscar ou criar usuário no Firestore com suporte a onboarding
   static Future<UserModel?> getOrCreateUserInFirestore(User user) async {
     final stopwatch = Stopwatch()..start();
 
@@ -175,6 +177,8 @@ class AuthService {
           'duration_ms': stopwatch.elapsedMilliseconds,
           'user_level': existingUser.level,
           'user_coins': existingUser.coins,
+          'onboarding_completed': existingUser.onboardingCompleted,
+          'needs_onboarding': existingUser.needsOnboarding,
           'account_age_days': DateTime.now()
               .difference(existingUser.createdAt)
               .inDays,
@@ -188,6 +192,8 @@ class AuthService {
             'level': existingUser.level,
             'coins': existingUser.coins,
             'gems': existingUser.gems,
+            'onboardingCompleted': existingUser.onboardingCompleted,
+            'needsOnboarding': existingUser.needsOnboarding,
             'createdAt': existingUser.createdAt.toString(),
           },
         );
@@ -206,18 +212,12 @@ class AuthService {
 
       final createStopwatch = Stopwatch()..start();
 
-      final newUser = UserModel(
+      // ✅ CRIAR USUÁRIO INICIAL COM CAMPOS DE ONBOARDING
+      final newUser = UserModel.createInitial(
         uid: user.uid,
-        username: user.displayName ?? 'Usuário',
-        displayName: user.displayName ?? 'Usuário',
-        avatar: user.photoURL ?? '👨',
         email: user.email ?? '',
-        level: 1,
-        xp: 0,
-        coins: 200, // Moedas iniciais
-        gems: 20, // Gemas iniciais
-        createdAt: DateTime.now(),
-        aiConfig: {'apiUrl': '', 'apiKey': '', 'enabled': false},
+        displayName: user.displayName,
+        photoURL: user.photoURL,
       );
 
       AppLogger.auth(
@@ -227,6 +227,8 @@ class AuthService {
           'username': newUser.username,
           'initialCoins': newUser.coins,
           'initialGems': newUser.gems,
+          'onboardingCompleted': newUser.onboardingCompleted,
+          'needsOnboarding': newUser.needsOnboarding,
         },
       );
 
@@ -241,14 +243,17 @@ class AuthService {
             stopwatch.elapsedMilliseconds + createStopwatch.elapsedMilliseconds,
         'initial_coins': newUser.coins,
         'initial_gems': newUser.gems,
+        'onboarding_completed': newUser.onboardingCompleted,
+        'needs_onboarding': newUser.needsOnboarding,
         'has_display_name': newUser.displayName.isNotEmpty,
-        'has_photo': newUser.avatar != '👨',
+        'has_photo': newUser.avatar != '👤',
       });
 
       // 📊 Analytics: Evento de conversão (novo cadastro)
       await _trackAuthConversion('user_registration', {
         'method': 'google',
         'user_id': newUser.uid,
+        'needs_onboarding': newUser.needsOnboarding,
       });
 
       AppLogger.auth(
@@ -259,6 +264,8 @@ class AuthService {
           'level': newUser.level,
           'coins': newUser.coins,
           'gems': newUser.gems,
+          'onboardingCompleted': newUser.onboardingCompleted,
+          'needsOnboarding': newUser.needsOnboarding,
         },
       );
 

@@ -1,4 +1,4 @@
-// lib/providers/auth_provider.dart - Com Analytics Integrado
+// lib/providers/auth_provider.dart - ATUALIZADO para Onboarding
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -40,9 +40,17 @@ class AuthState {
   bool get needsOnboarding {
     if (!isAuthenticated || user == null) return false;
 
-    // TODO: Implementar lógica de onboarding na Fase 2
-    // Por enquanto, sempre retorna false
-    return false;
+    // Debug para verificar valores
+    if (kDebugMode) {
+      AppLogger.debug('🔍 Checking onboarding for ${user!.uid}:');
+      AppLogger.debug('  onboardingCompleted: ${user!.onboardingCompleted}');
+      AppLogger.debug('  codinome: "${user!.codinome}"');
+      AppLogger.debug('  avatarId: "${user!.avatarId}"');
+      AppLogger.debug('  interesses.length: ${user!.interesses.length}');
+      AppLogger.debug('  needsOnboarding (computed): ${user!.needsOnboarding}');
+    }
+
+    return user!.needsOnboarding;
   }
 
   // ✅ PROPRIEDADES DE NAVEGAÇÃO CORRETAS
@@ -279,6 +287,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'email': userModel.email,
             'level': userModel.level,
             'coins': userModel.coins,
+            'onboardingCompleted': userModel.onboardingCompleted,
+            'needsOnboarding': userModel.needsOnboarding,
             'load_duration_ms': loadDuration.inMilliseconds,
           },
         );
@@ -293,6 +303,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'coins': userModel.coins.toString(),
             'gems': userModel.gems.toString(),
             'user_type': 'authenticated',
+            'onboarding_completed': userModel.onboardingCompleted.toString(),
+            'is_minor': userModel.isMinor.toString(),
           },
         );
 
@@ -304,6 +316,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'user_level': userModel.level,
             'user_coins': userModel.coins,
             'user_gems': userModel.gems,
+            'onboarding_completed': userModel.onboardingCompleted,
+            'needs_onboarding': userModel.needsOnboarding,
             'is_new_user':
                 userModel.createdAt.difference(DateTime.now()).inDays < 1,
           },
@@ -403,6 +417,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
           'isInitialized': newState.isInitialized,
           'hasUser': newState.user != null,
           'hasError': newState.error != null,
+          'needsOnboarding': newState.needsOnboarding,
+          'shouldShowOnboarding': newState.shouldShowOnboarding,
+          'shouldShowHome': newState.shouldShowHome,
         },
       );
 
@@ -441,6 +458,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
           data: {
             'uid': success.uid,
             'username': success.username,
+            'onboardingCompleted': success.onboardingCompleted,
             'duration_ms': loginDuration.inMilliseconds,
           },
         );
@@ -452,6 +470,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
             'method': 'google',
             'duration_ms': loginDuration.inMilliseconds,
             'user_level': success.level,
+            'needs_onboarding': success.needsOnboarding,
           },
         );
 
@@ -612,7 +631,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // 📊 Analytics: Onboarding iniciado
       await _trackAnalyticsEvent(
-        'onboarding_completed',
+        'onboarding_completed_from_auth',
         data: {'user_id': state.user!.uid},
       );
 
@@ -625,7 +644,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       // 📊 Analytics: Erro no onboarding
       await _trackAnalyticsEvent(
-        'onboarding_error',
+        'onboarding_error_from_auth',
         data: {'error_type': e.runtimeType.toString()},
       );
 

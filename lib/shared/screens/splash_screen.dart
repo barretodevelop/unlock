@@ -1,10 +1,12 @@
-// lib/shared/screens/splash_screen.dart - Splash Screen Simples
+// lib/shared/screens/splash_screen.dart - Navegação Corrigida
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/home/screens/home_screen.dart';
+import 'package:unlock/features/onboarding/screens/welcome_age_screen.dart';
 import 'package:unlock/providers/auth_provider.dart';
 
 class SplashScreen extends ConsumerStatefulWidget {
@@ -19,6 +21,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
   late Animation<double> _scaleAnimation;
+  bool _hasNavigated = false; // ✅ PREVENIR MÚLTIPLAS NAVEGAÇÕES
 
   @override
   void initState() {
@@ -51,59 +54,69 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     // Aguardar tempo mínimo do splash
     await Future.delayed(AppConstants.splashScreenDuration);
 
-    if (!mounted) return;
+    if (!mounted || _hasNavigated) return;
 
-    // Observar estado de autenticação
+    // ✅ AGUARDAR ATÉ QUE O AUTH ESTEJA INICIALIZADO
     final authState = ref.read(authProvider);
 
-    AppLogger.navigation(
-      'Verificando estado de auth no splash',
-      data: {
-        'isInitialized': authState.isInitialized,
-        'isAuthenticated': authState.isAuthenticated,
-        'needsOnboarding': authState.needsOnboarding,
-      },
-    );
+    if (!authState.isInitialized) {
+      AppLogger.navigation('Auth ainda não inicializado, aguardando...');
+      // Aguardar um pouco mais e tentar novamente
+      await Future.delayed(const Duration(milliseconds: 500));
+      if (mounted && !_hasNavigated) {
+        _handleNavigation();
+      }
+      return;
+    }
 
     _navigateBasedOnAuthState(authState);
   }
 
   void _navigateBasedOnAuthState(AuthState authState) {
-    if (!mounted) return;
+    if (!mounted || _hasNavigated) return;
+
+    // ✅ LOGGING DETALHADO PARA DEBUG
+    AppLogger.navigation(
+      'Verificando estado de auth no splash',
+      data: {
+        'isInitialized': authState.isInitialized,
+        'isAuthenticated': authState.isAuthenticated,
+        'hasUser': authState.user != null,
+        'userId': authState.user?.uid,
+        'onboardingCompleted': authState.user?.onboardingCompleted,
+        'needsOnboarding': authState.needsOnboarding,
+        'shouldShowLogin': authState.shouldShowLogin,
+        'shouldShowOnboarding': authState.shouldShowOnboarding,
+        'shouldShowHome': authState.shouldShowHome,
+      },
+    );
 
     // Determinar próxima tela baseada no estado
     Widget nextScreen;
     String screenName;
 
     if (!authState.isInitialized) {
-      // Ainda carregando, ficar no splash
+      // ✅ Ainda carregando, ficar no splash
       AppLogger.navigation(
         'Auth ainda não inicializado, permanecendo no splash',
       );
       return;
     } else if (!authState.isAuthenticated) {
-      // Não autenticado, ir para login
+      // ✅ Não autenticado, ir para login
       nextScreen = const LoginScreen();
       screenName = 'Login';
     } else if (authState.needsOnboarding) {
-      // Precisa completar onboarding (implementar na Fase 2)
-      nextScreen = const Scaffold(
-        body: Center(
-          child: Text(
-            'Onboarding\n(Em Desenvolvimento)',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 18),
-          ),
-        ),
-      );
+      // ✅ PRECISA COMPLETAR ONBOARDING
+      nextScreen = const WelcomeAgeScreen();
       screenName = 'Onboarding';
     } else {
-      // Tudo OK, ir para home
+      // ✅ Tudo OK, ir para home
       nextScreen = const HomeScreen();
       screenName = 'Home';
     }
 
     AppLogger.navigation('Navegando para $screenName');
+    _hasNavigated = true; // ✅ MARCAR COMO NAVEGADO
 
     // Navegar com animação
     Navigator.of(context).pushReplacement(
@@ -119,9 +132,18 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Escutar mudanças no estado de auth
+    // ✅ ESCUTAR MUDANÇAS NO ESTADO DE AUTH
     ref.listen<AuthState>(authProvider, (previous, next) {
-      if (mounted && next.canNavigate) {
+      if (mounted && !_hasNavigated && next.canNavigate) {
+        AppLogger.navigation(
+          'Auth state changed in splash',
+          data: {
+            'previousCanNavigate': previous?.canNavigate,
+            'nextCanNavigate': next.canNavigate,
+            'nextNeedsOnboarding': next.needsOnboarding,
+            'nextIsAuthenticated': next.isAuthenticated,
+          },
+        );
         _navigateBasedOnAuthState(next);
       }
     });
@@ -198,6 +220,42 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
                         ),
                       ),
                     ),
+
+                    // ✅ DEBUG INFO (apenas em desenvolvimento)
+                    if (AppConstants.appVersion.startsWith('1.0.0')) ...[
+                      const SizedBox(height: 24),
+                      Consumer(
+                        builder: (context, ref, child) {
+                          final authState = ref.watch(authProvider);
+                          return Container(
+                            padding: const EdgeInsets.all(12),
+                            margin: const EdgeInsets.symmetric(horizontal: 32),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(8),
+                            ),
+                            child: Column(
+                              children: [
+                                Text(
+                                  'Debug: ${authState.status.name}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                Text(
+                                  'Onboarding: ${authState.needsOnboarding}',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      ),
+                    ],
                   ],
                 ),
               ),

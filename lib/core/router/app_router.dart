@@ -1,10 +1,14 @@
-// lib/core/router/app_router.dart - Sistema de Roteamento com GoRouter
+// lib/core/router/app_router.dart - Atualizado com Onboarding
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/home/screens/home_screen.dart';
+import 'package:unlock/features/onboarding/onboarding_wrapper.dart';
+import 'package:unlock/features/onboarding/screens/anonymous_identity_screen.dart';
+import 'package:unlock/features/onboarding/screens/interests_selection_screen.dart';
+import 'package:unlock/features/onboarding/screens/welcome_age_screen.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/shared/screens/splash_screen.dart';
 
@@ -14,9 +18,6 @@ class AppRouter {
       GlobalKey<NavigatorState>();
   static final GlobalKey<NavigatorState> _shellNavigatorKey =
       GlobalKey<NavigatorState>();
-
-  // Provider para acessar o estado de autenticação no router
-  static final _authProvider = StateProvider<AuthState?>((ref) => null);
 
   /// Configuração principal do GoRouter
   static final router = GoRouter(
@@ -48,13 +49,29 @@ class AppRouter {
         builder: (context, state) => const LoginScreen(),
       ),
 
-      // Onboarding (será implementado na Fase 2)
+      // ✅ ONBOARDING ROUTES
       GoRoute(
         path: AppRoutes.onboarding,
         name: RouteNames.onboarding,
-        builder: (context, state) => const Scaffold(
-          body: Center(child: Text('Onboarding - Em Desenvolvimento')),
-        ),
+        builder: (context, state) => const OnboardingWrapper(),
+        routes: [
+          // Sub-rotas do onboarding para deep linking (opcional)
+          GoRoute(
+            path: 'welcome',
+            name: RouteNames.onboardingWelcome,
+            builder: (context, state) => const WelcomeAgeScreen(),
+          ),
+          GoRoute(
+            path: 'identity',
+            name: RouteNames.onboardingIdentity,
+            builder: (context, state) => const AnonymousIdentityScreen(),
+          ),
+          GoRoute(
+            path: 'interests',
+            name: RouteNames.onboardingInterests,
+            builder: (context, state) => const InterestsSelectionScreen(),
+          ),
+        ],
       ),
 
       // Home e rotas principais (com shell navigation)
@@ -136,13 +153,41 @@ class AppRouter {
       },
     );
 
-    // TODO: Integrar com o AuthProvider quando estiver na árvore de widgets
-    // Por enquanto, permitir navegação livre durante desenvolvimento
+    // ✅ INTEGRAÇÃO COM AUTHPROVIDER
+    // TODO: Implementar quando AuthProvider estiver na árvore de widgets
+    // Temporariamente permitir navegação livre para desenvolvimento
 
-    // Em produção, implementar lógica como:
-    // if (!authState.isInitialized) return AppRoutes.splash;
-    // if (!authState.isAuthenticated && !_isPublicRoute(location)) return AppRoutes.login;
-    // if (authState.needsOnboarding && location != AppRoutes.onboarding) return AppRoutes.onboarding;
+    // Em produção, a lógica seria:
+    /*
+    final container = ProviderScope.containerOf(context);
+    final authState = container.read(authProvider);
+    
+    // Se não inicializado, mostrar splash
+    if (!authState.isInitialized) {
+      if (location != AppRoutes.splash) {
+        return AppRoutes.splash;
+      }
+    }
+    
+    // Se não autenticado e não em rota pública, ir para login
+    if (!authState.isAuthenticated && !_isPublicRoute(location)) {
+      return AppRoutes.login;
+    }
+    
+    // Se autenticado mas precisa onboarding
+    if (authState.isAuthenticated && authState.needsOnboarding) {
+      if (!location.startsWith(AppRoutes.onboarding)) {
+        return AppRoutes.onboarding;
+      }
+    }
+    
+    // Se autenticado, onboarding completo, mas em rota pública
+    if (authState.isAuthenticated && !authState.needsOnboarding) {
+      if (_isPublicRoute(location)) {
+        return AppRoutes.home;
+      }
+    }
+    */
 
     return null; // Não redirecionar por enquanto
   }
@@ -151,13 +196,24 @@ class AppRouter {
   static bool _isPublicRoute(String location) {
     return [AppRoutes.splash, AppRoutes.login].contains(location);
   }
+
+  /// Verificar se a rota é de onboarding
+  static bool _isOnboardingRoute(String location) {
+    return location.startsWith(AppRoutes.onboarding);
+  }
 }
 
-/// Constantes de rotas
+/// Constantes de rotas atualizadas
 class AppRoutes {
   static const String splash = '/';
   static const String login = '/login';
+
+  // ✅ ONBOARDING ROUTES
   static const String onboarding = '/onboarding';
+  static const String onboardingWelcome = '/onboarding/welcome';
+  static const String onboardingIdentity = '/onboarding/identity';
+  static const String onboardingInterests = '/onboarding/interests';
+
   static const String home = '/home';
   static const String profile = '/profile';
   static const String connections = '/connections';
@@ -177,7 +233,13 @@ class AppRoutes {
 class RouteNames {
   static const String splash = 'splash';
   static const String login = 'login';
+
+  // ✅ ONBOARDING ROUTE NAMES
   static const String onboarding = 'onboarding';
+  static const String onboardingWelcome = 'onboarding_welcome';
+  static const String onboardingIdentity = 'onboarding_identity';
+  static const String onboardingInterests = 'onboarding_interests';
+
   static const String home = 'home';
   static const String profile = 'profile';
   static const String connections = 'connections';
@@ -278,7 +340,7 @@ class _ErrorScreen extends StatelessWidget {
   }
 }
 
-/// Extensões para navegação type-safe
+/// Extensões para navegação type-safe atualizadas
 extension AppRouterExtension on GoRouter {
   /// Navegar para home
   void goHome() => go(AppRoutes.home);
@@ -286,8 +348,11 @@ extension AppRouterExtension on GoRouter {
   /// Navegar para login
   void goLogin() => go(AppRoutes.login);
 
-  /// Navegar para onboarding
+  /// ✅ ONBOARDING NAVIGATION
   void goOnboarding() => go(AppRoutes.onboarding);
+  void goOnboardingWelcome() => go(AppRoutes.onboardingWelcome);
+  void goOnboardingIdentity() => go(AppRoutes.onboardingIdentity);
+  void goOnboardingInterests() => go(AppRoutes.onboardingInterests);
 
   /// Navegar para perfil
   void goProfile() => go(AppRoutes.profile);
@@ -305,7 +370,7 @@ extension AppRouterExtension on GoRouter {
   void goSettings() => go(AppRoutes.settings);
 }
 
-/// Utilitários de navegação
+/// Utilitários de navegação atualizados
 class NavigationUtils {
   /// Obter context do router
   static BuildContext? get context =>
@@ -328,9 +393,36 @@ class NavigationUtils {
     AppRouter.router.go(AppRoutes.home);
   }
 
+  /// ✅ ONBOARDING NAVIGATION UTILS
+  static void goToOnboarding() {
+    AppRouter.router.go(AppRoutes.onboarding);
+  }
+
+  static void goToOnboardingStep(int step) {
+    switch (step) {
+      case 0:
+        AppRouter.router.go(AppRoutes.onboardingWelcome);
+        break;
+      case 1:
+        AppRouter.router.go(AppRoutes.onboardingIdentity);
+        break;
+      case 2:
+        AppRouter.router.go(AppRoutes.onboardingInterests);
+        break;
+      default:
+        AppRouter.router.go(AppRoutes.onboarding);
+    }
+  }
+
   /// Log da rota atual
   static void logCurrentRoute() {
     final location = GoRouter.of(context!).state.uri;
     AppLogger.navigation('Rota atual', data: {'location': location});
+  }
+
+  /// Verificar se está em onboarding
+  static bool isInOnboarding() {
+    final location = GoRouter.of(context!).state.uri.toString();
+    return location.startsWith(AppRoutes.onboarding);
   }
 }
