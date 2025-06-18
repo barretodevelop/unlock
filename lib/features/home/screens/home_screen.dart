@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/features/auth/screens/login_screen.dart';
+import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/services/auth_service.dart';
 
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
@@ -18,14 +17,7 @@ class HomeScreen extends ConsumerWidget {
           IconButton(
             icon: const Icon(Icons.logout),
             onPressed: () async {
-              await AuthService.signOut();
-              if (context.mounted) {
-                // Navega para LoginScreen e remove todas as rotas anteriores
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (Route<dynamic> route) => false,
-                );
-              }
+              await ref.read(authProvider.notifier).signOut();
             },
           ),
         ],

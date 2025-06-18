@@ -1,9 +1,9 @@
 // lib/features/onboarding/screens/interests_selection_screen.dart
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/home/screens/home_screen.dart';
 import 'package:unlock/features/onboarding/constants/onboarding_data.dart';
 import 'package:unlock/features/onboarding/providers/onboarding_provider.dart';
 import 'package:unlock/features/onboarding/widgets/interest_chip_grid.dart';
@@ -63,6 +63,7 @@ class _InterestsSelectionScreenState
   @override
   void dispose() {
     _animationController.dispose();
+    AppLogger.info('🧹 InterestsSelectionScreen: Disposed');
     super.dispose();
   }
 
@@ -74,8 +75,18 @@ class _InterestsSelectionScreenState
     ref.read(onboardingProvider.notifier).useQuickFillInterests();
   }
 
+  /// ✅ CORREÇÃO: Método de completar com navegação segura
   Future<void> _handleComplete() async {
-    if (_isCompleting) return;
+    // ✅ Evitar múltiplas execuções
+    if (_isCompleting) {
+      AppLogger.navigation('⚠️ Complete already in progress, ignoring');
+      return;
+    }
+
+    if (!mounted) {
+      AppLogger.navigation('⚠️ Component not mounted, aborting');
+      return;
+    }
 
     setState(() {
       _isCompleting = true;
@@ -84,22 +95,33 @@ class _InterestsSelectionScreenState
     AppLogger.info('🎊 InterestsSelectionScreen: Completando onboarding');
 
     try {
+      // ✅ Completar onboarding
       final success = await ref
           .read(onboardingProvider.notifier)
           .completeOnboarding();
 
-      if (success && mounted) {
-        // Mostrar feedback de sucesso
+      // ✅ Verificar se ainda está montado após operação async
+      if (!mounted) {
+        AppLogger.navigation('⚠️ Component unmounted after completion');
+        return;
+      }
+
+      if (success) {
+        // ✅ Mostrar feedback de sucesso
         await _showSuccessDialog();
 
-        // Navegar para home
-        _navigateToHome();
-      } else if (mounted) {
-        // Mostrar erro
+        // ✅ A navegação para home ocorrerá automaticamente via redirect do GoRouter
+      } else {
+        // ✅ Mostrar erro
         _showErrorSnackBar();
       }
-    } catch (e) {
-      AppLogger.error('❌ InterestsSelectionScreen: Erro ao completar: $e');
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ InterestsSelectionScreen: Erro ao completar onboarding',
+        error: e,
+        stackTrace: stackTrace,
+      );
+
       if (mounted) {
         _showErrorSnackBar();
       }
@@ -113,6 +135,8 @@ class _InterestsSelectionScreenState
   }
 
   Future<void> _showSuccessDialog() async {
+    if (!mounted) return;
+
     return showDialog(
       context: context,
       barrierDismissible: false,
@@ -130,8 +154,12 @@ class _InterestsSelectionScreenState
           ),
           actions: [
             ElevatedButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Começar a Conectar!'),
+              onPressed: () {
+                if (mounted) {
+                  Navigator.of(context).pop();
+                }
+              },
+              child: const Text('Começar!'),
             ),
           ],
         );
@@ -140,6 +168,8 @@ class _InterestsSelectionScreenState
   }
 
   void _showErrorSnackBar() {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: const Row(
@@ -155,31 +185,26 @@ class _InterestsSelectionScreenState
     );
   }
 
-  void _navigateToHome() {
-    AppLogger.info('🏠 InterestsSelectionScreen: Navegando para home');
-
-    Navigator.of(context).pushAndRemoveUntil(
-      PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const HomeScreen(),
-        transitionDuration: AppConstants.animationDuration,
-        transitionsBuilder: (context, animation, secondaryAnimation, child) {
-          return FadeTransition(
-            opacity: animation,
-            child: ScaleTransition(
-              scale: Tween<double>(begin: 0.8, end: 1.0).animate(animation),
-              child: child,
-            ),
-          );
-        },
-      ),
-      (route) => false, // Remove todas as rotas anteriores
-    );
-  }
-
+  /// ✅ CORREÇÃO: Método de voltar usando GoRouter
   void _handleBack() {
-    AppLogger.info('⬅️ InterestsSelectionScreen: Tela anterior');
-    Navigator.of(context).pop();
+    if (_isCompleting) {
+      AppLogger.navigation('⚠️ Cannot go back while completing');
+      return;
+    }
+
+    try {
+      AppLogger.navigation('⬅️ InterestsSelectionScreen: Voltando');
+
+      // ✅ Usar GoRouter para voltar
+      if (context.canPop()) {
+        context.pop();
+      } else {
+        // ✅ Fallback: ir para a tela anterior do onboarding
+        context.go('/onboarding'); // ou a rota específica da tela anterior
+      }
+    } catch (e) {
+      AppLogger.error('❌ Erro ao voltar', error: e);
+    }
   }
 
   @override

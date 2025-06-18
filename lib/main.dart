@@ -1,562 +1,367 @@
-// lib/main.dart - Configuração Principal com Analytics
+// main.dart - ATUALIZADO PARA SISTEMA DE NAVEGAÇÃO ESCALÁVEL
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/theme/app_theme.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/providers/theme_provider.dart';
+import 'package:unlock/firebase_options.dart';
 import 'package:unlock/services/analytics/analytics_integration.dart';
-import 'package:unlock/services/background_service.dart';
-import 'package:unlock/shared/screens/splash_screen.dart';
+import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
+import 'package:unlock/unlockApp.dart';
 
-// Configurações do Firebase (mover para arquivo separado se necessário)
+// Importar firebase_options.dart se existir
 // import 'firebase_options.dart';
 
+/// Entry point da aplicação Unlock
 void main() async {
-  // Garantir inicialização dos bindings do Flutter
-  WidgetsFlutterBinding.ensureInitialized();
+  await _initializeApp();
+}
 
-  // Configurar orientação (apenas portrait por padrão)
-  await SystemChrome.setPreferredOrientations([
-    DeviceOrientation.portraitUp,
-    DeviceOrientation.portraitDown,
-  ]);
-
-  // Medir tempo de inicialização
+/// Inicializar aplicação com configuração completa
+Future<void> _initializeApp() async {
   final initStartTime = DateTime.now();
 
   try {
-    // Inicializar sistema de logs baseado no ambiente
-    _initializeLogger();
+    // ========== INICIALIZAÇÃO BÁSICA ==========
 
-    AppLogger.info('🚀 Iniciando app Unlock v${AppConstants.appVersion}');
+    WidgetsFlutterBinding.ensureInitialized();
+    AppLogger.info('✅ Flutter binding inicializado');
 
-    // Inicializar Firebase
-    await _initializeFirebase();
+    // Configurar orientação do dispositivo
+    await SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    AppLogger.info('✅ Orientação configurada (portrait apenas)');
 
-    // Inicializar sistema de analytics
-    await _initializeAnalytics();
+    // Configurar system UI
+    await _configureSystemUI();
 
-    // Inicializar serviços de background
-    await _initializeBackgroundServices();
-
-    // Configurações de status bar
-    _configureSystemUI();
-
-    // Calcular tempo de inicialização
-    final initDuration = DateTime.now().difference(initStartTime);
-    AppLogger.info(
-      '✅ Inicialização completa em ${initDuration.inMilliseconds}ms',
-    );
-
-    // Rastrear tempo de inicialização
-    await _trackAppStartup(initDuration.inMilliseconds);
-
-    // Iniciar app com provider
-    runApp(ProviderScope(child: const UnlockApp()));
-  } catch (error, stackTrace) {
-    final initDuration = DateTime.now().difference(initStartTime);
-
-    AppLogger.fatal(
-      'Erro crítico na inicialização do app após ${initDuration.inMilliseconds}ms',
-      error: error,
-      stackTrace: stackTrace,
-    );
-
-    // Tentar rastrear erro de inicialização
-    try {
-      if (AnalyticsIntegration.isEnabled) {
-        await AnalyticsIntegration.manager.trackError(
-          'App initialization failed',
-          error: error,
-          stackTrace: stackTrace,
-          fatal: true,
-          parameters: {
-            'init_duration_ms': initDuration.inMilliseconds,
-            'flutter_version': '3.8.1',
-          },
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Falha ao rastrear erro de inicialização: $e');
-    }
-
-    // Em caso de erro crítico, mostrar tela de erro
-    runApp(_ErrorApp(error: error));
-  }
-}
-
-/// Configurar sistema de logs baseado no ambiente
-void _initializeLogger() {
-  if (kDebugMode) {
-    LoggerConfig.setupForDevelopment();
-  } else if (kProfileMode) {
-    LoggerConfig.setupForStaging();
-  } else {
-    LoggerConfig.setupForProduction();
-  }
-}
-
-/// Inicializar Firebase
-Future<void> _initializeFirebase() async {
-  try {
-    AppLogger.info('🔥 Inicializando Firebase...');
-
-    final stopwatch = Stopwatch()..start();
+    // ========== INICIALIZAÇÃO DO FIREBASE ==========
 
     await Firebase.initializeApp(
-      // options: DefaultFirebaseOptions.currentPlatform,
+      options: DefaultFirebaseOptions.currentPlatform,
     );
+    AppLogger.info('✅ Firebase inicializado');
 
-    stopwatch.stop();
+    // ========== INICIALIZAÇÃO DO ANALYTICS ==========
+
+    // await AnalyticsIntegration.initialize();
+    // AppLogger.info('✅ Analytics inicializado');
+
+    // ========== RASTREAMENTO DE INICIALIZAÇÃO ==========
+
+    final initDuration = DateTime.now().difference(initStartTime);
+
+    // Analytics: App inicializado
+    try {
+      await AnalyticsIntegration.manager.trackEvent(
+        'app_initialized',
+        parameters: {
+          'init_duration_ms': initDuration.inMilliseconds,
+          'platform': Theme.of(
+            (WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                        Brightness.dark
+                    ? 'dark'
+                    : 'light')
+                as BuildContext,
+          ),
+          'is_debug': kDebugMode,
+        },
+        category: EventCategory.system,
+        priority: EventPriority.high,
+      );
+    } catch (e) {
+      AppLogger.debug('Analytics initialization event failed: $e');
+    }
 
     AppLogger.info(
-      '✅ Firebase inicializado em ${stopwatch.elapsedMilliseconds}ms',
-    );
-  } catch (error, stackTrace) {
-    AppLogger.error(
-      'Erro ao inicializar Firebase',
-      error: error,
-      stackTrace: stackTrace,
-    );
-    rethrow;
-  }
-}
-
-/// Inicializar sistema de analytics
-Future<void> _initializeAnalytics() async {
-  try {
-    AppLogger.info('📊 Inicializando Analytics...');
-
-    final stopwatch = Stopwatch()..start();
-
-    await AnalyticsIntegration.initialize();
-
-    stopwatch.stop();
-
-    AppLogger.info(
-      '✅ Analytics inicializado em ${stopwatch.elapsedMilliseconds}ms',
+      '✅ Aplicação inicializada com sucesso',
       data: {
-        'providers':
-            AnalyticsIntegration.getSystemStats()['config']['active_providers'],
+        'duration_ms': initDuration.inMilliseconds,
+        'is_debug': kDebugMode,
       },
     );
-  } catch (error, stackTrace) {
-    AppLogger.warning(
-      'Erro ao inicializar Analytics (continuando sem analytics)',
-      // error: error,
-      // stackTrace: stackTrace,
+
+    // ========== EXECUTAR APP ==========
+
+    runApp(
+      ProviderScope(
+        observers: kDebugMode ? [_ProviderLogger()] : [],
+        child: const UnlockApp(),
+      ),
     );
-    // Não interromper o app por falha em analytics
+  } catch (error, stackTrace) {
+    final initDuration = DateTime.now().difference(initStartTime);
+
+    AppLogger.error(
+      '❌ Erro fatal na inicialização',
+      error: error,
+      stackTrace: stackTrace,
+      data: {
+        'duration_ms': initDuration.inMilliseconds,
+        'initialization_failed': true,
+      },
+    );
+
+    // Em caso de erro crítico, executar app mínimo de erro
+    runApp(_CriticalErrorApp(error: error, stackTrace: stackTrace));
   }
 }
 
-/// Inicializar serviços de background
-Future<void> _initializeBackgroundServices() async {
-  try {
-    AppLogger.info('⚙️ Inicializando serviços de background...');
-
-    // Inicializar background service se não estiver em desenvolvimento web
-    if (!kIsWeb) {
-      await BackgroundService.initialize();
-      AppLogger.info('✅ Background service inicializado');
-    } else {
-      AppLogger.info('⚠️ Background service pulado (plataforma web)');
-    }
-  } catch (error, stackTrace) {
-    AppLogger.warning(
-      'Erro ao inicializar background services',
-      // error: error,
-      // stackTrace: stackTrace,
-    );
-    // Não interromper o app por falha em background services
-  }
-}
-
-/// Configurar UI do sistema (status bar, etc)
-void _configureSystemUI() {
+/// Configurar system UI (status bar, navigation bar)
+Future<void> _configureSystemUI() async {
+  // Configurar status bar
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
       statusBarIconBrightness: Brightness.dark,
+      statusBarBrightness: Brightness.light,
       systemNavigationBarColor: Colors.white,
       systemNavigationBarIconBrightness: Brightness.dark,
     ),
   );
 
-  AppLogger.debug('⚙️ UI do sistema configurada');
+  AppLogger.info('✅ System UI configurado');
 }
 
-/// Rastrear tempo de inicialização do app
-Future<void> _trackAppStartup(int durationMs) async {
-  try {
-    if (AnalyticsIntegration.isEnabled) {
-      await AnalyticsIntegration.manager.trackAppStartup(durationMs);
-
-      // Evento detalhado de startup
-      await AnalyticsIntegration.manager.trackEvent(
-        'app_startup_detailed',
-        parameters: {
-          'duration_ms': durationMs,
-          'platform': defaultTargetPlatform.name,
-          'debug_mode': kDebugMode,
-          'first_launch': true, // TODO: detectar se é primeiro launch
-        },
-      );
-    }
-  } catch (e) {
-    AppLogger.error('Erro ao rastrear app startup: $e');
-  }
-}
-
-/// Widget principal do app
-class UnlockApp extends ConsumerStatefulWidget {
-  const UnlockApp({super.key});
-
+/// Observer de providers para debug
+class _ProviderLogger extends ProviderObserver {
   @override
-  ConsumerState<UnlockApp> createState() => _UnlockAppState();
-}
-
-class _UnlockAppState extends ConsumerState<UnlockApp>
-    with WidgetsBindingObserver {
-  @override
-  void initState() {
-    super.initState();
-
-    // Observar lifecycle do app para analytics
-    WidgetsBinding.instance.addObserver(this);
-
-    // Iniciar sessão de analytics
-    _startAnalyticsSession();
+  void didAddProvider(
+    ProviderBase<Object?> provider,
+    Object? value,
+    ProviderContainer container,
+  ) {
+    final providerName = provider.name ?? provider.runtimeType.toString();
+    AppLogger.debug('🔧 Provider adicionado: $providerName');
   }
 
   @override
-  void dispose() {
-    WidgetsBinding.instance.removeObserver(this);
-    super.dispose();
+  void didDisposeProvider(
+    ProviderBase<Object?> provider,
+    ProviderContainer container,
+  ) {
+    final providerName = provider.name ?? provider.runtimeType.toString();
+    AppLogger.debug('🗑️ Provider removido: $providerName');
   }
 
   @override
-  void didChangeAppLifecycleState(AppLifecycleState state) {
-    super.didChangeAppLifecycleState(state);
+  void didUpdateProvider(
+    ProviderBase<Object?> provider,
+    Object? previousValue,
+    Object? newValue,
+    ProviderContainer container,
+  ) {
+    final providerName = provider.name ?? provider.runtimeType.toString();
 
-    // Rastrear mudanças no lifecycle do app
-    _handleAppLifecycleChange(state);
-  }
-
-  /// Iniciar sessão de analytics
-  void _startAnalyticsSession() async {
-    try {
-      if (AnalyticsIntegration.isEnabled) {
-        await AnalyticsIntegration.startSession();
-      }
-    } catch (e) {
-      AppLogger.error('Erro ao iniciar sessão de analytics: $e');
-    }
-  }
-
-  /// Tratar mudanças no lifecycle do app
-  void _handleAppLifecycleChange(AppLifecycleState state) async {
-    try {
-      AppLogger.debug('📱 App lifecycle: ${state.name}');
-
-      if (AnalyticsIntegration.isEnabled) {
-        await AnalyticsIntegration.manager.trackEvent(
-          'app_lifecycle_change',
-          parameters: {
-            'state': state.name,
-            'timestamp': DateTime.now().toIso8601String(),
-          },
-        );
-
-        switch (state) {
-          case AppLifecycleState.paused:
-            // App foi para background
-            await AnalyticsIntegration.manager.trackEvent('app_backgrounded');
-            break;
-          case AppLifecycleState.resumed:
-            // App voltou do background
-            await AnalyticsIntegration.manager.trackEvent('app_foregrounded');
-            break;
-          case AppLifecycleState.detached:
-            // App está sendo encerrado
-            await AnalyticsIntegration.endSession();
-            break;
-          default:
-            break;
-        }
-      }
-    } catch (e) {
-      AppLogger.error('Erro ao tratar lifecycle change: $e');
+    // Log apenas para providers importantes para evitar spam
+    if (_isImportantProvider(providerName)) {
+      AppLogger.debug('🔄 Provider atualizado: $providerName');
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    // Watch providers principais
-    final isDarkMode = ref.watch(themeProvider);
-    final authState = ref.watch(authProvider);
-
-    // Log navegação baseada no estado de auth
-    AppLogger.navigation(
-      'Estado de navegação atual',
-      data: {
-        'isDarkMode': isDarkMode,
-        'authStatus': authState.status.toString(),
-        'isInitialized': authState.isInitialized,
-        'needsOnboarding': authState.needsOnboarding,
-      },
-    );
-
-    return MaterialApp(
-      // Configurações básicas
-      title: AppConstants.appName,
-      debugShowCheckedModeBanner: false,
-
-      // Tema
-      theme: AppTheme.lightTheme,
-      darkTheme: AppTheme.darkTheme,
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-
-      // Home baseado no estado de auth
-      home: _getHomeScreen(authState),
-
-      // Builder para capturar erros de navegação
-      builder: (context, child) {
-        // Capturar erros de navegação
-        ErrorWidget.builder = (errorDetails) {
-          AppLogger.error(
-            'Erro no widget',
-            error: errorDetails.exception,
-            stackTrace: errorDetails.stack,
-          );
-
-          // Rastrear erro de widget se analytics estiver disponível
-          _trackWidgetError(errorDetails);
-
-          return _ErrorWidget(error: errorDetails.exception);
-        };
-
-        return child ?? const SizedBox.shrink();
-      },
-
-      // Navigator observers para rastrear navegação
-      navigatorObservers: [
-        if (AnalyticsIntegration.isEnabled) _AnalyticsNavigatorObserver(),
-      ],
+  void providerDidFail(
+    ProviderBase<Object?> provider,
+    Object error,
+    StackTrace stackTrace,
+    ProviderContainer container,
+  ) {
+    final providerName = provider.name ?? provider.runtimeType.toString();
+    AppLogger.error(
+      '❌ Provider falhou: $providerName',
+      error: error,
+      stackTrace: stackTrace,
     );
   }
 
-  /// Determinar qual tela mostrar baseado no estado de auth
-  Widget _getHomeScreen(AuthState authState) {
-    if (authState.shouldShowSplash) {
-      return const SplashScreen();
-    }
+  /// Verificar se é um provider importante para logging
+  bool _isImportantProvider(String providerName) {
+    final importantKeywords = [
+      'auth',
+      'Auth',
+      'navigation',
+      'Navigation',
+      'onboarding',
+      'Onboarding',
+      'theme',
+      'Theme',
+      'user',
+      'User',
+    ];
 
-    // Por enquanto, sempre mostrar splash na Fase 1
-    // Nas próximas fases, implementaremos a lógica completa
-    return const SplashScreen();
-  }
-
-  /// Rastrear erro de widget
-  void _trackWidgetError(FlutterErrorDetails errorDetails) async {
-    try {
-      if (AnalyticsIntegration.isEnabled) {
-        await AnalyticsIntegration.manager.trackError(
-          'Widget error occurred',
-          error: errorDetails.exception,
-          stackTrace: errorDetails.stack,
-          parameters: {
-            'error_context': 'widget_build',
-            'library': errorDetails.library ?? 'unknown',
-          },
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Erro ao rastrear widget error: $e');
-    }
+    return importantKeywords.any(
+      (keyword) => providerName.toLowerCase().contains(keyword.toLowerCase()),
+    );
   }
 }
 
-/// Navigator observer para rastrear mudanças de tela automaticamente
-class _AnalyticsNavigatorObserver extends NavigatorObserver {
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPush(route, previousRoute);
-    _trackRouteChange('push', route, previousRoute);
-  }
-
-  @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    super.didPop(route, previousRoute);
-    _trackRouteChange('pop', route, previousRoute);
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    super.didReplace(newRoute: newRoute, oldRoute: oldRoute);
-    if (newRoute != null) {
-      _trackRouteChange('replace', newRoute, oldRoute);
-    }
-  }
-
-  void _trackRouteChange(
-    String action,
-    Route<dynamic> route,
-    Route<dynamic>? previousRoute,
-  ) async {
-    try {
-      final routeName = _getRouteName(route);
-      final previousRouteName = previousRoute != null
-          ? _getRouteName(previousRoute)
-          : null;
-
-      AppLogger.navigation(
-        '📱 Navegação: $action para $routeName',
-        data: {
-          'action': action,
-          'current_route': routeName,
-          'previous_route': previousRouteName,
-        },
-      );
-
-      if (AnalyticsIntegration.isEnabled) {
-        // Rastrear mudança de tela
-        await AnalyticsIntegration.manager.trackScreen(routeName);
-
-        // Rastrear navegação
-        await AnalyticsIntegration.manager.trackNavigation(
-          previousRouteName ?? 'unknown',
-          routeName,
-        );
-      }
-    } catch (e) {
-      AppLogger.error('Erro ao rastrear mudança de rota: $e');
-    }
-  }
-
-  String _getRouteName(Route<dynamic> route) {
-    if (route.settings.name != null) {
-      return route.settings.name!;
-    }
-
-    // Tentar extrair nome da rota baseado no tipo
-    final routeType = route.runtimeType.toString();
-    if (routeType.contains('MaterialPageRoute')) {
-      return 'MaterialPageRoute';
-    } else if (routeType.contains('PageRouteBuilder')) {
-      return 'PageRouteBuilder';
-    }
-
-    return routeType;
-  }
-}
-
-/// App de erro para falhas críticas na inicialização
-class _ErrorApp extends StatelessWidget {
+/// App mínimo para casos de erro crítico
+class _CriticalErrorApp extends StatelessWidget {
   final Object error;
+  final StackTrace? stackTrace;
 
-  const _ErrorApp({required this.error});
+  const _CriticalErrorApp({required this.error, this.stackTrace});
 
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Unlock - Erro',
+      title: 'Unlock - Erro Crítico',
       debugShowCheckedModeBanner: false,
-      home: Scaffold(
-        backgroundColor: Colors.red.shade50,
-        body: Center(
+      theme: AppTheme.lightTheme,
+      home: _CriticalErrorScreen(error: error, stackTrace: stackTrace),
+    );
+  }
+}
+
+/// Tela de erro crítico
+class _CriticalErrorScreen extends StatelessWidget {
+  final Object error;
+  final StackTrace? stackTrace;
+
+  const _CriticalErrorScreen({required this.error, this.stackTrace});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.red.shade50,
+      body: SafeArea(
+        child: Center(
           child: Padding(
             padding: const EdgeInsets.all(24.0),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(Icons.error_outline, size: 64, color: Colors.red.shade400),
-                const SizedBox(height: 24),
+                // Ícone de erro
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade100,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.error_outline,
+                    size: 80,
+                    color: Colors.red.shade700,
+                  ),
+                ),
+
+                const SizedBox(height: 32),
+
+                // Título
                 Text(
-                  'Ops! Algo deu errado',
-                  style: TextStyle(
-                    fontSize: 24,
+                  'Erro Fatal',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                     color: Colors.red.shade700,
                   ),
                 ),
+
                 const SizedBox(height: 16),
+
+                // Descrição
                 Text(
-                  'O app encontrou um erro durante a inicialização. '
-                  'Por favor, reinicie o aplicativo.',
+                  'O aplicativo não pôde ser iniciado devido a um erro crítico.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyLarge?.copyWith(color: Colors.red.shade600),
                   textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 16, color: Colors.red.shade600),
                 ),
+
                 const SizedBox(height: 24),
+
+                // Detalhes do erro (apenas em debug)
                 if (kDebugMode) ...[
                   Container(
+                    width: double.infinity,
+                    constraints: const BoxConstraints(maxHeight: 200),
                     padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade100,
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.red.shade100,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.red.shade300),
                     ),
-                    child: Text(
-                      error.toString(),
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Detalhes do Erro (Debug):',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.red.shade800,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            error.toString(),
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontFamily: 'monospace',
+                              color: Colors.red.shade700,
+                            ),
+                          ),
+                          if (stackTrace != null) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Stack Trace:',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                                color: Colors.red.shade800,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              stackTrace.toString(),
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontFamily: 'monospace',
+                                color: Colors.red.shade600,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
                   ),
+
+                  const SizedBox(height: 24),
                 ],
+
+                // Botões de ação
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        // Tentar reinicializar o app
+                        main();
+                      },
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Tentar Novamente'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.red.shade600,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Informações de suporte
+                Text(
+                  'Se o problema persistir, contate o suporte.',
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodySmall?.copyWith(color: Colors.red.shade500),
+                  textAlign: TextAlign.center,
+                ),
               ],
             ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Widget de erro para falhas durante execução
-class _ErrorWidget extends StatelessWidget {
-  final Object error;
-
-  const _ErrorWidget({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      color: Colors.red.shade100,
-      child: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(Icons.bug_report, size: 48, color: Colors.red.shade600),
-              const SizedBox(height: 16),
-              Text(
-                'Erro no Widget',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.red.shade700,
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (kDebugMode)
-                Text(
-                  error.toString(),
-                  style: const TextStyle(fontSize: 12),
-                  textAlign: TextAlign.center,
-                )
-              else
-                const Text(
-                  'Algo deu errado aqui.',
-                  style: TextStyle(fontSize: 14),
-                ),
-            ],
           ),
         ),
       ),

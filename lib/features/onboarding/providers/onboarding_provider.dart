@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/onboarding/constants/onboarding_data.dart';
+import 'package:unlock/providers/auth_provider.dart'; // ✅ Importar authProvider
 import 'package:unlock/services/analytics/analytics_integration.dart';
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
 import 'package:unlock/services/auth_service.dart';
@@ -11,7 +12,7 @@ import 'package:unlock/services/firestore_service.dart';
 // Provider principal
 final onboardingProvider =
     StateNotifierProvider<OnboardingNotifier, OnboardingState>((ref) {
-      return OnboardingNotifier();
+      return OnboardingNotifier(ref); // ✅ Passar ref
     });
 
 @immutable
@@ -132,9 +133,11 @@ class OnboardingState {
 
 class OnboardingNotifier extends StateNotifier<OnboardingState> {
   final FirestoreService _firestoreService = FirestoreService();
+  final Ref _ref; // ✅ Adicionar Ref
   DateTime? _onboardingStartTime;
 
-  OnboardingNotifier() : super(const OnboardingState()) {
+  OnboardingNotifier(this._ref) : super(const OnboardingState()) {
+    // ✅ Receber Ref
     _onboardingStartTime = DateTime.now();
     AppLogger.info('🎬 OnboardingNotifier: Inicializado');
     _trackAnalyticsEvent('onboarding_started');
@@ -392,6 +395,38 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
 
       // Salvar no Firestore
       await _firestoreService.updateUser(currentUser.uid, onboardingData);
+
+      // ✅ Atualizar o AuthProvider localmente com os dados do onboarding
+      // para evitar uma leitura extra do Firestore apenas para a navegação.
+      final baseUser = _ref.read(authProvider).user;
+      if (baseUser != null) {
+        final updatedUser = baseUser.copyWith(
+          codinome: state.codinome!,
+          avatarId: state.avatarId!,
+          birthDate: state.birthDate!,
+          interesses: state.selectedInterests,
+          // isMinor: state.isMinor,
+          onboardingCompleted: true,
+          // Outros campos que podem ser atualizados/derivados no onboarding
+          // connectionLevel: OnboardingConstants.defaultConnectionLevel,
+          // relationshipGoal: null, // Se aplicável
+        );
+        _ref
+            .read(authProvider.notifier)
+            .updateUserWithOnboardingData(updatedUser);
+        AppLogger.info(
+          '🔄 AuthProvider atualizado localmente após onboarding',
+          data: {
+            'userId': updatedUser.uid,
+            'onboardingCompleted': updatedUser.onboardingCompleted,
+          },
+        );
+      } else {
+        AppLogger.error(
+          '❌ OnboardingNotifier: baseUser nulo no AuthProvider ao tentar atualizar localmente.',
+        );
+        // Como fallback, ou para garantir, poderia chamar refreshUser aqui, mas a ideia é evitar.
+      }
 
       // Analytics de conclusão
       final completionDuration = DateTime.now().difference(

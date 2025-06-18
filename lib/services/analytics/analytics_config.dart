@@ -148,6 +148,9 @@ class AnalyticsConfig {
       case EventCategory.system:
         samplingRate = 0.8; // 80% para eventos de sistema
         break;
+      case EventCategory.auth:
+        samplingRate = userEventSamplingRate;
+        break;
     }
 
     // Em desenvolvimento, reduzir sampling para economizar

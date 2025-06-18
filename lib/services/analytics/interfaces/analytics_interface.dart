@@ -164,6 +164,7 @@ enum EventCategory {
   business, // Métricas de negócio
   debug, // Eventos de debug
   error, // Erros e exceções
+  auth, // Erros e exceções
 }
 
 /// Classe para configuração de eventos

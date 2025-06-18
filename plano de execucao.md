@@ -74,7 +74,7 @@ Objetivo: Criar a tela inicial e o sistema básico de gamificação (moedas, XP,
 Tarefas:
 
 3.1. Desenvolvimento da Tela Home:
-Projetar e desenvolver UI para a tela inicial (layout, navegação).
+Projetar e desenvolver UI para a tela inicial (layout, navegação devera conter um appbar com informacoes do usuario e economia alem de botao para configuracao no actions).
 Exibir indicadores de Coins, Gems, XP.
 Integrar botão "Localizar conexões".
 
@@ -82,6 +82,9 @@ Integrar botão "Localizar conexões".
 Desenvolver modelo de dados para missões (diárias, semanais).
 Implementar lógica para atribuição e acompanhamento de missões.
 Desenvolver UI para exibir missões e seu progresso.
+desenvolver a arquitetura pensando em missoes em duplca ou em grupo a ideia do app e colaboratividade com suas conexoes
+missoes Autmoticas podera sugerir missao com um desconhecio , justamente para forma laços de amizade mesmo que anonimizados
+elaborar missoes inerressantes que atrai o usuario e fação o querer participar
 
 3.3. Sistema de Recompensas:
 Implementar lógica para ganho de XP, moedas e gemas ao completar missões.
@@ -268,3 +271,8 @@ Receita por Usuário (ARPU): Para avaliar a monetização.
 Uso de Recursos (Firebase): Monitorar custos e otimizações.
 Índice de Denúncias: Para avaliar a eficácia da moderação.
 Este Plano de Execução oferece uma visão muito mais detalhada do "como" cada fase do roadmap será implementada, com tarefas específicas e considerações importantes para segurança e moderação. Lembre-se que um plano de execução é um documento vivo e deve ser atualizado e refinado à medida que o projeto avança.
+
+
+
+
+ 
