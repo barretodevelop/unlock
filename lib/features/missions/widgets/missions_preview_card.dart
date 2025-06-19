@@ -4,7 +4,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/theme/app_theme.dart';
-import 'package:unlock/features/home/providers/home_provider.dart';
 import 'package:unlock/features/missions/models/mission_model.dart';
 import 'package:unlock/features/missions/providers/missions_provider.dart';
 
@@ -22,9 +21,7 @@ class MissionsPreviewCard extends ConsumerWidget {
     return Card(
       elevation: 4,
       shadowColor: theme.colorScheme.shadow.withOpacity(0.2),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
       child: Container(
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
@@ -44,19 +41,25 @@ class MissionsPreviewCard extends ConsumerWidget {
             children: [
               // Header do card
               _buildHeader(context, theme, activeMissions.length),
-              
+
               const SizedBox(height: 16),
-              
+
               // Lista de missões em destaque
               if (missionsState.isLoading)
                 _buildLoadingState(context, theme)
               else if (activeMissions.isEmpty)
                 _buildEmptyState(context, theme)
               else
-                _buildMissionsList(context, theme, ref, featuredMissions, missionsState),
-              
+                _buildMissionsList(
+                  context,
+                  theme,
+                  ref,
+                  featuredMissions,
+                  missionsState,
+                ),
+
               const SizedBox(height: 16),
-              
+
               // Botão para ver todas as missões
               _buildViewAllButton(context, theme),
             ],
@@ -67,7 +70,11 @@ class MissionsPreviewCard extends ConsumerWidget {
   }
 
   /// Construir header do card
-  Widget _buildHeader(BuildContext context, ThemeData theme, int activeMissionsCount) {
+  Widget _buildHeader(
+    BuildContext context,
+    ThemeData theme,
+    int activeMissionsCount,
+  ) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -128,8 +135,9 @@ class MissionsPreviewCard extends ConsumerWidget {
   /// Construir estado de carregamento
   Widget _buildLoadingState(BuildContext context, ThemeData theme) {
     return Column(
-      children: List.generate(3, (index) => 
-        Container(
+      children: List.generate(
+        3,
+        (index) => Container(
           margin: EdgeInsets.only(bottom: index < 2 ? 12 : 0),
           child: _buildMissionSkeleton(theme),
         ),
@@ -224,18 +232,20 @@ class MissionsPreviewCard extends ConsumerWidget {
     BuildContext context,
     ThemeData theme,
     WidgetRef ref,
-    List<String> featuredMissionIds,
+    List<MissionModel> featuredMissionIds,
     MissionsState missionsState,
   ) {
     // Obter as missões em destaque ou as primeiras 3 ativas
     final missionsToShow = featuredMissionIds.isNotEmpty
         ? featuredMissionIds
-            .map((id) => missionsState.allMissions.firstWhere(
-                (m) => m.id == id,
-                orElse: () => missionsState.allMissions.first,
-              ))
-            .take(3)
-            .toList()
+              .map(
+                (id) => missionsState.allMissions.firstWhere(
+                  (m) => m.id == id,
+                  orElse: () => missionsState.allMissions.first,
+                ),
+              )
+              .take(3)
+              .toList()
         : missionsState.activeMissions.take(3).toList();
 
     return Column(
@@ -243,9 +253,11 @@ class MissionsPreviewCard extends ConsumerWidget {
         final index = entry.key;
         final mission = entry.value;
         final progress = missionsState.getMissionProgress(mission.id);
-        
+
         return Container(
-          margin: EdgeInsets.only(bottom: index < missionsToShow.length - 1 ? 12 : 0),
+          margin: EdgeInsets.only(
+            bottom: index < missionsToShow.length - 1 ? 12 : 0,
+          ),
           child: _buildMissionItem(context, theme, ref, mission, progress),
         );
       }).toList(),
@@ -304,9 +316,9 @@ class MissionsPreviewCard extends ConsumerWidget {
                     style: const TextStyle(fontSize: 16),
                   ),
                 ),
-                
+
                 const SizedBox(width: 12),
-                
+
                 // Título e tipo
                 Expanded(
                   child: Column(
@@ -337,7 +349,9 @@ class MissionsPreviewCard extends ConsumerWidget {
                           Text(
                             mission.difficultyText,
                             style: theme.textTheme.labelSmall?.copyWith(
-                              color: theme.colorScheme.onSurface.withOpacity(0.6),
+                              color: theme.colorScheme.onSurface.withOpacity(
+                                0.6,
+                              ),
                             ),
                           ),
                         ],
@@ -345,7 +359,7 @@ class MissionsPreviewCard extends ConsumerWidget {
                     ],
                   ),
                 ),
-                
+
                 // Status/Recompensas
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -369,10 +383,7 @@ class MissionsPreviewCard extends ConsumerWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         if (mission.xpReward > 0) ...[
-                          Text(
-                            '⚡',
-                            style: const TextStyle(fontSize: 10),
-                          ),
+                          Text('⚡', style: const TextStyle(fontSize: 10)),
                           Text(
                             '${mission.xpReward}',
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -383,10 +394,7 @@ class MissionsPreviewCard extends ConsumerWidget {
                         ],
                         if (mission.coinsReward > 0) ...[
                           if (mission.xpReward > 0) const SizedBox(width: 4),
-                          Text(
-                            '🪙',
-                            style: const TextStyle(fontSize: 10),
-                          ),
+                          Text('🪙', style: const TextStyle(fontSize: 10)),
                           Text(
                             '${mission.coinsReward}',
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -401,15 +409,17 @@ class MissionsPreviewCard extends ConsumerWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 12),
-            
+
             // Barra de progresso
             if (!isCompleted) ...[
               LinearProgressIndicator(
                 value: progress,
                 backgroundColor: theme.colorScheme.surfaceVariant,
-                valueColor: AlwaysStoppedAnimation<Color>(Color(mission.difficultyColor)),
+                valueColor: AlwaysStoppedAnimation<Color>(
+                  Color(mission.difficultyColor),
+                ),
                 minHeight: 4,
               ),
               const SizedBox(height: 8),
@@ -423,7 +433,10 @@ class MissionsPreviewCard extends ConsumerWidget {
               ),
             ] else ...[
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 12,
+                  vertical: 6,
+                ),
                 decoration: BoxDecoration(
                   color: AppTheme.successColor.withOpacity(0.2),
                   borderRadius: BorderRadius.circular(8),
@@ -460,11 +473,7 @@ class MissionsPreviewCard extends ConsumerWidget {
       width: double.infinity,
       child: OutlinedButton.icon(
         onPressed: () => _onViewAllMissions(context),
-        icon: Icon(
-          Icons.arrow_forward,
-          size: 18,
-          color: AppTheme.primaryColor,
-        ),
+        icon: Icon(Icons.arrow_forward, size: 18, color: AppTheme.primaryColor),
         label: Text(
           'Ver Todas as Missões',
           style: TextStyle(
@@ -490,7 +499,7 @@ class MissionsPreviewCard extends ConsumerWidget {
   void _onMissionTap(BuildContext context, MissionModel mission) {
     // Navegar para detalhes da missão
     // Navigator.pushNamed(context, '/mission/detail', arguments: mission);
-    
+
     // Por ora, mostrar informações em bottom sheet
     showModalBottomSheet(
       context: context,
@@ -512,22 +521,24 @@ class MissionsPreviewCard extends ConsumerWidget {
                 width: 40,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.3),
+                  color: Theme.of(
+                    context,
+                  ).colorScheme.onSurface.withOpacity(0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 20),
-            
+
             // Título da missão
             Text(
               mission.title,
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.w700),
             ),
             const SizedBox(height: 8),
-            
+
             // Descrição
             Text(
               mission.description,
@@ -536,13 +547,15 @@ class MissionsPreviewCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(height: 16),
-            
+
             // Informações da missão
             Row(
               children: [
                 Chip(
                   label: Text(mission.type.displayName),
-                  backgroundColor: Color(mission.difficultyColor).withOpacity(0.2),
+                  backgroundColor: Color(
+                    mission.difficultyColor,
+                  ).withOpacity(0.2),
                 ),
                 const SizedBox(width: 8),
                 Chip(
@@ -551,9 +564,9 @@ class MissionsPreviewCard extends ConsumerWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: 16),
-            
+
             // Botão fechar
             SizedBox(
               width: double.infinity,
@@ -572,7 +585,7 @@ class MissionsPreviewCard extends ConsumerWidget {
   void _onViewAllMissions(BuildContext context) {
     // Navegar para tela de missões
     // Navigator.pushNamed(context, '/missions');
-    
+
     // Por ora, placeholder
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(

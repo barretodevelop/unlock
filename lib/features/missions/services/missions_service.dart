@@ -1,5 +1,5 @@
 // lib/features/missions/services/missions_service.dart
-// Serviço para operações de missões no Firestore - Fase 3
+// Serviço para operações de missões no Firestore - Fase 3 (CORRIGIDO)
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unlock/core/utils/logger.dart';
@@ -168,155 +168,20 @@ class MissionsService {
   }
 
   // ================================================================================================
-  // GERAÇÃO DE MISSÕES
-  // ================================================================================================
-
-  /// Gerar novas missões diárias para o usuário
-  Future<List<MissionModel>> generateDailyMissions(UserModel user) async {
-    try {
-      AppLogger.debug('🎯 Gerando missões diárias para usuário ${user.uid}');
-
-      // Obter requisitos do usuário
-      final userRequirements = await _getUserRequirements(user);
-
-      // Obter missões completadas recentemente para evitar repetição
-      final recentMissions = await _getRecentCompletedMissions(
-        user.uid,
-        days: 7,
-      );
-
-      // Gerar missões usando o gerador
-      final missions = MissionGenerator.generateDailyMissions(
-        user,
-        userRequirements: userRequirements,
-        completedMissionIds: recentMissions,
-      );
-
-      // Salvar missões no Firestore
-      await _saveMissionsToFirestore(user.uid, missions);
-
-      // Criar progresso inicial para as missões
-      await _createInitialProgress(user.uid, missions);
-
-      AppLogger.info('✅ ${missions.length} missões diárias geradas e salvas');
-      return missions;
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao gerar missões diárias', error: e);
-      return [];
-    }
-  }
-
-  /// Gerar novas missões semanais para o usuário
-  Future<List<MissionModel>> generateWeeklyMissions(UserModel user) async {
-    try {
-      AppLogger.debug('🎯 Gerando missões semanais para usuário ${user.uid}');
-
-      final userRequirements = await _getUserRequirements(user);
-      final recentMissions = await _getRecentCompletedMissions(
-        user.uid,
-        days: 30,
-      );
-
-      final missions = MissionGenerator.generateWeeklyMissions(
-        user,
-        userRequirements: userRequirements,
-        completedMissionIds: recentMissions,
-      );
-
-      await _saveMissionsToFirestore(user.uid, missions);
-      await _createInitialProgress(user.uid, missions);
-
-      AppLogger.info('✅ ${missions.length} missões semanais geradas e salvas');
-      return missions;
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao gerar missões semanais', error: e);
-      return [];
-    }
-  }
-
-  // ================================================================================================
-  // OPERAÇÕES DE ESCRITA
-  // ================================================================================================
-
-  /// Salvar missões no Firestore
-  Future<void> _saveMissionsToFirestore(
-    String userId,
-    List<MissionModel> missions,
-  ) async {
-    final batch = _firestore.batch();
-
-    for (final mission in missions) {
-      final docRef = _userMissionsCollection(userId).doc(mission.id);
-      batch.set(docRef, mission.toJson());
-    }
-
-    await batch.commit();
-  }
-
-  /// Criar progresso inicial para as missões
-  Future<void> _createInitialProgress(
-    String userId,
-    List<MissionModel> missions,
-  ) async {
-    final batch = _firestore.batch();
-
-    for (final mission in missions) {
-      final progress = UserMissionProgress(
-        missionId: mission.id,
-        userId: userId,
-        targetProgress: mission.targetValue,
-        startedAt: DateTime.now(),
-      );
-
-      final docRef = _userMissionProgressCollection(userId).doc(mission.id);
-      batch.set(docRef, progress.toJson());
-    }
-
-    await batch.commit();
-  }
-
-  /// Atualizar progresso de uma missão
-  Future<void> updateMissionProgress(
-    String userId,
-    UserMissionProgress progress,
-  ) async {
-    try {
-      AppLogger.debug(
-        '📈 Atualizando progresso da missão ${progress.missionId}',
-      );
-
-      await _userMissionProgressCollection(
-        userId,
-      ).doc(progress.missionId).set(progress.toJson(), SetOptions(merge: true));
-
-      AppLogger.info('✅ Progresso da missão atualizado');
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao atualizar progresso da missão', error: e);
-      rethrow;
-    }
-  }
-
-  /// Marcar missão como inativa
-  Future<void> deactivateMission(String userId, String missionId) async {
-    try {
-      await _userMissionsCollection(
-        userId,
-      ).doc(missionId).update({'isActive': false});
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao desativar missão', error: e);
-    }
-  }
-
-  // ================================================================================================
-  // VERIFICAÇÕES E VALIDAÇÕES
+  // ✅ CORREÇÃO CRÍTICA: VERIFICAÇÕES DE GERAÇÃO AUTOMÁTICA
   // ================================================================================================
 
   /// Verificar se deve gerar novas missões diárias
   Future<bool> shouldGenerateNewDailyMissions(String userId) async {
     try {
+      AppLogger.debug(
+        '🔍 Verificando necessidade de missões diárias para $userId',
+      );
+
       // Verificar se já tem missões diárias ativas hoje
-      final today = DateTime.now();
-      final startOfDay = DateTime(today.year, today.month, today.day);
+      final now = DateTime.now();
+      final startOfDay = DateTime(now.year, now.month, now.day);
+      final endOfDay = startOfDay.add(const Duration(days: 1));
 
       final query = await _userMissionsCollection(userId)
           .where('type', isEqualTo: 'daily')
@@ -325,22 +190,36 @@ class MissionsService {
             'createdAt',
             isGreaterThanOrEqualTo: startOfDay.toIso8601String(),
           )
+          .where('createdAt', isLessThan: endOfDay.toIso8601String())
           .get();
 
       final hasActiveDailyMissions = query.docs.isNotEmpty;
-      return !hasActiveDailyMissions;
+      final shouldGenerate = !hasActiveDailyMissions;
+
+      AppLogger.debug(
+        shouldGenerate
+            ? '✨ Deve gerar missões diárias (nenhuma ativa hoje)'
+            : '✅ Já possui missões diárias ativas hoje',
+      );
+
+      return shouldGenerate;
     } catch (e, stackTrace) {
       AppLogger.error(
         '❌ Erro ao verificar necessidade de missões diárias',
         error: e,
       );
-      return true; // Em caso de erro, tentar gerar
+      // Em caso de erro, gerar por segurança
+      return true;
     }
   }
 
   /// Verificar se deve gerar novas missões semanais
   Future<bool> shouldGenerateNewWeeklyMissions(String userId) async {
     try {
+      AppLogger.debug(
+        '🔍 Verificando necessidade de missões semanais para $userId',
+      );
+
       // Verificar se já tem missões semanais ativas esta semana
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
@@ -360,62 +239,319 @@ class MissionsService {
           .get();
 
       final hasActiveWeeklyMissions = query.docs.isNotEmpty;
-      return !hasActiveWeeklyMissions;
+      final shouldGenerate = !hasActiveWeeklyMissions;
+
+      AppLogger.debug(
+        shouldGenerate
+            ? '✨ Deve gerar missões semanais (nenhuma ativa esta semana)'
+            : '✅ Já possui missões semanais ativas esta semana',
+      );
+
+      return shouldGenerate;
     } catch (e, stackTrace) {
       AppLogger.error(
         '❌ Erro ao verificar necessidade de missões semanais',
         error: e,
       );
+      // Em caso de erro, gerar por segurança
       return true;
     }
   }
 
   // ================================================================================================
-  // MÉTODOS AUXILIARES
+  // GERAÇÃO DE MISSÕES (métodos existentes melhorados)
   // ================================================================================================
 
-  /// Obter requisitos do usuário para geração de missões
-  Future<Map<String, bool>> _getUserRequirements(UserModel user) async {
-    return {
-      'has_incomplete_profile': user.needsOnboarding,
-      'has_viewed_profiles': true, // Implementar baseado em analytics
-      'has_connections': true, // Implementar baseado em conexões
-      'has_unlocked_minigames': user.level >= 5,
-      'has_shop_access': user.level >= 3,
-      'has_active_connection': true, // Implementar
-      'has_multiple_connections': true, // Implementar
-    };
+  /// Gerar novas missões diárias para o usuário
+  Future<List<MissionModel>> generateDailyMissions(UserModel user) async {
+    try {
+      AppLogger.debug('🎯 Gerando missões diárias para usuário ${user.uid}');
+
+      // ✅ VERIFICAÇÃO: Não gerar se já tem missões válidas
+      if (!await shouldGenerateNewDailyMissions(user.uid)) {
+        AppLogger.info(
+          '⏭️ Pulando geração - já possui missões diárias válidas',
+        );
+        return getUserDailyMissions(user.uid);
+      }
+
+      // Obter requisitos do usuário
+      final userRequirements = await _getUserRequirements(user);
+
+      // Obter missões completadas recentemente para evitar repetição
+      final recentMissions = await _getRecentCompletedMissions(
+        user.uid,
+        days: 7,
+      );
+
+      // Gerar missões usando o gerador
+      final missions = MissionGenerator.generateDailyMissions(
+        user,
+        userRequirements: userRequirements,
+        completedMissionIds: recentMissions,
+      );
+
+      // ✅ FALLBACK: Se gerador falhou, criar missões básicas
+      if (missions.isEmpty) {
+        AppLogger.warning('⚠️ Gerador não retornou missões - criando fallback');
+        final fallbackMissions = _createFallbackDailyMissions(user);
+        await _saveMissionsToFirestore(user.uid, fallbackMissions);
+        await _createInitialProgress(user.uid, fallbackMissions);
+        return fallbackMissions;
+      }
+
+      // Salvar missões no Firestore
+      await _saveMissionsToFirestore(user.uid, missions);
+
+      // Criar progresso inicial para as missões
+      await _createInitialProgress(user.uid, missions);
+
+      AppLogger.info('✅ ${missions.length} missões diárias geradas e salvas');
+      return missions;
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Erro ao gerar missões diárias', error: e);
+
+      // ✅ FALLBACK EM CASO DE ERRO
+      try {
+        AppLogger.info('🔄 Tentando fallback para missões diárias');
+        final fallbackMissions = _createFallbackDailyMissions(user);
+        await _saveMissionsToFirestore(user.uid, fallbackMissions);
+        await _createInitialProgress(user.uid, fallbackMissions);
+        return fallbackMissions;
+      } catch (fallbackError) {
+        AppLogger.error('❌ Fallback também falhou', error: fallbackError);
+        return [];
+      }
+    }
   }
 
-  /// Obter missões completadas recentemente
-  Future<List<String>> _getRecentCompletedMissions(
-    String userId, {
-    int days = 7,
-  }) async {
+  /// Gerar novas missões semanais para o usuário
+  Future<List<MissionModel>> generateWeeklyMissions(UserModel user) async {
     try {
-      final cutoffDate = DateTime.now().subtract(Duration(days: days));
+      AppLogger.debug('🎯 Gerando missões semanais para usuário ${user.uid}');
 
-      final query = await _userMissionProgressCollection(userId)
-          .where('isCompleted', isEqualTo: true)
-          .where(
-            'completedAt',
-            isGreaterThanOrEqualTo: cutoffDate.toIso8601String(),
-          )
-          .get();
+      // ✅ VERIFICAÇÃO: Não gerar se já tem missões válidas
+      if (!await shouldGenerateNewWeeklyMissions(user.uid)) {
+        AppLogger.info(
+          '⏭️ Pulando geração - já possui missões semanais válidas',
+        );
+        return getUserWeeklyMissions(user.uid);
+      }
 
-      return query.docs
-          .map(
-            (doc) =>
-                (doc.data()! as Map<String, dynamic>)['missionId'] as String? ??
-                '',
-          )
-          .toList();
-    } catch (e, stackTrace) {
-      AppLogger.error(
-        '❌ Erro ao buscar missões completadas recentemente',
-        error: e,
+      final userRequirements = await _getUserRequirements(user);
+      final recentMissions = await _getRecentCompletedMissions(
+        user.uid,
+        days: 30,
       );
-      return [];
+
+      final missions = MissionGenerator.generateWeeklyMissions(
+        user,
+        userRequirements: userRequirements,
+        completedMissionIds: recentMissions,
+      );
+
+      // ✅ FALLBACK: Se gerador falhou, criar missões básicas
+      if (missions.isEmpty) {
+        AppLogger.warning(
+          '⚠️ Gerador não retornou missões semanais - criando fallback',
+        );
+        final fallbackMissions = _createFallbackWeeklyMissions(user);
+        await _saveMissionsToFirestore(user.uid, fallbackMissions);
+        await _createInitialProgress(user.uid, fallbackMissions);
+        return fallbackMissions;
+      }
+
+      await _saveMissionsToFirestore(user.uid, missions);
+      await _createInitialProgress(user.uid, missions);
+
+      AppLogger.info('✅ ${missions.length} missões semanais geradas e salvas');
+      return missions;
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Erro ao gerar missões semanais', error: e);
+
+      // ✅ FALLBACK EM CASO DE ERRO
+      try {
+        AppLogger.info('🔄 Tentando fallback para missões semanais');
+        final fallbackMissions = _createFallbackWeeklyMissions(user);
+        await _saveMissionsToFirestore(user.uid, fallbackMissions);
+        await _createInitialProgress(user.uid, fallbackMissions);
+        return fallbackMissions;
+      } catch (fallbackError) {
+        AppLogger.error(
+          '❌ Fallback semanal também falhou',
+          error: fallbackError,
+        );
+        return [];
+      }
+    }
+  }
+
+  // ================================================================================================
+  // ✅ NOVOS MÉTODOS: FALLBACK MISSIONS
+  // ================================================================================================
+
+  /// Criar missões diárias de fallback (caso gerador principal falhe)
+  List<MissionModel> _createFallbackDailyMissions(UserModel user) {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
+
+    return [
+      MissionModel(
+        id: 'daily_fallback_${now.millisecondsSinceEpoch}_1',
+        title: 'Primeiro Login',
+        description: 'Faça seu login diário para ganhar recompensas',
+        type: MissionType.daily,
+        category: MissionCategory.social,
+        xpReward: 25,
+        coinsReward: 10,
+        gemsReward: 0,
+        targetValue: 1,
+        difficulty: 1,
+        createdAt: now,
+        expiresAt: tomorrow,
+        requirements: [],
+        isActive: true,
+      ),
+      MissionModel(
+        id: 'daily_fallback_${now.millisecondsSinceEpoch}_2',
+        title: 'Explorar Perfis',
+        description: 'Visualize 3 perfis de outros usuários',
+        type: MissionType.daily,
+        category: MissionCategory.exploration,
+        xpReward: 30,
+        coinsReward: 15,
+        gemsReward: 1,
+        targetValue: 3,
+        difficulty: 2,
+        createdAt: now,
+        expiresAt: tomorrow,
+        requirements: [],
+        isActive: true,
+      ),
+      MissionModel(
+        id: 'daily_fallback_${now.millisecondsSinceEpoch}_3',
+        title: 'Atualizar Perfil',
+        description: 'Complete ou atualize informações do seu perfil',
+        type: MissionType.daily,
+        category: MissionCategory.profile,
+        xpReward: 40,
+        coinsReward: 20,
+        gemsReward: 2,
+        targetValue: 1,
+        difficulty: 1,
+        createdAt: now,
+        expiresAt: tomorrow,
+        requirements: [],
+        isActive: true,
+      ),
+    ];
+  }
+
+  /// Criar missões semanais de fallback
+  List<MissionModel> _createFallbackWeeklyMissions(UserModel user) {
+    final now = DateTime.now();
+    final nextWeek = now.add(const Duration(days: 7));
+
+    return [
+      MissionModel(
+        id: 'weekly_fallback_${now.millisecondsSinceEpoch}_1',
+        title: 'Fazer Nova Conexão',
+        description: 'Conecte-se com pelo menos 1 pessoa nova esta semana',
+        type: MissionType.weekly,
+        category: MissionCategory.social,
+        xpReward: 100,
+        coinsReward: 50,
+        gemsReward: 5,
+        targetValue: 1,
+        difficulty: 3,
+        createdAt: now,
+        expiresAt: nextWeek,
+        requirements: [],
+        isActive: true,
+      ),
+      MissionModel(
+        id: 'weekly_fallback_${now.millisecondsSinceEpoch}_2',
+        title: 'Sessão de Minijogos',
+        description: 'Complete 5 minijogos de compatibilidade',
+        type: MissionType.weekly,
+        category: MissionCategory.gamification,
+        xpReward: 150,
+        coinsReward: 75,
+        gemsReward: 8,
+        targetValue: 5,
+        difficulty: 4,
+        createdAt: now,
+        expiresAt: nextWeek,
+        requirements: ['has_unlocked_minigames'],
+        isActive: true,
+      ),
+    ];
+  }
+
+  // ================================================================================================
+  // OPERAÇÕES DE ESCRITA (métodos existentes mantidos)
+  // ================================================================================================
+
+  /// Salvar missões no Firestore
+  Future<void> _saveMissionsToFirestore(
+    String userId,
+    List<MissionModel> missions,
+  ) async {
+    if (missions.isEmpty) return;
+
+    final batch = _firestore.batch();
+
+    for (final mission in missions) {
+      final docRef = _userMissionsCollection(userId).doc(mission.id);
+      batch.set(docRef, mission.toJson());
+    }
+
+    await batch.commit();
+    AppLogger.debug('💾 ${missions.length} missões salvas no Firestore');
+  }
+
+  /// Criar progresso inicial para as missões
+  Future<void> _createInitialProgress(
+    String userId,
+    List<MissionModel> missions,
+  ) async {
+    if (missions.isEmpty) return;
+
+    final batch = _firestore.batch();
+
+    for (final mission in missions) {
+      final progress = UserMissionProgress(
+        missionId: mission.id,
+        userId: userId,
+        targetProgress: mission.targetValue,
+        startedAt: DateTime.now(),
+      );
+
+      final docRef = _userMissionProgressCollection(userId).doc(mission.id);
+      batch.set(docRef, progress.toJson());
+    }
+
+    await batch.commit();
+    AppLogger.debug(
+      '📊 Progresso inicial criado para ${missions.length} missões',
+    );
+  }
+
+  /// Atualizar progresso de uma missão
+  Future<void> updateMissionProgress(
+    String userId,
+    UserMissionProgress progress,
+  ) async {
+    try {
+      final docRef = _userMissionProgressCollection(
+        userId,
+      ).doc(progress.missionId);
+      await docRef.set(progress.toJson(), SetOptions(merge: true));
+
+      AppLogger.debug('📈 Progresso atualizado: ${progress.missionId}');
+    } catch (e) {
+      AppLogger.error('❌ Erro ao atualizar progresso', error: e);
+      rethrow;
     }
   }
 
@@ -428,6 +564,11 @@ class MissionsService {
       final query = await _userMissionsCollection(
         userId,
       ).where('expiresAt', isLessThan: now.toIso8601String()).get();
+
+      if (query.docs.isEmpty) {
+        AppLogger.debug('✅ Nenhuma missão expirada encontrada');
+        return;
+      }
 
       final batch = _firestore.batch();
 
@@ -477,6 +618,55 @@ class MissionsService {
     } catch (e, stackTrace) {
       AppLogger.error('❌ Erro ao obter estatísticas de missões', error: e);
       return {};
+    }
+  }
+
+  // ================================================================================================
+  // MÉTODOS AUXILIARES (mantidos inalterados)
+  // ================================================================================================
+
+  /// Obter requisitos do usuário para geração de missões
+  Future<Map<String, bool>> _getUserRequirements(UserModel user) async {
+    return {
+      'has_incomplete_profile': user.needsOnboarding,
+      'has_viewed_profiles': true, // Implementar baseado em analytics
+      'has_connections': true, // Implementar baseado em conexões
+      'has_unlocked_minigames': user.level >= 5,
+      'has_shop_access': user.level >= 3,
+      'has_active_connection': true, // Implementar
+      'has_multiple_connections': true, // Implementar
+    };
+  }
+
+  /// Obter missões completadas recentemente
+  Future<List<String>> _getRecentCompletedMissions(
+    String userId, {
+    int days = 7,
+  }) async {
+    try {
+      final cutoffDate = DateTime.now().subtract(Duration(days: days));
+
+      final query = await _userMissionProgressCollection(userId)
+          .where('isCompleted', isEqualTo: true)
+          .where(
+            'completedAt',
+            isGreaterThanOrEqualTo: cutoffDate.toIso8601String(),
+          )
+          .get();
+
+      return query.docs
+          .map(
+            (doc) =>
+                (doc.data()! as Map<String, dynamic>)['missionId'] as String? ??
+                '',
+          )
+          .toList();
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ Erro ao buscar missões completadas recentemente',
+        error: e,
+      );
+      return [];
     }
   }
 }

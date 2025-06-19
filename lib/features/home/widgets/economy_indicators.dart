@@ -18,7 +18,7 @@ class EconomyIndicators extends ConsumerWidget {
     super.key,
     this.showDetailed = false,
     this.isCompact = false,
-    this.onTap,
+    this.onTap, required bool showLevelProgress,
   });
 
   @override

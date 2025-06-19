@@ -253,6 +253,10 @@ class MissionModel {
   @override
   int get hashCode => id.hashCode;
 
+  get currentProgress => null;
+
+  get rewardCoins => null;
+
   @override
   String toString() {
     return 'MissionModel(id: $id, title: $title, type: ${type.value}, difficulty: $difficulty)';

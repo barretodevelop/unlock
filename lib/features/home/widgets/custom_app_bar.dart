@@ -3,10 +3,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/core/theme/app_theme.dart';
 import 'package:unlock/features/home/providers/home_provider.dart';
 import 'package:unlock/features/rewards/providers/rewards_provider.dart';
 import 'package:unlock/providers/auth_provider.dart';
-import 'package:unlock/core/theme/app_theme.dart';
 
 /// AppBar personalizada com informações do usuário e economia
 class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -48,26 +48,230 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
         children: [
           // Avatar do usuário
           _buildUserAvatar(context, user),
-          
+
           const SizedBox(width: 12),
-          
+
           // Informações do usuário
-          Expanded(
-            child: _buildUserInfo(context, theme, user, userStats),
-          ),
+          Expanded(child: _buildUserInfo(context, theme, user, userStats)),
         ],
       ),
       actions: [
+        _buildActionButton(
+          context,
+          Icons.notifications_outlined,
+          () => _handleNotifications(context),
+          hasNotification: true,
+        ),
+
         // Indicadores de economia
         _buildEconomyIndicators(context, theme, user, hasPendingRewards),
-        
+
         const SizedBox(width: 8),
-        
+
         // Botão de configurações
         _buildSettingsButton(context, theme),
-        
+
         const SizedBox(width: 16),
       ],
+    );
+  }
+
+  void _handleNotifications(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => _buildNotificationsSheet(context),
+    );
+  }
+
+  Widget _buildNotificationsSheet(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      height: 300,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      child: Column(
+        children: [
+          // Handle
+          Container(
+            margin: const EdgeInsets.symmetric(vertical: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.outline.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          // Header
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Notificações',
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                TextButton(
+                  onPressed: () {},
+                  child: Text(
+                    'Marcar como lidas',
+                    style: TextStyle(color: AppTheme.primaryColor),
+                  ),
+                ),
+              ],
+            ),
+          ),
+
+          // Notifications List
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                return _buildNotificationItem(context, index);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildNotificationItem(BuildContext context, int index) {
+    final theme = Theme.of(context);
+    final notifications = [
+      {
+        'title': 'Nova missão disponível!',
+        'subtitle': 'Missão diária: Exercitar-se por 30 minutos',
+        'time': '2m',
+      },
+      {
+        'title': 'Recompensa coletada!',
+        'subtitle': 'Você ganhou 50 coins por completar uma missão',
+        'time': '1h',
+      },
+      {
+        'title': 'Nível aumentado!',
+        'subtitle': 'Parabéns! Você subiu para o nível 5',
+        'time': '3h',
+      },
+    ];
+
+    final notification = notifications[index];
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.background,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: theme.colorScheme.outline.withOpacity(0.1),
+          width: 1,
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(
+              Icons.notifications,
+              color: AppTheme.primaryColor,
+              size: 16,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  notification['title']!,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                Text(
+                  notification['subtitle']!,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Text(
+            notification['time']!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.5),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildActionButton(
+    BuildContext context,
+    IconData icon,
+    VoidCallback onTap, {
+    bool hasNotification = false,
+  }) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface.withOpacity(0.8),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outline.withOpacity(0.1),
+            width: 1,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: theme.shadowColor.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            Icon(icon, color: theme.colorScheme.onSurface, size: 20),
+            if (hasNotification)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                      color: theme.colorScheme.surface,
+                      width: 1,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -97,12 +301,13 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
       child: ClipOval(
         child: user.avatar?.isNotEmpty == true
             ? (user.avatar!.startsWith('http')
-                ? Image.network(
-                    user.avatar!,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => _buildAvatarFallback(context),
-                  )
-                : _buildEmojiAvatar(context, user.avatar!))
+                  ? Image.network(
+                      user.avatar!,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) =>
+                          _buildAvatarFallback(context),
+                    )
+                  : _buildEmojiAvatar(context, user.avatar!))
             : _buildAvatarFallback(context),
       ),
     );
@@ -128,12 +333,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
       width: 40,
       height: 40,
       color: Theme.of(context).colorScheme.primaryContainer.withOpacity(0.3),
-      child: Center(
-        child: Text(
-          emoji,
-          style: const TextStyle(fontSize: 20),
-        ),
-      ),
+      child: Center(child: Text(emoji, style: const TextStyle(fontSize: 20))),
     );
   }
 
@@ -157,8 +357,8 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
           children: [
             Flexible(
               child: Text(
-                user.codinome?.isNotEmpty == true 
-                    ? user.codinome! 
+                user.codinome?.isNotEmpty == true
+                    ? user.codinome!
                     : user.displayName,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -188,9 +388,9 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
             ),
           ],
         ),
-        
+
         const SizedBox(height: 2),
-        
+
         // Título e barra de progresso
         Row(
           children: [
@@ -259,9 +459,9 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
             _formatNumber(user.xp),
             AppTheme.xpColor,
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           // Coins
           _buildEconomyItem(
             context,
@@ -269,9 +469,9 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
             _formatNumber(user.coins),
             AppTheme.coinsColor,
           ),
-          
+
           const SizedBox(width: 8),
-          
+
           // Gems
           _buildEconomyItem(
             context,
@@ -279,7 +479,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
             _formatNumber(user.gems),
             AppTheme.gemsColor,
           ),
-          
+
           // Badge de recompensas pendentes
           if (hasPendingRewards) ...[
             const SizedBox(width: 8),
@@ -314,10 +514,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text(
-          icon,
-          style: const TextStyle(fontSize: 12),
-        ),
+        Text(icon, style: const TextStyle(fontSize: 12)),
         const SizedBox(width: 2),
         Text(
           value,
@@ -360,7 +557,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
   void _onSettingsPressed(BuildContext context) {
     // Implementar navegação para configurações
     // Navigator.pushNamed(context, '/settings');
-    
+
     // Por ora, mostrar bottom sheet simples
     showModalBottomSheet(
       context: context,
@@ -406,9 +603,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
               ),
               title: Text(
                 'Sair',
-                style: TextStyle(
-                  color: Theme.of(context).colorScheme.error,
-                ),
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
               ),
               onTap: () {
                 Navigator.pop(context);
@@ -441,9 +636,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
             },
             child: Text(
               'Sair',
-              style: TextStyle(
-                color: Theme.of(context).colorScheme.error,
-              ),
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
             ),
           ),
         ],

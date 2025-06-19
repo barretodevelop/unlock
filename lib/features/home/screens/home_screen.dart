@@ -4,6 +4,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/theme/app_theme.dart';
+import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/home/providers/home_provider.dart';
 import 'package:unlock/features/home/widgets/custom_app_bar.dart';
 import 'package:unlock/features/home/widgets/economy_indicators.dart';
@@ -12,6 +13,7 @@ import 'package:unlock/features/missions/widgets/mission_card.dart';
 import 'package:unlock/features/navigation/widgets/custom_bottom_nav.dart';
 import 'package:unlock/features/navigation/widgets/floating_action_center.dart';
 import 'package:unlock/features/rewards/providers/rewards_provider.dart';
+import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 
 /// Tela principal do aplicativo
@@ -29,6 +31,45 @@ class HomeScreen extends ConsumerWidget {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
 
+    /// Refresh da tela
+    Future<void> _onRefresh(WidgetRef ref) async {
+      try {
+        AppLogger.debug('🔄 Atualizando HomeScreen...');
+
+        // Atualizar auth provider
+        await ref.read(authProvider.notifier).refreshUser();
+
+        // Atualizar missions provider
+        await ref.read(missionsProvider.notifier).refresh();
+
+        // Atualizar home provider
+        // await ref.read(homeProvider.notifier).refresh();
+
+        AppLogger.info('✅ HomeScreen atualizada');
+      } catch (e) {
+        AppLogger.error('❌ Erro ao atualizar HomeScreen', error: e);
+      }
+    }
+
+    /// Gerar missões manualmente
+    Future<void> _generateMissions(WidgetRef ref, UserModel user) async {
+      try {
+        AppLogger.debug('✨ Gerando missões manualmente para ${user.uid}');
+
+        final missionsNotifier = ref.read(missionsProvider.notifier);
+
+        // Gerar missões diárias e semanais
+        await Future.wait([
+          missionsNotifier.generateDailyMissions(user),
+          missionsNotifier.generateWeeklyMissions(user),
+        ]);
+
+        AppLogger.info('✅ Missões geradas manualmente');
+      } catch (e) {
+        AppLogger.error('❌ Erro ao gerar missões', error: e);
+      }
+    }
+
     return Scaffold(
       appBar: const CustomAppBar(),
       body: RefreshIndicator(
@@ -44,6 +85,7 @@ class HomeScreen extends ConsumerWidget {
                   onTap: hasPendingRewards
                       ? () => _claimAllRewards(context, ref)
                       : null,
+                  showLevelProgress: false,
                 ),
               ),
             ),
@@ -366,20 +408,19 @@ class HomeScreen extends ConsumerWidget {
 
           const SizedBox(height: 20),
 
-          // ElevatedButton.icon(
-          //   onPressed: () => _onRefresh(
-          //      ref.watch(missionprovider.notifier)
-          //   ),
-          //   icon: const Icon(Icons.refresh),
-          //   label: const Text('Atualizar'),
-          //   style: ElevatedButton.styleFrom(
-          //     backgroundColor: theme.colorScheme.primary,
-          //     foregroundColor: theme.colorScheme.onPrimary,
-          //     shape: RoundedRectangleBorder(
-          //       borderRadius: BorderRadius.circular(12),
-          //     ),
-          //   ),
-          // ),
+          ElevatedButton.icon(
+            onPressed: () {},
+            // onPressed: () =>  _onRefresh(ref),
+            icon: const Icon(Icons.refresh),
+            label: const Text('Atualizar'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: theme.colorScheme.primary,
+              foregroundColor: theme.colorScheme.onPrimary,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
         ],
       ),
     );
