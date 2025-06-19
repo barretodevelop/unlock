@@ -178,10 +178,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _initialize();
   }
 
-  // ================================================================================================
-  // ✅ CORREÇÃO: INICIALIZAÇÃO COM TRIGGERS
-  // ================================================================================================
-
   /// Inicialização do provider com triggers de gamificação
   Future<void> _initialize() async {
     if (_disposed) return;
@@ -683,56 +679,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
-  // /// Completar onboarding
-  // // Future<void> completeOnboarding({
-  // //   required String codinome,
-  // //   required String avatarId,
-  // //   required DateTime birthDate,
-  // //   required List<String> interesses,
-  // //   String? relationshipGoal,
-  // //   int? connectionLevel,
-  // // }) async {
-  // //   if (!state.isAuthenticated || _disposed) return;
-
-  // //   try {
-  // //     _log('✅ Completando onboarding para usuário ${state.user!.uid}...');
-
-  // //     // Atualizar dados no Firestore
-  // //     await AuthService.updateUserField(state.user!.uid, {
-  // //       'codinome': codinome,
-  // //       'avatarId': avatarId,
-  // //       'birthDate': birthDate.toIso8601String(),
-  // //       'interesses': interesses,
-  // //       'relationshipGoal': relationshipGoal,
-  // //       'connectionLevel': connectionLevel ?? 5,
-  // //       'onboardingCompleted': true,
-  // //       'onboardingCompletedAt': DateTime.now().toIso8601String(),
-  // //     });
-
-  // //     // Analytics
-  // //     await _trackAnalyticsEvent(
-  // //       'onboarding_completed',
-  // //       data: {
-  // //         'user_id': state.user!.uid,
-  // //         'codinome_length': codinome.length,
-  // //         'avatar_id': avatarId,
-  // //         'interesses_count': interesses.length,
-  // //         'relationship_goal': relationshipGoal ?? 'not_specified',
-  // //         'connection_level': connectionLevel ?? 5,
-  // //       },
-  // //     );
-
-  // //     // Força uma atualização do estado de autenticação
-  // //     await refreshUser();
-
-  // //     _log('✅ Onboarding completed for user ${state.user!.uid}');
-  // //   } catch (e) {
-  // //     _log('❌ Complete onboarding failed: $e');
-  // //     _handleError('Erro ao completar onboarding', e);
-  // //     rethrow;
-  // //   }
-  // // }
-
   /// Recheck do status de onboarding
   Future<void> recheckOnboardingStatus() async {
     if (!state.isAuthenticated || _disposed) return;
@@ -744,10 +690,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       _handleError('Erro ao verificar status de onboarding', error);
     }
   }
-
-  // ================================================================================================
-  // MÉTODOS AUXILIARES (mantidos inalterados)
-  // ================================================================================================
 
   /// Handler de erro de autenticação
   void _handleAuthError(error) {
@@ -814,4 +756,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _authSubscription?.cancel();
     super.dispose();
   }
+
+  Future<void> updateUserData(UserModel updatedUser) async {}
 }
