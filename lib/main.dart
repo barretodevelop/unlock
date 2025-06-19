@@ -58,13 +58,11 @@ Future<void> _initializeApp() async {
         'app_initialized',
         parameters: {
           'init_duration_ms': initDuration.inMilliseconds,
-          'platform': Theme.of(
-            (WidgetsBinding.instance.platformDispatcher.platformBrightness ==
-                        Brightness.dark
-                    ? 'dark'
-                    : 'light')
-                as BuildContext,
-          ),
+          'platform':
+              WidgetsBinding.instance.platformDispatcher.platformBrightness ==
+                  Brightness.dark
+              ? 'dark'
+              : 'light',
           'is_debug': kDebugMode,
         },
         category: EventCategory.system,

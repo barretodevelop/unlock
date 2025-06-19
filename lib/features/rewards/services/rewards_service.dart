@@ -268,6 +268,41 @@ class RewardsService {
     }
   }
 
+  /// Registra uma recompensa que já foi coletada (ex: bônus direto).
+  Future<void> recordClaimedReward(String userId, RewardModel reward) async {
+    if (!reward.isClaimed || reward.claimedAt == null) {
+      AppLogger.error(
+        'Tentativa de registrar recompensa não coletada como já coletada.',
+        data: {'rewardId': reward.id},
+      );
+      throw ArgumentError(
+        'A recompensa deve ser marcada como coletada e ter claimedAt definido.',
+      );
+    }
+    try {
+      AppLogger.debug(
+        '💾 Registrando recompensa já coletada ${reward.id} para usuário $userId',
+      );
+
+      final docRef = _userRewardsCollection(userId).doc(reward.id);
+      await docRef.set(reward.toJson()); // Salva o RewardModel completo
+
+      // Atualizar estatísticas de economia se a recompensa ainda não foi contabilizada
+      // por um fluxo de `grantRewards` anterior.
+      // Para bônus diretos como login diário, é importante contabilizar aqui.
+      if (reward.source == RewardSource.dailyLogin) {
+        await _updateEconomyStats([reward]);
+      }
+
+      AppLogger.info(
+        '✅ Recompensa já coletada ${reward.id} registrada no histórico.',
+      );
+    } catch (e) {
+      AppLogger.error('❌ Erro ao registrar recompensa já coletada', error: e);
+      rethrow;
+    }
+  }
+
   /// Atualizar estatísticas do usuário (XP, coins, gems)
   Future<void> updateUserStats(
     String userId,

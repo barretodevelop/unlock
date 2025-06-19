@@ -143,8 +143,9 @@ class MissionRepository {
             missionId: missionId,
             currentProgress: 0,
             isCompleted: false,
-            isClaimed: false,
-            lastUpdateDate: now,
+            isClaimed: false, // Mantém isClaimed como false no reset
+            lastUpdateDate:
+                null, // Define lastUpdateDate como null para forçar o reprocessamento do evento
           );
           print(
             'DEBUG: Missão diária ${missionId} resetada para o usuário ${userId}',

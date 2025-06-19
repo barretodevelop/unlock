@@ -1,9 +1,13 @@
 // lib/features/missions/providers/missions_notifier.dart
 
+import 'dart:async'; // Importar Completer
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/missions/models/mission.dart';
 import 'package:unlock/features/missions/models/user_mission_progress.dart';
 import 'package:unlock/features/missions/repositories/mission_repository.dart';
+import 'package:unlock/features/rewards/providers/rewards_provider.dart';
 import 'package:unlock/features/rewards/services/rewards_service.dart';
 import 'package:unlock/providers/auth_provider.dart'; // Importa o AuthProvider
 
@@ -76,6 +80,8 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
   late final MissionRepository
   _missionRepository; // Repositório para acesso a dados
   late final RewardsService _rewardsService; // Serviço para aplicar recompensas
+  final Completer<void> _initialLoadCompleter =
+      Completer<void>(); // Para sincronização
 
   MissionsNotifier(this._ref, this._userId) : super(MissionsState()) {
     _missionRepository = _ref.read(missionRepositoryProvider);
@@ -83,16 +89,27 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
 
     // Carrega as missões e o progresso se houver um usuário logado
     if (_userId != null) {
-      _fetchMissionsAndProgress();
+      _loadData();
+    } else {
+      // Se não há usuário, o carregamento inicial é considerado completo (não há o que carregar).
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
     }
   }
 
   /// Carrega as missões ativas e o progresso do usuário a partir do repositório.
-  Future<void> _fetchMissionsAndProgress() async {
-    if (_userId == null) {
+  Future<void> _loadData() async {
+    // Usar o userId mais recente do AuthProvider, embora _userId deva estar correto aqui
+    // devido à recriação do notifier quando authProvider muda.
+    final currentUserId = _userId ?? _ref.read(authProvider).user?.uid;
+
+    if (currentUserId == null) {
       state = state.copyWith(
         error: 'Usuário não autenticado para carregar missões.',
+        isLoading: false, // Garante que isLoading seja false
       );
+      if (!_initialLoadCompleter.isCompleted) _initialLoadCompleter.complete();
       return;
     }
 
@@ -105,7 +122,7 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
       // Para cada missão, busca o progresso do usuário.
       for (var mission in missions) {
         final progress = await _missionRepository.getMissionProgress(
-          _userId!,
+          currentUserId,
           mission.id,
         );
         progressMap[mission.id] = progress;
@@ -120,12 +137,12 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
               progress.lastUpdateDate!.year != now.year) {
             // Se a última atualização não foi hoje, reseta a missão.
             await _missionRepository.resetDailyMissionProgress(
-              _userId!,
+              currentUserId,
               mission.id,
             );
             // Rebusca o progresso para ter o estado resetado
             progressMap[mission.id] = await _missionRepository
-                .getMissionProgress(_userId!, mission.id);
+                .getMissionProgress(currentUserId, mission.id);
             print(
               'DEBUG: Missão diária ${mission.title} (${mission.id}) resetada no cliente.',
             );
@@ -138,9 +155,19 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
         isLoading: false,
       );
       print('DEBUG: Missões e progresso carregados com sucesso.');
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // Adicionar stackTrace para melhor debugging
       state = state.copyWith(error: e.toString(), isLoading: false);
-      print('ERRO: Erro ao carregar missões: $e');
+      AppLogger.error(
+        'ERRO: Erro ao carregar missões',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    } finally {
+      // Garante que o completer seja finalizado mesmo em caso de erro.
+      if (!_initialLoadCompleter.isCompleted) {
+        _initialLoadCompleter.complete();
+      }
     }
   }
 
@@ -152,12 +179,23 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
     String eventType, {
     Map<String, dynamic>? details,
   }) async {
-    if (_userId == null) {
-      print('INFO: Evento $eventType ignorado. Usuário não autenticado.');
+    // Espera o carregamento inicial ter sido concluído
+    await _initialLoadCompleter.future;
+
+    // Obter o userId mais atualizado do AuthProvider no momento da chamada.
+    final currentUserId = _ref.read(authProvider).user?.uid;
+    AppLogger.debug(
+      'MissionsNotifier.reportMissionEvent para eventType: $eventType. _userId (do construtor): $_userId, currentUserId (lido agora): $currentUserId',
+    );
+
+    if (currentUserId == null) {
+      AppLogger.info(
+        'Evento $eventType ignorado. Usuário não autenticado (currentUserId é nulo).',
+      );
       return;
     }
 
-    // Correção: Garante que currentProgressMap é do tipo correto
+    // Garante que currentProgressMap seja uma nova instância baseada no estado atual.
     final currentProgressMap = Map<String, UserMissionProgress>.from(
       state.userProgress,
     );
@@ -166,9 +204,15 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
     // Itera sobre as missões disponíveis para ver quais são afetadas pelo evento
     for (var mission in state.availableMissions) {
       if (mission.criterion.eventType == eventType) {
-        final progress =
+        // Usa currentUserId para buscar ou criar o progresso.
+        UserMissionProgress progress =
             currentProgressMap[mission.id] ??
-            UserMissionProgress(userId: _userId!, missionId: mission.id);
+            UserMissionProgress(userId: currentUserId, missionId: mission.id);
+
+        // Garante que o progresso tenha o userId mais atualizado.
+        if (progress.userId != currentUserId) {
+          progress = progress.copyWith(userId: currentUserId);
+        }
 
         // Somente atualiza se a missão não estiver COMPLETA E não tiver sido RESGATADA
         if (!progress.isCompleted && !progress.isClaimed) {
@@ -179,46 +223,88 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
                 progress.lastUpdateDate!.day != now.day ||
                 progress.lastUpdateDate!.month != now.month ||
                 progress.lastUpdateDate!.year != now.year) {
-              progress.currentProgress = 1; // Login diário é 1 (concluído) ou 0
-              progress.lastUpdateDate = now;
+              // Cria uma nova instância de progress com os campos atualizados
+              progress = progress.copyWith(
+                currentProgress: 1,
+                lastUpdateDate: now,
+              );
               stateChanged = true;
             } else {
               // Já logou hoje, não incrementa.
-              continue; // Pula para a próxima missão
+              AppLogger.debug(
+                'Evento LOGIN_DAILY já processado hoje para missão ${mission.id}. Nenhuma alteração no progresso.',
+              );
+              continue;
             }
           } else {
-            progress.currentProgress++;
+            // Cria uma nova instância de progress com currentProgress incrementado
+            progress = progress.copyWith(
+              currentProgress: progress.currentProgress + 1,
+            );
             stateChanged = true;
           }
 
           // Verifica se a missão foi concluída
+          final bool wasCompletedBefore = progress.isCompleted;
           if (progress.currentProgress >= mission.criterion.targetCount) {
+            // Cria uma nova instância de progress com isCompleted = true, se ainda não estiver
             if (!progress.isCompleted) {
-              // Verifica se ainda não estava marcada como concluída
-              progress.isCompleted = true;
-              stateChanged = true;
-              print('DEBUG: Missão "${mission.title}" concluída!');
+              progress = progress.copyWith(isCompleted: true);
             }
+          }
+
+          // Se o estado de 'isCompleted' mudou para true, marca stateChanged.
+          if (progress.isCompleted && !wasCompletedBefore) {
+            stateChanged = true;
+            AppLogger.debug(
+              'Missão "${mission.title}" (${mission.id}) AGORA está completa! Progresso: ${progress.currentProgress}/${mission.criterion.targetCount}',
+            );
+          } else if (progress.isCompleted) {
+            AppLogger.debug(
+              'Missão "${mission.title}" (${mission.id}) já estava completa ou continua completa. Progresso: ${progress.currentProgress}/${mission.criterion.targetCount}',
+            );
           }
 
           if (stateChanged) {
             currentProgressMap[mission.id] =
-                progress; // Atualiza o progresso no mapa
-            state = state.copyWith(
-              userProgress: currentProgressMap,
-            ); // Atualiza o estado
+                progress; // Atualiza o progresso no mapa local
+            // A atualização do estado global (state.copyWith) será feita uma vez após o loop se houver mudanças.
+
             await _missionRepository.updateMissionProgress(
               progress,
             ); // Persiste a mudança
+            AppLogger.debug(
+              'Progresso da missão ${mission.id} atualizado no repositório: ${progress.toString()}',
+            );
 
             // Se a missão foi concluída, emite a recompensa (antes de ser resgatada)
             if (progress.isCompleted && !progress.isClaimed) {
-              _rewardsService.emitReward(mission.reward);
-              print('DEBUG: Recompensa da missão "${mission.title}" emitida.');
+              final user = _ref.read(authProvider).user;
+              if (user != null && user.uid == currentUserId) {
+                await _ref
+                    .read(rewardsProvider.notifier)
+                    .grantMissionRewards(mission, user);
+                AppLogger.debug(
+                  'Recompensa da missão "${mission.title}" registrada como pendente.',
+                );
+              } else {
+                AppLogger.error(
+                  'Usuário nulo ou ID divergente ao tentar conceder recompensa da missão ${mission.title}. User from Auth: ${user?.uid}, currentUserId for mission: $currentUserId',
+                );
+              }
             }
           }
         }
       }
+    }
+    // Após o loop, se houve alguma mudança, atualiza o estado uma vez.
+    if (stateChanged) {
+      state = state.copyWith(
+        userProgress: Map<String, UserMissionProgress>.from(currentProgressMap),
+      );
+      AppLogger.debug(
+        'Estado do MissionsNotifier atualizado com novo progresso global.',
+      );
     }
   }
 
@@ -226,23 +312,32 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
   ///
   /// [missionId]: O ID da missão cujas recompensas serão resgatadas.
   Future<void> claimMissionReward(String missionId) async {
-    if (_userId == null) {
-      print('INFO: Resgate de recompensa ignorado. Usuário não autenticado.');
+    // Usar o userId atual do AuthProvider
+    final currentUserId = _ref.read(authProvider).user?.uid;
+    AppLogger.debug(
+      'MissionsNotifier.claimMissionReward para missionId: $missionId. _userId (do construtor): $_userId, currentUserId (lido agora): $currentUserId',
+    );
+
+    if (currentUserId == null) {
+      AppLogger.info(
+        'Resgate de recompensa ignorado para $missionId. Usuário não autenticado (lido dinamicamente).',
+      );
       return;
     }
 
     final progress = state.userProgress[missionId];
     if (progress != null && progress.isCompleted && !progress.isClaimed) {
       // Marca a recompensa como resgatada
-      progress.isClaimed = true;
-      // Correção: Garante que newProgressMap é do tipo correto
+      // Cria uma nova instância de progress com isClaimed = true
+      final updatedProgress = progress.copyWith(isClaimed: true);
+      // Garante que newProgressMap seja uma nova instância do mapa
       final newProgressMap = Map<String, UserMissionProgress>.from(
         state.userProgress,
       );
-      newProgressMap[missionId] = progress;
+      newProgressMap[missionId] = updatedProgress; // Usa a instância atualizada
       state = state.copyWith(userProgress: newProgressMap);
       await _missionRepository.updateMissionProgress(
-        progress,
+        updatedProgress, // Persiste a instância atualizada
       ); // Persiste a mudança
 
       // Aplica a recompensa real ao UserModel do usuário usando o RewardsService
@@ -252,7 +347,10 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
             throw Exception('Missão com ID $missionId não encontrada.'),
       );
       // Chamada para o método `applyRewardToUser` do RewardsService
-      await _rewardsService.applyRewardToUser(mission.reward, _userId!);
+      await _rewardsService.applyRewardToUser(
+        mission.reward,
+        currentUserId,
+      ); // Usa currentUserId
       print(
         'DEBUG: Recompensa de "${mission.title}" resgatada e aplicada ao usuário.',
       );
@@ -274,13 +372,16 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
   /// Este método é uma simulação para fins de desenvolvimento no cliente,
   /// garantindo que as missões diárias fiquem disponíveis novamente.
   Future<void> resetDailyMissions() async {
-    if (_userId == null) return;
-    print('DEBUG: Tentando resetar missões diárias para o usuário ${_userId}');
+    final currentUserId = _userId ?? _ref.read(authProvider).user?.uid;
+    if (currentUserId == null) return;
+    AppLogger.debug(
+      'Tentando resetar missões diárias para o usuário $currentUserId',
+    );
     bool changed = false;
     for (var mission in state.availableMissions) {
       if (mission.type == MissionType.DAILY) {
         await _missionRepository.resetDailyMissionProgress(
-          _userId!,
+          currentUserId,
           mission.id,
         );
         changed = true;
@@ -288,10 +389,22 @@ class MissionsNotifier extends StateNotifier<MissionsState> {
     }
     if (changed) {
       // Re-busca todas as missões e progresso para sincronizar o estado
-      await _fetchMissionsAndProgress();
-      print('DEBUG: Reset de missões diárias concluído e estado re-carregado.');
+      await _loadData();
+      AppLogger.debug(
+        'Reset de missões diárias concluído e estado re-carregado.',
+      );
     }
   }
 
-  Future<void> refresh() async {}
+  Future<void> refresh() async {
+    AppLogger.debug('MissionsNotifier.refresh() chamado.');
+    final currentUserId = _userId ?? _ref.read(authProvider).user?.uid;
+    if (currentUserId != null) {
+      await _loadData(); // Chama _loadData em vez de _fetchMissionsAndProgress diretamente
+    } else {
+      AppLogger.debug(
+        'MissionsNotifier.refresh() ignorado, currentUserId é nulo.',
+      );
+    }
+  }
 }

@@ -1,5 +1,7 @@
 ﻿// lib/models/user_model.dart - Versão Corrigida com Onboarding (Atualizada conforme seu código)
 
+import 'package:unlock/core/constants/gamification_constants.dart'; // Para usar GamificationConstants.calculateLevelFromXP
+
 class UserModel {
   final String uid;
   final String username;
@@ -23,6 +25,10 @@ class UserModel {
   final bool onboardingCompleted; // Se completou onboarding
   final DateTime? onboardingCompletedAt; // Quando completou
 
+  // Campos para controle de Login Diário e Streak
+  final DateTime? lastLoginDate;
+  final int? loginStreak;
+
   const UserModel({
     required this.uid,
     required this.username,
@@ -44,6 +50,8 @@ class UserModel {
     this.connectionLevel = 5,
     this.onboardingCompleted = false, // ✅ DEFAULT FALSE
     this.onboardingCompletedAt,
+    this.lastLoginDate,
+    this.loginStreak,
   });
 
   // ✅ GETTER PARA VERIFICAR SE PRECISA DE ONBOARDING
@@ -145,18 +153,9 @@ class UserModel {
     int newCoins = coins + addedCoins;
     int newGems = gems + addedGems;
 
-    // Lógica para recalcular o nível com base no XP.
-    // Isso deve ser adaptado à sua curva de XP/nível.
     int newLevel = level; // Começa com o nível atual
-    // String? newTitle = title;
-
-    // Exemplo simples: 100 XP por nível
-    if (newXp >= (newLevel * 100)) {
-      // Se o XP atingir ou exceder o necessário para o próximo nível
-      newLevel = (newXp ~/ 100) + 1;
-      // Atualize o título se houver uma lógica associada ao nível
-      //  newTitle = getTitleForLevel(newLevel); // Descomente e implemente se tiver um método getTitleForLevel
-    }
+    // Usa a lógica de GamificationConstants para consistência no cálculo de nível
+    newLevel = GamificationConstants.calculateLevelFromXP(newXp);
 
     return copyWith(
       xp: newXp,

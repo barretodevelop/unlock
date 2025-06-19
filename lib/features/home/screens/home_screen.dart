@@ -72,20 +72,9 @@ class HomeScreen extends ConsumerWidget {
           ],
         ),
         actions: [
-          // Botão para alternar tema
           IconButton(
             onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
             icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
-          ),
-          // Botão de Logout
-          IconButton(
-            onPressed: () async {
-              await ref.read(authProvider.notifier).signOut();
-              // Opcional: Navegar para a tela de login após o logout,
-              // mas geralmente o sistema de roteamento já lida com isso
-            },
-            icon: const Icon(Icons.logout),
-            tooltip: 'Sair da conta',
           ),
         ],
       ),
@@ -131,7 +120,7 @@ class HomeScreen extends ConsumerWidget {
               const SizedBox(height: 12),
               SizedBox(
                 height:
-                    300, // Altura fixa para a lista de missões dentro do SingleChildScrollView
+                    800, // Altura fixa para a lista de missões dentro do SingleChildScrollView
                 child: MissionsListScreen(), // Integra a tela de missões
               ),
 
@@ -270,7 +259,7 @@ class _EconomyCard extends StatelessWidget {
           ),
           Expanded(
             child: _EconomyItem(
-              icon: '�',
+              icon: '💎',
               label: 'Gems',
               value: user.gems, // Utiliza user.gems diretamente
               color: Colors.purple,

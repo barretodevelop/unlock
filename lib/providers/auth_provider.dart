@@ -1,10 +1,13 @@
 // lib/providers/auth_provider.dart - CORRIGIDO COM TRIGGERS
 import 'dart:async';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/missions/providers/missions_provider.dart'; // Importar o MissionsNotifier
+import 'package:unlock/features/rewards/models/reward_model.dart';
+import 'package:unlock/features/rewards/providers/rewards_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/services/auth_service.dart';
 
@@ -390,12 +393,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
       await _trackAnalyticsEvent(
         'rewards_system_triggered',
-        data: {
-          'user_id': user.uid,
-          'user_level': user.level,
-          'user_coins': user.coins,
-          'user_gems': user.gems,
-        },
+        data: {'user_id': user.uid},
       );
 
       AppLogger.debug('✅ Trigger de recompensas executado');
@@ -411,20 +409,105 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> _triggerDailyLogin(UserModel user) async {
     try {
       AppLogger.debug('📅 Trigger: Login Diário');
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
 
-      // ✅ CORREÇÃO: Chamar o método reportMissionEvent do MissionsNotifier
-      // Isso garantirá que o evento de login diário seja processado.
-      _ref.read(missionsProvider.notifier).reportMissionEvent('LOGIN_DAILY');
+      // Assumindo que UserModel agora tem lastLoginDate e loginStreak
+      // vindos do Firestore através do AuthService.getOrCreateUserInFirestore
+      final DateTime? lastLoginDate = user.lastLoginDate;
+      int currentStreak = user.loginStreak ?? 0;
+      bool isFirstLoginToday = true;
 
-      await _trackAnalyticsEvent(
-        'daily_login_triggered',
-        data: {
-          'user_id': user.uid,
-          'login_time': DateTime.now().toIso8601String(),
-        },
-      );
+      if (lastLoginDate != null) {
+        final DateTime lastLoginDay = DateTime(
+          lastLoginDate.year,
+          lastLoginDate.month,
+          lastLoginDate.day,
+        );
+        if (lastLoginDay.isAtSameMomentAs(today)) {
+          isFirstLoginToday = false;
+          AppLogger.debug('Login diário já processado hoje para ${user.uid}.');
+        } else {
+          final DateTime yesterday = today.subtract(const Duration(days: 1));
+          if (lastLoginDay.isAtSameMomentAs(yesterday)) {
+            currentStreak++;
+            AppLogger.debug(
+              'Sequência de login incrementada para: $currentStreak dias para ${user.uid}.',
+            );
+          } else {
+            currentStreak = 1; // Quebrou a sequência
+            AppLogger.debug(
+              'Sequência de login quebrada. Reiniciada para 1 dia para ${user.uid}.',
+            );
+          }
+        }
+      } else {
+        currentStreak = 1; // Primeiro login
+        AppLogger.debug(
+          'Primeiro login registrado para ${user.uid}. Sequência: 1 dia.',
+        );
+      }
 
-      AppLogger.debug('✅ Trigger de login diário executado');
+      if (isFirstLoginToday) {
+        AppLogger.debug(
+          'Processando primeiro login do dia para ${user.uid}. Streak: $currentStreak',
+        );
+        // Conceder bônus de login diário (moedas)
+        final bonusCoins = _ref
+            .read(rewardsProvider.notifier)
+            .calculateDailyLoginBonus(currentStreak);
+        if (bonusCoins > 0) {
+          AppLogger.debug(
+            'Concedendo bônus de login diário: $bonusCoins moedas para $currentStreak dias de streak para ${user.uid}.',
+          );
+
+          // Aplica as moedas diretamente ao UserModel local e dispara atualização no Firestore
+          _ref
+              .read(authProvider.notifier)
+              .addRewardsToCurrentUser(0, bonusCoins, 0);
+
+          // Registrar a recompensa como já resgatada no histórico de recompensas
+          // Isso também pode atualizar 'totalEarned' no RewardsNotifier/Service.
+          await _ref
+              .read(rewardsProvider.notifier)
+              .recordDirectlyClaimedCoinReward(
+                userId: user.uid,
+                amount: bonusCoins,
+                source: RewardSource.dailyLogin,
+                description: 'Bônus de login diário ($currentStreak dias)',
+                metadata: {'streakDays': currentStreak},
+              );
+        }
+
+        // Atualizar lastLoginDate e loginStreak no Firestore
+        await FirebaseFirestore.instance
+            .collection('users')
+            .doc(user.uid)
+            .update({
+              'lastLoginDate': Timestamp.fromDate(now),
+              'loginStreak': currentStreak,
+              'lastLogin': FieldValue.serverTimestamp(),
+            });
+        AppLogger.debug(
+          'Dados de login (lastLoginDate, loginStreak) atualizados no Firestore para ${user.uid}.',
+        );
+
+        // Reportar evento para o sistema de missões
+        _ref.read(missionsProvider.notifier).reportMissionEvent('LOGIN_DAILY');
+        AppLogger.debug(
+          'Evento LOGIN_DAILY reportado para o sistema de missões para ${user.uid}.',
+        );
+
+        await _trackAnalyticsEvent(
+          'daily_login_bonus_granted',
+          data: {
+            'user_id': user.uid,
+            'streak': currentStreak,
+            'bonus_coins': bonusCoins,
+          },
+        );
+      }
+      AppLogger.debug('✅ Trigger de login diário concluído para ${user.uid}.');
     } catch (e) {
       AppLogger.error(
         '⚠️ Trigger de login diário falhou (não crítico)',

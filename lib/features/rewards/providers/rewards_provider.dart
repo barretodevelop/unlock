@@ -430,6 +430,56 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
     }
   }
 
+  /// Calcula o bônus de moedas para o login diário.
+  /// Este método é um wrapper para a lógica em LevelCalculator/GamificationConstants.
+  int calculateDailyLoginBonus(int streakDays) {
+    return LevelCalculator.calculateDailyLoginBonus(streakDays);
+  }
+
+  /// Registra uma recompensa de moeda que foi concedida e coletada diretamente.
+  /// Usado para bônus de login diário que não passam pelo fluxo de "pendente".
+  Future<void> recordDirectlyClaimedCoinReward({
+    required String userId,
+    required int amount,
+    required RewardSource source,
+    String? description,
+    Map<String, dynamic>? metadata,
+  }) async {
+    if (amount <= 0) return;
+
+    final now = DateTime.now();
+    final reward = RewardModel.coins(
+      id: '${source.value}_${now.millisecondsSinceEpoch}_${userId.substring(0, 5)}', // ID único
+      amount: amount,
+      source: source,
+      description: description ?? 'Recompensa direta de ${source.displayName}',
+      metadata: metadata ?? {},
+    ).claim(); // .claim() marca como resgatada e define createdAt/claimedAt
+
+    try {
+      await _service.recordClaimedReward(
+        userId,
+        reward,
+      ); // Novo método no RewardsService
+      // Atualizar estado local (claimedRewards e totalEarned)
+      final updatedClaimed = [...state.claimedRewards, reward];
+      state = state.copyWith(
+        claimedRewards: updatedClaimed,
+        lastUpdated: now,
+        totalEarned: await _service.getTotalEarned(userId),
+      ); // Recalcula totalEarned
+      AppLogger.info(
+        '✅ Recompensa direta registrada: ${reward.formattedAmount}',
+      );
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ Erro ao registrar recompensa direta',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Coletar todas as recompensas pendentes
   Future<void> claimAllRewards() async {
     try {
