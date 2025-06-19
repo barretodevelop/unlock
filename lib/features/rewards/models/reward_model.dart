@@ -1,7 +1,8 @@
 // lib/features/rewards/models/reward_model.dart
-// Modelo de dados para recompensas - Fase 3
+// Modelo de dados para recompensas - Fase 3 (Atualizado conforme seu código)
 
-import 'package:flutter/foundation.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart'; // Importado conforme seu código
 
 /// Tipos de recompensa disponíveis
 enum RewardType {
@@ -18,10 +19,11 @@ enum RewardType {
   final String displayName;
   final String icon;
 
+  /// Cria um RewardType a partir de uma string.
   static RewardType fromString(String value) {
     return RewardType.values.firstWhere(
       (type) => type.value == value,
-      orElse: () => RewardType.xp,
+      orElse: () => RewardType.xp, // Fallback padrão
     );
   }
 }
@@ -42,10 +44,11 @@ enum RewardSource {
   final String value;
   final String displayName;
 
+  /// Cria um RewardSource a partir de uma string.
   static RewardSource fromString(String value) {
     return RewardSource.values.firstWhere(
       (source) => source.value == value,
-      orElse: () => RewardSource.mission,
+      orElse: () => RewardSource.mission, // Fallback padrão
     );
   }
 }
@@ -84,20 +87,34 @@ class RewardModel {
   /// Criar recompensa a partir de JSON/Firestore
   factory RewardModel.fromJson(Map<String, dynamic> json) {
     return RewardModel(
-      id: json['id'] ?? '',
-      type: RewardType.fromString(json['type'] ?? 'xp'),
-      source: RewardSource.fromString(json['source'] ?? 'mission'),
-      amount: json['amount'] ?? 0,
-      itemId: json['itemId'],
-      achievementId: json['achievementId'],
-      titleId: json['titleId'],
-      description: json['description'] ?? '',
-      createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
-      isClaimed: json['isClaimed'] ?? false,
-      claimedAt: json['claimedAt'] != null
-          ? DateTime.tryParse(json['claimedAt'])
+      id: json['id'] as String? ?? '', // Garante que id seja String
+      type: RewardType.fromString(
+        json['type'] as String? ?? 'xp',
+      ), // Usar as String? ?? 'default'
+      source: RewardSource.fromString(
+        json['source'] as String? ?? 'mission',
+      ), // Usar as String? ?? 'default'
+      amount: json['amount'] as int? ?? 0, // Usar as int? ?? 0
+      itemId: json['itemId'] as String?,
+      achievementId: json['achievementId'] as String?,
+      titleId: json['titleId'] as String?,
+      description:
+          json['description'] as String? ?? '', // Usar as String? ?? ''
+      createdAt:
+          (json['createdAt'] is Timestamp) // Lida com Timestamp do Firestore
+          ? (json['createdAt'] as Timestamp).toDate()
+          : (json['createdAt'] is String) // Lida com String ISO 8601
+          ? DateTime.tryParse(json['createdAt'] as String) ?? DateTime.now()
+          : DateTime.now(),
+      isClaimed: json['isClaimed'] as bool? ?? false, // Usar as bool? ?? false
+      claimedAt: (json['claimedAt'] is Timestamp)
+          ? (json['claimedAt'] as Timestamp).toDate()
+          : (json['claimedAt'] is String)
+          ? DateTime.tryParse(json['claimedAt'] as String)
           : null,
-      metadata: Map<String, dynamic>.from(json['metadata'] ?? {}),
+      metadata: Map<String, dynamic>.from(
+        json['metadata'] as Map? ?? {},
+      ), // Lida com Map?
     );
   }
 
@@ -112,9 +129,10 @@ class RewardModel {
       'achievementId': achievementId,
       'titleId': titleId,
       'description': description,
-      'createdAt': createdAt.toIso8601String(),
+      // Converte DateTime para Timestamp para Firestore, ou String ISO 8601 para outros usos
+      'createdAt': Timestamp.fromDate(createdAt),
       'isClaimed': isClaimed,
-      'claimedAt': claimedAt?.toIso8601String(),
+      'claimedAt': claimedAt != null ? Timestamp.fromDate(claimedAt!) : null,
       'metadata': metadata,
     };
   }
@@ -180,7 +198,7 @@ class RewardModel {
     }
   }
 
-  /// Cor da recompensa
+  /// Cor da recompensa (como int para Color)
   int get color {
     switch (type) {
       case RewardType.xp:
@@ -206,7 +224,7 @@ class RewardModel {
   /// Tempo desde criação
   Duration get timeSinceCreated => DateTime.now().difference(createdAt);
 
-  /// Marcar como coletada
+  /// Marcar como coletada (cria uma nova instância imutável)
   RewardModel claim() {
     return copyWith(isClaimed: true, claimedAt: DateTime.now());
   }
@@ -298,7 +316,7 @@ class RewardModel {
       id: id,
       type: RewardType.achievement,
       source: source,
-      amount: 1,
+      amount: 1, // Conquistas geralmente têm quantidade 1
       achievementId: achievementId,
       description: description ?? 'Nova conquista desbloqueada!',
       createdAt: DateTime.now(),
@@ -318,7 +336,7 @@ class RewardModel {
       id: id,
       type: RewardType.item,
       source: source,
-      amount: 1,
+      amount: 1, // Itens geralmente têm quantidade 1
       itemId: itemId,
       description: description ?? 'Novo item desbloqueado!',
       createdAt: DateTime.now(),
@@ -338,7 +356,7 @@ class RewardModel {
       id: id,
       type: RewardType.title,
       source: source,
-      amount: 1,
+      amount: 1, // Títulos geralmente têm quantidade 1
       titleId: titleId,
       description: description ?? 'Novo título desbloqueado!',
       createdAt: DateTime.now(),
@@ -388,13 +406,15 @@ class RewardBundle {
   /// Verificar se pode ser coletado
   bool get canBeClaimed => !isClaimed && rewards.isNotEmpty;
 
-  /// Marcar bundle como coletado
+  /// Marcar bundle como coletado (cria uma nova instância imutável)
   RewardBundle claim() {
     return RewardBundle(
       id: id,
       title: title,
       description: description,
-      rewards: rewards.map((r) => r.claim()).toList(),
+      rewards: rewards
+          .map((r) => r.claim())
+          .toList(), // Marca cada recompensa individual como coletada
       source: source,
       createdAt: createdAt,
       isClaimed: true,

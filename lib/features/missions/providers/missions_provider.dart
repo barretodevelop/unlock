@@ -1,586 +1,297 @@
-// lib/features/missions/providers/missions_provider.dart
-// Provider para gerenciamento de missões - Fase 3 (CORRIGIDO)
+// lib/features/missions/providers/missions_notifier.dart
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/missions/models/mission_model.dart';
-import 'package:unlock/features/missions/services/missions_service.dart';
-import 'package:unlock/models/user_model.dart';
-import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/features/missions/models/mission.dart';
+import 'package:unlock/features/missions/models/user_mission_progress.dart';
+import 'package:unlock/features/missions/repositories/mission_repository.dart';
+import 'package:unlock/features/rewards/services/rewards_service.dart';
+import 'package:unlock/providers/auth_provider.dart'; // Importa o AuthProvider
 
-/// Estado das missões do usuário
+/// Estado que o provedor MissionsNotifier irá gerenciar.
+/// Contém a lista de missões disponíveis, o progresso do usuário em cada missão,
+/// e o status de carregamento/erro.
 class MissionsState {
-  final List<MissionModel> dailyMissions;
-  final List<MissionModel> weeklyMissions;
-  final List<MissionModel> collaborativeMissions;
-  final Map<String, UserMissionProgress> progresses;
+  final List<Mission> availableMissions;
+  // Correção: Inicializa userProgress com um mapa vazio do tipo correto
+  final Map<String, UserMissionProgress> userProgress; // Chave: missionId
   final bool isLoading;
   final String? error;
-  final DateTime? lastUpdated;
-  final bool isInitialized; // ✅ NOVO: Flag de inicialização
 
-  const MissionsState({
-    this.dailyMissions = const [],
-    this.weeklyMissions = const [],
-    this.collaborativeMissions = const [],
-    this.progresses = const {},
+  MissionsState({
+    this.availableMissions = const [],
+    // Garante que o mapa padrão seja do tipo correto
+    Map<String, UserMissionProgress>? userProgress,
     this.isLoading = false,
     this.error,
-    this.lastUpdated,
-    this.isInitialized = false, // ✅ NOVO
-  });
+  }) : userProgress =
+           userProgress ??
+           const {}; // Usa const {} para um mapa vazio e imutável do tipo inferido
 
+  /// Permite criar uma nova instância de MissionsState com campos atualizados.
   MissionsState copyWith({
-    List<MissionModel>? dailyMissions,
-    List<MissionModel>? weeklyMissions,
-    List<MissionModel>? collaborativeMissions,
-    Map<String, UserMissionProgress>? progresses,
+    List<Mission>? availableMissions,
+    Map<String, UserMissionProgress>? userProgress, // Parameter type
     bool? isLoading,
     String? error,
-    DateTime? lastUpdated,
-    bool? isInitialized, // ✅ NOVO
   }) {
     return MissionsState(
-      dailyMissions: dailyMissions ?? this.dailyMissions,
-      weeklyMissions: weeklyMissions ?? this.weeklyMissions,
-      collaborativeMissions:
-          collaborativeMissions ?? this.collaborativeMissions,
-      progresses: progresses ?? this.progresses,
+      availableMissions: availableMissions ?? this.availableMissions,
+      // Correção: Torna a cópia do mapa explícita para o tipo correto.
+      // Se userProgress for nulo, cria um novo mapa a partir do existente.
+      userProgress:
+          userProgress ??
+          Map<String, UserMissionProgress>.from(this.userProgress),
       isLoading: isLoading ?? this.isLoading,
       error: error,
-      lastUpdated: lastUpdated ?? this.lastUpdated,
-      isInitialized: isInitialized ?? this.isInitialized, // ✅ NOVO
     );
   }
-
-  /// Obter todas as missões
-  List<MissionModel> get allMissions => [
-    ...dailyMissions,
-    ...weeklyMissions,
-    ...collaborativeMissions,
-  ];
-
-  /// Obter missões ativas (não expiradas)
-  List<MissionModel> get activeMissions => allMissions
-      .where((mission) => mission.isActive && !mission.isExpired)
-      .toList();
-
-  /// Obter missões completadas
-  List<MissionModel> get completedMissions => allMissions
-      .where((mission) => progresses[mission.id]?.isCompleted == true)
-      .toList();
-
-  /// Obter progresso de uma missão específica
-  UserMissionProgress? getProgress(String missionId) => progresses[missionId];
-
-  /// Verificar se uma missão está completa
-  bool isMissionCompleted(String missionId) =>
-      progresses[missionId]?.isCompleted == true;
-
-  /// Obter percentual de progresso de uma missão
-  double getMissionProgress(String missionId) =>
-      progresses[missionId]?.progressPercentage ?? 0.0;
-
-  /// Contar missões completadas hoje
-  int get dailyMissionsCompleted =>
-      dailyMissions.where((m) => isMissionCompleted(m.id)).length;
-
-  /// Contar missões completadas esta semana
-  int get weeklyMissionsCompleted =>
-      weeklyMissions.where((m) => isMissionCompleted(m.id)).length;
 }
 
-/// Provider principal de missões
-final missionsProvider = StateNotifierProvider<MissionsNotifier, MissionsState>(
-  (ref) {
-    return MissionsNotifier(ref);
-  },
-);
+/// Provedor principal para o sistema de missões.
+///
+/// Gerencia o estado das missões, o progresso do usuário e a lógica de conclusão/recompensa.
+final missionsProvider = StateNotifierProvider<MissionsNotifier, MissionsState>((
+  ref,
+) {
+  final userId = ref
+      .watch(authProvider)
+      .user
+      ?.uid; // Obtém o ID do usuário logado
 
-/// Notifier para gerenciar estado das missões
+  // Se não há usuário logado, retorna um MissionsNotifier que não carregará dados
+  // ou um estado de erro, dependendo da sua preferência para usuários não logados.
+  if (userId == null) {
+    print(
+      'DEBUG: MissionsNotifier inicializado sem userId. Não carregará missões.',
+    );
+    return MissionsNotifier(ref, null);
+  }
+  return MissionsNotifier(ref, userId);
+});
+
+/// StateNotifier responsável por gerenciar o estado das missões.
 class MissionsNotifier extends StateNotifier<MissionsState> {
   final Ref _ref;
-  final MissionsService _service = MissionsService();
-  bool _disposed = false; // ✅ NOVO: Flag de dispose
+  final String? _userId; // O ID do usuário logado (pode ser nulo se não logado)
+  late final MissionRepository
+  _missionRepository; // Repositório para acesso a dados
+  late final RewardsService _rewardsService; // Serviço para aplicar recompensas
 
-  MissionsNotifier(this._ref) : super(const MissionsState()) {
-    _initializeWithAutoGeneration(); // ✅ CORREÇÃO: Auto-inicialização
-  }
+  MissionsNotifier(this._ref, this._userId) : super(MissionsState()) {
+    _missionRepository = _ref.read(missionRepositoryProvider);
+    _rewardsService = _ref.read(rewardsServiceProvider);
 
-  // ================================================================================================
-  // ✅ CORREÇÃO CRÍTICA: AUTO-INICIALIZAÇÃO
-  // ================================================================================================
-
-  /// Inicializar provider com geração automática de missões
-  Future<void> _initializeWithAutoGeneration() async {
-    if (_disposed) return;
-
-    try {
-      AppLogger.debug('🚀 Inicializando MissionsProvider...');
-
-      // Escutar mudanças no auth provider para auto-inicialização
-      _ref.listen(authProvider, (previous, next) async {
-        if (_disposed) return;
-
-        // ✅ TRIGGER: Usuario fez login
-        if (next.isAuthenticated &&
-            next.user != null &&
-            previous?.isAuthenticated != true) {
-          AppLogger.info(
-            '👤 Usuario logado detectado - iniciando sistema de missões',
-          );
-          await _handleUserLogin(next.user!);
-        }
-
-        // ✅ TRIGGER: Usuario fez logout
-        if (!next.isAuthenticated && previous?.isAuthenticated == true) {
-          AppLogger.info('👋 Usuario deslogado - limpando missões');
-          _handleUserLogout();
-        }
-      });
-
-      // ✅ INICIALIZAÇÃO IMEDIATA: Se já tem usuário logado
-      final authState = _ref.read(authProvider);
-      if (authState.isAuthenticated && authState.user != null) {
-        AppLogger.info('🔄 Usuario já logado - carregando missões existentes');
-        await _handleUserLogin(authState.user!);
-      }
-    } catch (e) {
-      AppLogger.error('❌ Erro na inicialização do MissionsProvider', error: e);
-      if (!_disposed) {
-        state = state.copyWith(
-          error: 'Erro na inicialização: $e',
-          isLoading: false,
-        );
-      }
+    // Carrega as missões e o progresso se houver um usuário logado
+    if (_userId != null) {
+      _fetchMissionsAndProgress();
     }
   }
 
-  /// Lidar com login do usuário
-  Future<void> _handleUserLogin(UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      AppLogger.debug('🎯 Processando login do usuário ${user.uid}');
-
-      state = state.copyWith(isLoading: true, error: null);
-
-      // 1. Carregar missões existentes
-      await loadUserMissions(user);
-
-      // 2. Verificar e gerar novas missões se necessário
-      await _ensureUserHasMissions(user);
-
-      // 3. Marcar como inicializado
-      if (!_disposed) {
-        state = state.copyWith(
-          isInitialized: true,
-          isLoading: false,
-          lastUpdated: DateTime.now(),
-        );
-      }
-
-      AppLogger.info('✅ Sistema de missões inicializado para ${user.uid}');
-    } catch (e) {
-      AppLogger.error('❌ Erro ao processar login do usuário', error: e);
-      if (!_disposed) {
-        state = state.copyWith(
-          error: 'Erro ao carregar missões: $e',
-          isLoading: false,
-        );
-      }
-    }
-  }
-
-  /// Lidar com logout do usuário
-  void _handleUserLogout() {
-    if (_disposed) return;
-
-    AppLogger.debug('🧹 Limpando estado das missões (logout)');
-    state = const MissionsState(); // Reset completo
-  }
-
-  /// Garantir que o usuário tem missões disponíveis
-  Future<void> _ensureUserHasMissions(UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      bool needsGeneration = false;
-      String generationType = '';
-
-      // ✅ VERIFICAR MISSÕES DIÁRIAS
-      if (state.dailyMissions.isEmpty ||
-          await _service.shouldGenerateNewDailyMissions(user.uid)) {
-        AppLogger.info('📅 Gerando novas missões diárias para ${user.uid}');
-        await generateDailyMissions(user);
-        needsGeneration = true;
-        generationType += 'diárias ';
-      }
-
-      // ✅ VERIFICAR MISSÕES SEMANAIS
-      if (state.weeklyMissions.isEmpty ||
-          await _service.shouldGenerateNewWeeklyMissions(user.uid)) {
-        AppLogger.info('📊 Gerando novas missões semanais para ${user.uid}');
-        await generateWeeklyMissions(user);
-        needsGeneration = true;
-        generationType += 'semanais ';
-      }
-
-      if (needsGeneration) {
-        AppLogger.info('✨ Missões $generationType geradas automaticamente');
-      } else {
-        AppLogger.debug('✅ Usuario já possui missões válidas');
-      }
-    } catch (e) {
-      AppLogger.error('❌ Erro ao garantir missões do usuário', error: e);
-    }
-  }
-
-  // ================================================================================================
-  // MÉTODOS EXISTENTES (mantidos inalterados)
-  // ================================================================================================
-
-  /// Carregar missões do usuário
-  Future<void> loadUserMissions(UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      AppLogger.debug('🎯 Carregando missões para usuário ${user.uid}');
-
-      state = state.copyWith(isLoading: true, error: null);
-
-      // Carregar missões de cada tipo
-      final dailyMissions = await _service.getUserDailyMissions(user.uid);
-      final weeklyMissions = await _service.getUserWeeklyMissions(user.uid);
-      final collaborativeMissions = await _service.getUserCollaborativeMissions(
-        user.uid,
+  /// Carrega as missões ativas e o progresso do usuário a partir do repositório.
+  Future<void> _fetchMissionsAndProgress() async {
+    if (_userId == null) {
+      state = state.copyWith(
+        error: 'Usuário não autenticado para carregar missões.',
       );
+      return;
+    }
 
-      // Carregar progresso das missões
-      final allMissionIds = [
-        ...dailyMissions.map((m) => m.id),
-        ...weeklyMissions.map((m) => m.id),
-        ...collaborativeMissions.map((m) => m.id),
-      ];
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final missions = await _missionRepository.getActiveMissions();
+      // Correção: Garante que progressMap é do tipo correto desde o início
+      final Map<String, UserMissionProgress> progressMap = {};
 
-      final progresses = await _service.getUserMissionProgresses(
-        user.uid,
-        allMissionIds,
+      // Para cada missão, busca o progresso do usuário.
+      for (var mission in missions) {
+        final progress = await _missionRepository.getMissionProgress(
+          _userId!,
+          mission.id,
+        );
+        progressMap[mission.id] = progress;
+
+        // Lógica para resetar missões diárias automaticamente ao carregar, se necessário.
+        // O ideal é que isso seja orquestrado pelo backend, mas aqui é uma simulação.
+        if (mission.type == MissionType.DAILY) {
+          final now = DateTime.now();
+          if (progress.lastUpdateDate == null ||
+              progress.lastUpdateDate!.day != now.day ||
+              progress.lastUpdateDate!.month != now.month ||
+              progress.lastUpdateDate!.year != now.year) {
+            // Se a última atualização não foi hoje, reseta a missão.
+            await _missionRepository.resetDailyMissionProgress(
+              _userId!,
+              mission.id,
+            );
+            // Rebusca o progresso para ter o estado resetado
+            progressMap[mission.id] = await _missionRepository
+                .getMissionProgress(_userId!, mission.id);
+            print(
+              'DEBUG: Missão diária ${mission.title} (${mission.id}) resetada no cliente.',
+            );
+          }
+        }
+      }
+      state = state.copyWith(
+        availableMissions: missions,
+        userProgress: progressMap,
+        isLoading: false,
       );
-
-      if (!_disposed) {
-        state = state.copyWith(
-          dailyMissions: dailyMissions,
-          weeklyMissions: weeklyMissions,
-          collaborativeMissions: collaborativeMissions,
-          progresses: progresses,
-          isLoading: false,
-          lastUpdated: DateTime.now(),
-        );
-      }
-
-      AppLogger.info('✅ Missões carregadas: ${state.allMissions.length} total');
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao carregar missões', error: e);
-      if (!_disposed) {
-        state = state.copyWith(
-          isLoading: false,
-          error: 'Erro ao carregar missões: $e',
-        );
-      }
-    }
-  }
-
-  /// Gerar novas missões diárias
-  Future<void> generateDailyMissions(UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      AppLogger.debug('🔄 Gerando novas missões diárias para ${user.uid}');
-
-      final newMissions = await _service.generateDailyMissions(user);
-
-      if (!_disposed) {
-        state = state.copyWith(
-          dailyMissions: newMissions,
-          lastUpdated: DateTime.now(),
-        );
-      }
-
-      AppLogger.info('✅ Novas missões diárias geradas: ${newMissions.length}');
+      print('DEBUG: Missões e progresso carregados com sucesso.');
     } catch (e) {
-      AppLogger.error('❌ Erro ao gerar missões diárias', error: e);
+      state = state.copyWith(error: e.toString(), isLoading: false);
+      print('ERRO: Erro ao carregar missões: $e');
     }
   }
 
-  /// Gerar novas missões semanais
-  Future<void> generateWeeklyMissions(UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      AppLogger.debug('🔄 Gerando novas missões semanais para ${user.uid}');
-
-      final newMissions = await _service.generateWeeklyMissions(user);
-
-      if (!_disposed) {
-        state = state.copyWith(
-          weeklyMissions: newMissions,
-          lastUpdated: DateTime.now(),
-        );
-      }
-
-      AppLogger.info('✅ Novas missões semanais geradas: ${newMissions.length}');
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao gerar missões semanais', error: e);
-    }
-  }
-
-  /// Atualizar progresso de uma missão
-  Future<void> updateMissionProgress(
-    String missionId,
-    int additionalProgress, {
-    Map<String, dynamic>? metadata,
+  /// Reporta um evento de ação que pode afetar o progresso das missões.
+  ///
+  /// [eventType]: A string que identifica o tipo de evento (ex: 'LOGIN_DIARIO', 'LIKE_PROFILE').
+  /// [details]: Um mapa opcional com detalhes adicionais do evento.
+  Future<void> reportMissionEvent(
+    String eventType, {
+    Map<String, dynamic>? details,
   }) async {
-    if (_disposed) return;
+    if (_userId == null) {
+      print('INFO: Evento $eventType ignorado. Usuário não autenticado.');
+      return;
+    }
 
-    try {
-      final user = _ref.read(authProvider).user;
-      if (user == null) return;
+    // Correção: Garante que currentProgressMap é do tipo correto
+    final currentProgressMap = Map<String, UserMissionProgress>.from(
+      state.userProgress,
+    );
+    bool stateChanged = false;
 
-      AppLogger.debug(
-        '📈 Atualizando progresso da missão $missionId (+$additionalProgress)',
+    // Itera sobre as missões disponíveis para ver quais são afetadas pelo evento
+    for (var mission in state.availableMissions) {
+      if (mission.criterion.eventType == eventType) {
+        final progress =
+            currentProgressMap[mission.id] ??
+            UserMissionProgress(userId: _userId!, missionId: mission.id);
+
+        // Somente atualiza se a missão não estiver COMPLETA E não tiver sido RESGATADA
+        if (!progress.isCompleted && !progress.isClaimed) {
+          // Lógica específica para LOGIN_DIARIO para garantir que só conta uma vez por dia
+          if (eventType == 'LOGIN_DAILY') {
+            final now = DateTime.now();
+            if (progress.lastUpdateDate == null ||
+                progress.lastUpdateDate!.day != now.day ||
+                progress.lastUpdateDate!.month != now.month ||
+                progress.lastUpdateDate!.year != now.year) {
+              progress.currentProgress = 1; // Login diário é 1 (concluído) ou 0
+              progress.lastUpdateDate = now;
+              stateChanged = true;
+            } else {
+              // Já logou hoje, não incrementa.
+              continue; // Pula para a próxima missão
+            }
+          } else {
+            progress.currentProgress++;
+            stateChanged = true;
+          }
+
+          // Verifica se a missão foi concluída
+          if (progress.currentProgress >= mission.criterion.targetCount) {
+            if (!progress.isCompleted) {
+              // Verifica se ainda não estava marcada como concluída
+              progress.isCompleted = true;
+              stateChanged = true;
+              print('DEBUG: Missão "${mission.title}" concluída!');
+            }
+          }
+
+          if (stateChanged) {
+            currentProgressMap[mission.id] =
+                progress; // Atualiza o progresso no mapa
+            state = state.copyWith(
+              userProgress: currentProgressMap,
+            ); // Atualiza o estado
+            await _missionRepository.updateMissionProgress(
+              progress,
+            ); // Persiste a mudança
+
+            // Se a missão foi concluída, emite a recompensa (antes de ser resgatada)
+            if (progress.isCompleted && !progress.isClaimed) {
+              _rewardsService.emitReward(mission.reward);
+              print('DEBUG: Recompensa da missão "${mission.title}" emitida.');
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /// Permite ao usuário resgatar as recompensas de uma missão concluída.
+  ///
+  /// [missionId]: O ID da missão cujas recompensas serão resgatadas.
+  Future<void> claimMissionReward(String missionId) async {
+    if (_userId == null) {
+      print('INFO: Resgate de recompensa ignorado. Usuário não autenticado.');
+      return;
+    }
+
+    final progress = state.userProgress[missionId];
+    if (progress != null && progress.isCompleted && !progress.isClaimed) {
+      // Marca a recompensa como resgatada
+      progress.isClaimed = true;
+      // Correção: Garante que newProgressMap é do tipo correto
+      final newProgressMap = Map<String, UserMissionProgress>.from(
+        state.userProgress,
       );
+      newProgressMap[missionId] = progress;
+      state = state.copyWith(userProgress: newProgressMap);
+      await _missionRepository.updateMissionProgress(
+        progress,
+      ); // Persiste a mudança
 
-      // Obter progresso atual
-      final currentProgress = state.progresses[missionId];
-      if (currentProgress == null) {
-        AppLogger.warning('⚠️ Progresso não encontrado para missão $missionId');
-        return;
-      }
-
-      // Calcular novo progresso
-      final newProgress = currentProgress.updateProgress(additionalProgress);
-
-      // Atualizar no Firestore
-      await _service.updateMissionProgress(user.uid, newProgress);
-
-      // Atualizar estado local
-      if (!_disposed) {
-        final updatedProgresses = Map<String, UserMissionProgress>.from(
-          state.progresses,
-        );
-        updatedProgresses[missionId] = newProgress;
-
-        state = state.copyWith(
-          progresses: updatedProgresses,
-          lastUpdated: DateTime.now(),
-        );
-      }
-
-      // Se missão foi completada, notificar
-      if (newProgress.isCompleted && !currentProgress.isCompleted) {
-        await _onMissionCompleted(missionId, user);
-      }
-
-      AppLogger.info(
-        '✅ Progresso atualizado: ${newProgress.currentProgress}/${newProgress.targetProgress}',
+      // Aplica a recompensa real ao UserModel do usuário usando o RewardsService
+      final mission = state.availableMissions.firstWhere(
+        (m) => m.id == missionId,
+        orElse: () =>
+            throw Exception('Missão com ID $missionId não encontrada.'),
       );
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao atualizar progresso da missão', error: e);
+      // Chamada para o método `applyRewardToUser` do RewardsService
+      await _rewardsService.applyRewardToUser(mission.reward, _userId!);
+      print(
+        'DEBUG: Recompensa de "${mission.title}" resgatada e aplicada ao usuário.',
+      );
+    } else if (progress != null && !progress.isCompleted) {
+      print('INFO: Missão "${missionId}" ainda não concluída para resgate.');
+    } else if (progress != null && progress.isClaimed) {
+      print('INFO: Recompensa de "${missionId}" já foi resgatada.');
+    } else {
+      print(
+        'ERRO: Progresso da missão "${missionId}" não encontrado para resgate.',
+      );
     }
   }
 
-  /// Completar missão manualmente
-  Future<void> completeMission(String missionId) async {
-    if (_disposed) return;
-
-    try {
-      final user = _ref.read(authProvider).user;
-      if (user == null) return;
-
-      AppLogger.debug('✅ Completando missão $missionId');
-
-      final currentProgress = state.progresses[missionId];
-      if (currentProgress == null) return;
-
-      final completedProgress = currentProgress.complete();
-
-      await _service.updateMissionProgress(user.uid, completedProgress);
-
-      if (!_disposed) {
-        final updatedProgresses = Map<String, UserMissionProgress>.from(
-          state.progresses,
+  /// Reinicia o progresso de missões diárias para o dia atual.
+  ///
+  /// NOTA: Em um sistema de produção, o reset de missões diárias/semanais
+  /// deve ser orquestrado e executado no backend (via cron jobs, por exemplo).
+  /// Este método é uma simulação para fins de desenvolvimento no cliente,
+  /// garantindo que as missões diárias fiquem disponíveis novamente.
+  Future<void> resetDailyMissions() async {
+    if (_userId == null) return;
+    print('DEBUG: Tentando resetar missões diárias para o usuário ${_userId}');
+    bool changed = false;
+    for (var mission in state.availableMissions) {
+      if (mission.type == MissionType.DAILY) {
+        await _missionRepository.resetDailyMissionProgress(
+          _userId!,
+          mission.id,
         );
-        updatedProgresses[missionId] = completedProgress;
-
-        state = state.copyWith(
-          progresses: updatedProgresses,
-          lastUpdated: DateTime.now(),
-        );
+        changed = true;
       }
-
-      await _onMissionCompleted(missionId, user);
-
-      AppLogger.info('🎉 Missão $missionId completada!');
-    } catch (e) {
-      AppLogger.error('❌ Erro ao completar missão', error: e);
+    }
+    if (changed) {
+      // Re-busca todas as missões e progresso para sincronizar o estado
+      await _fetchMissionsAndProgress();
+      print('DEBUG: Reset de missões diárias concluído e estado re-carregado.');
     }
   }
 
-  /// Callback para missão completada
-  Future<void> _onMissionCompleted(String missionId, UserModel user) async {
-    if (_disposed) return;
-
-    try {
-      // Encontrar a missão completada
-      final mission = state.allMissions
-          .where((m) => m.id == missionId)
-          .firstOrNull;
-
-      if (mission == null) {
-        AppLogger.warning('⚠️ Missão completada não encontrada: $missionId');
-        return;
-      }
-
-      AppLogger.info('🎉 Missão completada: ${mission.title}');
-
-      // Conceder recompensas através do RewardsProvider
-      // (se existir - implementado na próxima iteração)
-      // final rewardsNotifier = _ref.read(rewardsProvider.notifier);
-      // await rewardsNotifier.grantMissionRewards(mission, user);
-    } catch (e) {
-      AppLogger.error('❌ Erro ao processar missão completada', error: e);
-    }
-  }
-
-  /// Limpar missões expiradas
-  Future<void> cleanupExpiredMissions() async {
-    if (_disposed) return;
-
-    try {
-      final user = _ref.read(authProvider).user;
-      if (user == null) return;
-
-      AppLogger.debug('🧹 Limpando missões expiradas');
-
-      await _service.cleanupExpiredMissions(user.uid);
-
-      // Filtrar missões expiradas do estado local
-      final now = DateTime.now();
-      final activeDailyMissions = state.dailyMissions
-          .where((m) => m.expiresAt.isAfter(now))
-          .toList();
-      final activeWeeklyMissions = state.weeklyMissions
-          .where((m) => m.expiresAt.isAfter(now))
-          .toList();
-      final activeCollaborativeMissions = state.collaborativeMissions
-          .where((m) => m.expiresAt.isAfter(now))
-          .toList();
-
-      if (!_disposed) {
-        state = state.copyWith(
-          dailyMissions: activeDailyMissions,
-          weeklyMissions: activeWeeklyMissions,
-          collaborativeMissions: activeCollaborativeMissions,
-        );
-      }
-    } catch (e) {
-      AppLogger.error('❌ Erro ao limpar missões expiradas', error: e);
-    }
-  }
-
-  /// Recarregar todas as missões
-  Future<void> refresh() async {
-    if (_disposed) return;
-
-    final user = _ref.read(authProvider).user;
-    if (user != null) {
-      await loadUserMissions(user);
-      await _ensureUserHasMissions(
-        user,
-      ); // ✅ NOVO: Garantir missões após refresh
-    }
-  }
-
-  /// Limpar estado (logout)
-  void clear() {
-    if (_disposed) return;
-    state = const MissionsState();
-  }
-
-  @override
-  void dispose() {
-    _disposed = true; // ✅ NOVO: Prevenir operações após dispose
-    super.dispose();
-  }
+  Future<void> refresh() async {}
 }
-
-// ================================================================================================
-// PROVIDERS DERIVADOS (mantidos inalterados)
-// ================================================================================================
-
-/// Provider para missões diárias
-final dailyMissionsProvider = Provider<List<MissionModel>>((ref) {
-  return ref.watch(missionsProvider).dailyMissions;
-});
-
-/// Provider para missões semanais
-final weeklyMissionsProvider = Provider<List<MissionModel>>((ref) {
-  return ref.watch(missionsProvider).weeklyMissions;
-});
-
-/// Provider para missões ativas
-final activeMissionsProvider = Provider<List<MissionModel>>((ref) {
-  return ref.watch(missionsProvider).activeMissions;
-});
-
-/// Provider para missões completadas hoje
-final completedDailyMissionsProvider = Provider<List<MissionModel>>((ref) {
-  final missionsState = ref.watch(missionsProvider);
-  return missionsState.dailyMissions
-      .where((m) => missionsState.isMissionCompleted(m.id))
-      .toList();
-});
-
-/// Provider para estatísticas de missões
-final missionStatsProvider = Provider<Map<String, dynamic>>((ref) {
-  final missionsState = ref.watch(missionsProvider);
-
-  return {
-    'totalMissions': missionsState.allMissions.length,
-    'completedMissions': missionsState.completedMissions.length,
-    'dailyCompleted': missionsState.dailyMissionsCompleted,
-    'weeklyCompleted': missionsState.weeklyMissionsCompleted,
-    'completionRate': missionsState.allMissions.isEmpty
-        ? 0.0
-        : missionsState.completedMissions.length /
-              missionsState.allMissions.length,
-  };
-});
-
-/// Provider para verificar se uma missão específica está completa
-final missionCompletedProvider = Provider.family<bool, String>((
-  ref,
-  missionId,
-) {
-  return ref.watch(missionsProvider).isMissionCompleted(missionId);
-});
-
-/// Provider para progresso de uma missão específica
-final missionProgressProvider = Provider.family<double, String>((
-  ref,
-  missionId,
-) {
-  return ref.watch(missionsProvider).getMissionProgress(missionId);
-});
-
-/// ✅ NOVO: Provider para verificar se está inicializado
-final missionsInitializedProvider = Provider<bool>((ref) {
-  return ref.watch(missionsProvider).isInitialized;
-});
-
-/// ✅ NOVO: Provider para missões em destaque (primeiras 3 ativas)
-final featuredMissionsProvider = Provider<List<MissionModel>>((ref) {
-  final activeMissions = ref.watch(activeMissionsProvider);
-  return activeMissions.take(3).toList();
-});

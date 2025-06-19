@@ -5,7 +5,6 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unlock/core/constants/gamification_constants.dart';
 import 'package:unlock/core/utils/level_calculator.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/rewards/services/rewards_service.dart';
 import 'package:unlock/models/user_model.dart';
 
 /// Serviço central para todas as operações de gamificação
@@ -15,7 +14,7 @@ class GamificationService {
   GamificationService._internal();
 
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final RewardsService _rewardsService = RewardsService();
+  // final RewardsService _rewardsService = RewardsService();
 
   // ================================================================================================
   // OPERAÇÕES DE XP E NÍVEIS
@@ -34,7 +33,9 @@ class GamificationService {
 
       // Verificar limite diário
       if (!await _canGainXPToday(user.uid, xpAmount)) {
-        AppLogger.warning('⚠️ Limite diário de XP atingido para usuário ${user.uid}');
+        AppLogger.warning(
+          '⚠️ Limite diário de XP atingido para usuário ${user.uid}',
+        );
         return {
           'success': false,
           'reason': 'daily_limit_reached',
@@ -44,13 +45,13 @@ class GamificationService {
 
       // Aplicar multiplicadores
       final finalXP = await _applyXPMultipliers(user, xpAmount);
-      
+
       // Calcular novo nível
       final oldXP = user.xp;
       final newXP = oldXP + finalXP;
       final oldLevel = LevelCalculator.calculateLevel(oldXP);
       final newLevel = LevelCalculator.calculateLevel(newXP);
-      
+
       // Atualizar usuário no Firestore
       await _updateUserXP(user.uid, newXP, newLevel);
 
@@ -76,11 +77,12 @@ class GamificationService {
       // Registrar ganho de XP para analytics
       await _recordXPGain(user.uid, finalXP, source, description, metadata);
 
-      AppLogger.info('✅ XP concedido: +$finalXP XP (nível $oldLevel → $newLevel)');
+      AppLogger.info(
+        '✅ XP concedido: +$finalXP XP (nível $oldLevel → $newLevel)',
+      );
       return result;
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao conceder XP', error:e );
+      AppLogger.error('❌ Erro ao conceder XP', error: e);
       return {
         'success': false,
         'reason': 'error',
@@ -98,11 +100,15 @@ class GamificationService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      AppLogger.debug('🪙 Concedendo $coinsAmount coins para usuário ${user.uid}');
+      AppLogger.debug(
+        '🪙 Concedendo $coinsAmount coins para usuário ${user.uid}',
+      );
 
       // Verificar limite diário
       if (!await _canGainCoinsToday(user.uid, coinsAmount)) {
-        AppLogger.warning('⚠️ Limite diário de coins atingido para usuário ${user.uid}');
+        AppLogger.warning(
+          '⚠️ Limite diário de coins atingido para usuário ${user.uid}',
+        );
         return {
           'success': false,
           'reason': 'daily_limit_reached',
@@ -111,17 +117,28 @@ class GamificationService {
       }
 
       // Aplicar multiplicador de nível
-      final finalCoins = LevelCalculator.applyLevelMultiplierToCoins(coinsAmount, user.level);
-      
+      final finalCoins = LevelCalculator.applyLevelMultiplierToCoins(
+        coinsAmount,
+        user.level,
+      );
+
       // Atualizar usuário no Firestore
       final newCoins = user.coins + finalCoins;
       await _updateUserCoins(user.uid, newCoins);
 
       // Registrar ganho
-      await _recordCoinsGain(user.uid, finalCoins, source, description, metadata);
+      await _recordCoinsGain(
+        user.uid,
+        finalCoins,
+        source,
+        description,
+        metadata,
+      );
 
-      AppLogger.info('✅ Coins concedidos: +$finalCoins coins (total: $newCoins)');
-      
+      AppLogger.info(
+        '✅ Coins concedidos: +$finalCoins coins (total: $newCoins)',
+      );
+
       return {
         'success': true,
         'oldCoins': user.coins,
@@ -129,9 +146,8 @@ class GamificationService {
         'coinsGained': finalCoins,
         'multiplierApplied': finalCoins != coinsAmount,
       };
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao conceder coins', error:e );
+      AppLogger.error('❌ Erro ao conceder coins', error: e);
       return {
         'success': false,
         'reason': 'error',
@@ -149,11 +165,15 @@ class GamificationService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      AppLogger.debug('💎 Concedendo $gemsAmount gems para usuário ${user.uid}');
+      AppLogger.debug(
+        '💎 Concedendo $gemsAmount gems para usuário ${user.uid}',
+      );
 
       // Verificar limite semanal
       if (!await _canGainGemsThisWeek(user.uid, gemsAmount)) {
-        AppLogger.warning('⚠️ Limite semanal de gems atingido para usuário ${user.uid}');
+        AppLogger.warning(
+          '⚠️ Limite semanal de gems atingido para usuário ${user.uid}',
+        );
         return {
           'success': false,
           'reason': 'weekly_limit_reached',
@@ -166,19 +186,24 @@ class GamificationService {
       await _updateUserGems(user.uid, newGems);
 
       // Registrar ganho
-      await _recordGemsGain(user.uid, gemsAmount, source, description, metadata);
+      await _recordGemsGain(
+        user.uid,
+        gemsAmount,
+        source,
+        description,
+        metadata,
+      );
 
       AppLogger.info('✅ Gems concedidas: +$gemsAmount gems (total: $newGems)');
-      
+
       return {
         'success': true,
         'oldGems': user.gems,
         'newGems': newGems,
         'gemsGained': gemsAmount,
       };
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao conceder gems', error:e );
+      AppLogger.error('❌ Erro ao conceder gems', error: e);
       return {
         'success': false,
         'reason': 'error',
@@ -198,27 +223,35 @@ class GamificationService {
 
       final today = DateTime.now();
       final yesterday = today.subtract(const Duration(days: 1));
-      
+
       // Obter dados de streak do usuário
       final userData = await _getUserDocument(user.uid);
-      final lastLoginDate = userData?['lastLoginDate'] != null 
+      final lastLoginDate = userData?['lastLoginDate'] != null
           ? DateTime.tryParse(userData!['lastLoginDate'])
           : null;
-      
+
       int currentStreak = userData?['loginStreak'] ?? 0;
       bool alreadyLoggedToday = false;
 
       // Verificar se já fez login hoje
       if (lastLoginDate != null) {
-        final lastLoginDay = DateTime(lastLoginDate.year, lastLoginDate.month, lastLoginDate.day);
+        final lastLoginDay = DateTime(
+          lastLoginDate.year,
+          lastLoginDate.month,
+          lastLoginDate.day,
+        );
         final todayDay = DateTime(today.year, today.month, today.day);
-        
+
         if (lastLoginDay.isAtSameMomentAs(todayDay)) {
           alreadyLoggedToday = true;
         } else {
           // Verificar se manteve a sequência (login ontem)
-          final yesterdayDay = DateTime(yesterday.year, yesterday.month, yesterday.day);
-          
+          final yesterdayDay = DateTime(
+            yesterday.year,
+            yesterday.month,
+            yesterday.day,
+          );
+
           if (lastLoginDay.isAtSameMomentAs(yesterdayDay)) {
             currentStreak += 1; // Manteve sequência
           } else {
@@ -241,8 +274,10 @@ class GamificationService {
 
       // Conceder bônus se não logou hoje
       if (!alreadyLoggedToday) {
-        final bonusCoins = LevelCalculator.calculateDailyLoginBonus(currentStreak);
-        
+        final bonusCoins = LevelCalculator.calculateDailyLoginBonus(
+          currentStreak,
+        );
+
         if (bonusCoins > 0) {
           await grantCoins(
             user,
@@ -251,7 +286,7 @@ class GamificationService {
             description: 'Bônus de login diário ($currentStreak dias)',
             metadata: {'streak': currentStreak},
           );
-          
+
           result['bonusGiven'] = true;
           result['bonusAmount'] = bonusCoins;
         }
@@ -259,9 +294,8 @@ class GamificationService {
 
       AppLogger.info('✅ Login processado: sequência de $currentStreak dias');
       return result;
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao processar login diário', error:e );
+      AppLogger.error('❌ Erro ao processar login diário', error: e);
       return {
         'alreadyLoggedToday': false,
         'streak': 1,
@@ -281,7 +315,7 @@ class GamificationService {
     try {
       final today = DateTime.now();
       final startOfDay = DateTime(today.year, today.month, today.day);
-      
+
       final query = await _firestore
           .collection('users')
           .doc(userId)
@@ -295,9 +329,8 @@ class GamificationService {
       });
 
       return todayXP + amount <= GamificationConstants.maxDailyXP;
-
     } catch (e) {
-      AppLogger.error('❌ Erro ao verificar limite diário de XP',error: e);
+      AppLogger.error('❌ Erro ao verificar limite diário de XP', error: e);
       return true; // Em caso de erro, permitir
     }
   }
@@ -307,7 +340,7 @@ class GamificationService {
     try {
       final today = DateTime.now();
       final startOfDay = DateTime(today.year, today.month, today.day);
-      
+
       final query = await _firestore
           .collection('users')
           .doc(userId)
@@ -321,9 +354,8 @@ class GamificationService {
       });
 
       return todayCoins + amount <= GamificationConstants.maxDailyCoins;
-
     } catch (e) {
-      AppLogger.error('❌ Erro ao verificar limite diário de coins',error:e);
+      AppLogger.error('❌ Erro ao verificar limite diário de coins', error: e);
       return true;
     }
   }
@@ -333,8 +365,12 @@ class GamificationService {
     try {
       final now = DateTime.now();
       final startOfWeek = now.subtract(Duration(days: now.weekday - 1));
-      final startOfWeekDay = DateTime(startOfWeek.year, startOfWeek.month, startOfWeek.day);
-      
+      final startOfWeekDay = DateTime(
+        startOfWeek.year,
+        startOfWeek.month,
+        startOfWeek.day,
+      );
+
       final query = await _firestore
           .collection('users')
           .doc(userId)
@@ -348,9 +384,8 @@ class GamificationService {
       });
 
       return weeklyGems + amount <= GamificationConstants.maxWeeklyGems;
-
     } catch (e) {
-      AppLogger.error('❌ Erro ao verificar limite semanal de gems',error: e);
+      AppLogger.error('❌ Erro ao verificar limite semanal de gems', error: e);
       return true;
     }
   }
@@ -365,16 +400,16 @@ class GamificationService {
       final loginStreak = userData?['loginStreak'] ?? 0;
 
       // Aplicar multiplicador de streak
-      for (final entry in GamificationConstants.loginStreakXPMultiplier.entries) {
+      for (final entry
+          in GamificationConstants.loginStreakXPMultiplier.entries) {
         if (loginStreak >= entry.key) {
           multiplier = entry.value;
         }
       }
 
       return (baseXP * multiplier).round();
-
     } catch (e) {
-      AppLogger.error('❌ Erro ao aplicar multiplicadores de XP',error: e);
+      AppLogger.error('❌ Erro ao aplicar multiplicadores de XP', error: e);
       return baseXP; // Retornar valor base em caso de erro
     }
   }
@@ -382,7 +417,9 @@ class GamificationService {
   /// Processar level up
   Future<void> _handleLevelUp(String userId, int newLevel, int oldLevel) async {
     try {
-      AppLogger.info('🎉 Usuário $userId subiu de nível: $oldLevel → $newLevel');
+      AppLogger.info(
+        '🎉 Usuário $userId subiu de nível: $oldLevel → $newLevel',
+      );
 
       // Conceder recompensas de level up através do RewardsService
       // (implementação será chamada pelo rewards_provider)
@@ -392,9 +429,8 @@ class GamificationService {
 
       // Verificar conquistas relacionadas a nível
       await _checkLevelAchievements(userId, newLevel);
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao processar level up', error:e );
+      AppLogger.error('❌ Erro ao processar level up', error: e);
     }
   }
 
@@ -424,7 +460,11 @@ class GamificationService {
   }
 
   /// Atualizar dados de login
-  Future<void> _updateLoginData(String userId, DateTime loginDate, int streak) async {
+  Future<void> _updateLoginData(
+    String userId,
+    DateTime loginDate,
+    int streak,
+  ) async {
     await _firestore.collection('users').doc(userId).update({
       'lastLoginDate': loginDate.toIso8601String(),
       'loginStreak': streak,
@@ -490,7 +530,7 @@ class GamificationService {
             'timestamp': FieldValue.serverTimestamp(),
           });
     } catch (e) {
-      AppLogger.error('❌ Erro ao registrar ganho de coins', error:e);
+      AppLogger.error('❌ Erro ao registrar ganho de coins', error: e);
     }
   }
 
@@ -515,7 +555,7 @@ class GamificationService {
             'timestamp': FieldValue.serverTimestamp(),
           });
     } catch (e) {
-      AppLogger.error('❌ Erro ao registrar ganho de gems', error :e);
+      AppLogger.error('❌ Erro ao registrar ganho de gems', error: e);
     }
   }
 
@@ -532,7 +572,7 @@ class GamificationService {
             'timestamp': FieldValue.serverTimestamp(),
           });
     } catch (e) {
-      AppLogger.error('❌ Erro ao registrar level up', error:e);
+      AppLogger.error('❌ Erro ao registrar level up', error: e);
     }
   }
 
@@ -546,7 +586,7 @@ class GamificationService {
   Future<Map<String, dynamic>?> _getLevelUpRewardsInfo(int level) async {
     final rewards = LevelCalculator.getLevelUpRewards(level);
     if (rewards == null) return null;
-    
+
     return {
       'level': level,
       'rewards': rewards,
@@ -580,9 +620,8 @@ class GamificationService {
         'loginStreak': userData['loginStreak'] ?? 0,
         'totalLogins': userData['totalLogins'] ?? 0,
       };
-
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao obter stats de gamificação', error:e );
+      AppLogger.error('❌ Erro ao obter stats de gamificação', error: e);
       return {};
     }
   }
@@ -592,15 +631,16 @@ class GamificationService {
     try {
       // Verificar se as fórmulas de nível estão funcionando
       final systemValid = LevelCalculator.validateLevelSystem();
-      
-      AppLogger.info(systemValid 
-          ? '✅ Sistema de gamificação validado'
-          : '❌ Sistema de gamificação com problemas');
-      
-      return systemValid;
 
+      AppLogger.info(
+        systemValid
+            ? '✅ Sistema de gamificação validado'
+            : '❌ Sistema de gamificação com problemas',
+      );
+
+      return systemValid;
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao validar sistema de gamificação', error:e );
+      AppLogger.error('❌ Erro ao validar sistema de gamificação', error: e);
       return false;
     }
   }

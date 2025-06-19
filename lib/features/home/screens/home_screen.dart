@@ -1,427 +1,586 @@
 // lib/features/home/screens/home_screen.dart
-// Tela principal do app - Fase 3 (Corrigida)
+// Home Screen com Feature de Missões Integrada e exibição de dados do usuário ajustada
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/core/theme/app_theme.dart';
-import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/home/providers/home_provider.dart';
-import 'package:unlock/features/home/widgets/custom_app_bar.dart';
-import 'package:unlock/features/home/widgets/economy_indicators.dart';
-import 'package:unlock/features/missions/providers/missions_provider.dart';
-import 'package:unlock/features/missions/widgets/mission_card.dart';
-import 'package:unlock/features/navigation/widgets/custom_bottom_nav.dart';
-import 'package:unlock/features/navigation/widgets/floating_action_center.dart';
-import 'package:unlock/features/rewards/providers/rewards_provider.dart';
-import 'package:unlock/models/user_model.dart';
+import 'package:unlock/core/utils/level_calculator.dart'; // Importa o LevelCalculator
+import 'package:unlock/features/missions/screens/missions_list_screen.dart'; // Importa a tela de missões
+import 'package:unlock/models/user_model.dart'; // Importa o UserModel
 import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/providers/theme_provider.dart';
 
-/// Tela principal do aplicativo
 class HomeScreen extends ConsumerWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final theme = Theme.of(context);
     final authState = ref.watch(authProvider);
-    final missionsState = ref.watch(missionsProvider);
-    final hasPendingRewards = ref.watch(hasPendingRewardsProvider);
+    final isDark = ref.watch(themeProvider);
+    final theme = Theme.of(context);
 
     if (!authState.isAuthenticated || authState.user == null) {
-      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+      return Scaffold(
+        backgroundColor: theme.colorScheme.surface,
+        body: const Center(child: CircularProgressIndicator()),
+      );
     }
 
-    /// Refresh da tela
-    Future<void> _onRefresh(WidgetRef ref) async {
-      try {
-        AppLogger.debug('🔄 Atualizando HomeScreen...');
-
-        // Atualizar auth provider
-        await ref.read(authProvider.notifier).refreshUser();
-
-        // Atualizar missions provider
-        await ref.read(missionsProvider.notifier).refresh();
-
-        // Atualizar home provider
-        // await ref.read(homeProvider.notifier).refresh();
-
-        AppLogger.info('✅ HomeScreen atualizada');
-      } catch (e) {
-        AppLogger.error('❌ Erro ao atualizar HomeScreen', error: e);
-      }
-    }
-
-    /// Gerar missões manualmente
-    Future<void> _generateMissions(WidgetRef ref, UserModel user) async {
-      try {
-        AppLogger.debug('✨ Gerando missões manualmente para ${user.uid}');
-
-        final missionsNotifier = ref.read(missionsProvider.notifier);
-
-        // Gerar missões diárias e semanais
-        await Future.wait([
-          missionsNotifier.generateDailyMissions(user),
-          missionsNotifier.generateWeeklyMissions(user),
-        ]);
-
-        AppLogger.info('✅ Missões geradas manualmente');
-      } catch (e) {
-        AppLogger.error('❌ Erro ao gerar missões', error: e);
-      }
-    }
+    final user = authState.user!;
 
     return Scaffold(
-      appBar: const CustomAppBar(),
-      body: RefreshIndicator(
-        onRefresh: () => _onRefresh(ref),
-        child: CustomScrollView(
-          slivers: [
-            // Header com economia detalhada
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: EconomyIndicators(
-                  showDetailed: true,
-                  onTap: hasPendingRewards
-                      ? () => _claimAllRewards(context, ref)
-                      : null,
-                  showLevelProgress: false,
-                ),
-              ),
-            ),
-
-            // Seção de Missões
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Suas Missões',
-                      style: theme.textTheme.headlineSmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                        color: theme.colorScheme.onSurface,
-                      ),
-                    ),
-                    TextButton.icon(
-                      onPressed: () => _navigateToMissions(context),
-                      icon: Icon(
-                        Icons.arrow_forward,
-                        size: 18,
-                        color: AppTheme.primaryColor,
-                      ),
-                      label: Text(
-                        'Ver Todas',
-                        style: TextStyle(
-                          color: AppTheme.primaryColor,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-
-            // Lista de Missões
-            if (missionsState.isLoading)
-              SliverToBoxAdapter(child: _buildLoadingMissions())
-            else if (missionsState.activeMissions.isEmpty)
-              SliverToBoxAdapter(child: _buildEmptyMissions(context, theme))
-            else
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                sliver: SliverList(
-                  delegate: SliverChildBuilderDelegate((context, index) {
-                    final mission = missionsState.activeMissions[index];
-                    return Padding(
-                      padding: EdgeInsets.only(
-                        bottom: index < missionsState.activeMissions.length - 1
-                            ? 12
-                            : 0,
-                      ),
-                      child: MissionCard(
-                        mission: mission,
-                        isCompact: true,
-                        onTap: () =>
-                            _navigateToMissionDetail(context, mission.id),
-                      ),
-                    );
-                  }, childCount: missionsState.activeMissions.length),
-                ),
-              ),
-
-            // Espaçamento final
-            const SliverToBoxAdapter(child: SizedBox(height: 100)),
-          ],
-        ),
-      ),
-      bottomNavigationBar: const CustomBottomNav(),
-      floatingActionButton: const FloatingActionCenter(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
-    );
-  }
-
-  /// Atualizar dados
-  Future<void> _onRefresh(WidgetRef ref) async {
-    await ref.read(homeProvider.notifier).refresh();
-  }
-
-  /// Coletar todas as recompensas
-  void _claimAllRewards(BuildContext context, WidgetRef ref) {
-    ref.read(rewardsProvider.notifier).claimAllRewards();
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: theme.colorScheme.surface,
+        elevation: 0,
+        title: Row(
           children: [
-            Icon(Icons.card_giftcard, color: Colors.white),
+            // Avatar do usuário: usa user.avatar se for um URL, senão um fallback com a primeira letra
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: theme.colorScheme.primary,
+              backgroundImage: user.avatar.startsWith('http')
+                  ? NetworkImage(user.avatar) as ImageProvider
+                  : null,
+              child: user.avatar.startsWith('http')
+                  ? null
+                  : Text(
+                      user.displayName?.substring(0, 1).toUpperCase() ?? 'U',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
             const SizedBox(width: 12),
-            const Text('Coletando recompensas...'),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  user.displayName?.split(' ').first ?? 'Usuário',
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  'Nível ${user.level}', // Utiliza user.level diretamente do UserModel
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+              ],
+            ),
           ],
         ),
-        backgroundColor: AppTheme.successColor,
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
-  }
-
-  /// Navegar para lista de missões
-  void _navigateToMissions(BuildContext context) {
-    // Navigator.pushNamed(context, '/missions');
-
-    // Por ora, mostrar as missões em bottom sheet
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.transparent,
-      isScrollControlled: true,
-      builder: (context) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.9,
-        minChildSize: 0.5,
-        builder: (context, scrollController) => Container(
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surface,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
+        actions: [
+          // Botão para alternar tema
+          IconButton(
+            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
+            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
           ),
+          // Botão de Logout
+          IconButton(
+            onPressed: () async {
+              await ref.read(authProvider.notifier).signOut();
+              // Opcional: Navegar para a tela de login após o logout,
+              // mas geralmente o sistema de roteamento já lida com isso
+            },
+            icon: const Icon(Icons.logout),
+            tooltip: 'Sair da conta',
+          ),
+        ],
+      ),
+      body: RefreshIndicator(
+        onRefresh: () async {
+          // Atualiza o usuário e, consequentemente, as missões e recompensas
+          await ref.read(authProvider.notifier).refreshUser();
+        },
+        child: SingleChildScrollView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(16),
           child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Handle
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.3),
-                  borderRadius: BorderRadius.circular(2),
+              // Card de Boas-vindas
+              _WelcomeCard(user: user),
+
+              const SizedBox(height: 16),
+
+              // Card de Economia
+              _EconomyCard(user: user),
+
+              const SizedBox(height: 16),
+
+              // Card Principal - Descobrir Conexões
+              _DiscoveryCard(),
+
+              const SizedBox(height: 16),
+
+              // Card de Progresso (agora usando LevelCalculator)
+              _ProgressCard(user: user),
+
+              const SizedBox(height: 16),
+
+              // Nova seção: Lista de Missões
+              Text(
+                'Suas Missões',
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: theme.colorScheme.onSurface,
                 ),
               ),
-
-              // Header
-              Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 10,
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      'Todas as Missões',
-                      style: Theme.of(context).textTheme.headlineSmall
-                          ?.copyWith(fontWeight: FontWeight.w700),
-                    ),
-                    IconButton(
-                      onPressed: () => Navigator.pop(context),
-                      icon: const Icon(Icons.close),
-                    ),
-                  ],
-                ),
+              const SizedBox(height: 12),
+              SizedBox(
+                height:
+                    300, // Altura fixa para a lista de missões dentro do SingleChildScrollView
+                child: MissionsListScreen(), // Integra a tela de missões
               ),
 
-              // Lista de missões
-              Expanded(
-                child: Consumer(
-                  builder: (context, ref, child) {
-                    final missionsState = ref.watch(missionsProvider);
-
-                    return ListView.builder(
-                      controller: scrollController,
-                      padding: const EdgeInsets.all(20),
-                      itemCount: missionsState.allMissions.length,
-                      itemBuilder: (context, index) {
-                        final mission = missionsState.allMissions[index];
-                        return Padding(
-                          padding: EdgeInsets.only(
-                            bottom: index < missionsState.allMissions.length - 1
-                                ? 12
-                                : 0,
-                          ),
-                          child: MissionCard(
-                            mission: mission,
-                            onTap: () {
-                              Navigator.pop(context);
-                              _navigateToMissionDetail(context, mission.id);
-                            },
-                          ),
-                        );
-                      },
-                    );
-                  },
-                ),
-              ),
+              const SizedBox(height: 16), // Espaço após a lista de missões
+              // Ações Rápidas (o ActionButton de missões será removido ou redirecionado)
+              _QuickActions(),
             ],
           ),
         ),
       ),
     );
   }
+}
 
-  /// Navegar para detalhes da missão
-  void _navigateToMissionDetail(BuildContext context, String missionId) {
-    // Navigator.pushNamed(context, '/mission/detail', arguments: missionId);
+class _WelcomeCard extends StatelessWidget {
+  const _WelcomeCard({required this.user});
+  final UserModel user; // Usar UserModel tipado
 
-    // Por ora, mostrar em dialog
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Detalhes da Missão'),
-        content: Text('Navegação para missão $missionId será implementada'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final firstName = user.displayName?.split(' ').first ?? 'Usuário';
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary.withOpacity(0.1),
+            theme.colorScheme.secondary.withOpacity(0.05),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  _getGreeting(),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurface.withOpacity(0.7),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  firstName,
+                  style: theme.textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primary.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    'Pronto para novas conexões? 🔓',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Container(
+            width: 60,
+            height: 60,
+            decoration: BoxDecoration(
+              color: theme.colorScheme.primary.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.lock_open_rounded,
+              color: theme.colorScheme.primary,
+              size: 30,
+            ),
           ),
         ],
       ),
     );
   }
 
-  /// Construir estado de carregamento das missões
-  Widget _buildLoadingMissions() {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 20),
-      child: Column(
-        children: List.generate(
-          3,
-          (index) => Padding(
-            padding: EdgeInsets.only(bottom: index < 2 ? 12 : 0),
-            child: _buildMissionSkeleton(),
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Bom dia,';
+    if (hour < 18) return 'Boa tarde,';
+    return 'Boa noite,';
+  }
+}
+
+class _EconomyCard extends StatelessWidget {
+  const _EconomyCard({required this.user});
+  final UserModel user; // Usar UserModel tipado
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: _EconomyItem(
+              icon: '⚡',
+              label: 'XP',
+              value: user.xp, // Utiliza user.xp diretamente
+              color: Colors.green,
+            ),
           ),
-        ),
+          Expanded(
+            child: _EconomyItem(
+              icon: '🪙',
+              label: 'Coins',
+              value: user.coins, // Utiliza user.coins diretamente
+              color: Colors.amber,
+            ),
+          ),
+          Expanded(
+            child: _EconomyItem(
+              icon: '�',
+              label: 'Gems',
+              value: user.gems, // Utiliza user.gems diretamente
+              color: Colors.purple,
+            ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  /// Construir skeleton de missão
-  Widget _buildMissionSkeleton() {
-    return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-      child: Container(
-        height: 80,
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade300,
-                borderRadius: BorderRadius.circular(10),
+class _EconomyItem extends StatelessWidget {
+  const _EconomyItem({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String icon;
+  final String label;
+  final int value;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      children: [
+        Text(icon, style: const TextStyle(fontSize: 24)),
+        const SizedBox(height: 4),
+        Text(
+          _formatValue(value),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        Text(
+          label,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: theme.colorScheme.onSurface.withOpacity(0.7),
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _formatValue(int value) {
+    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+    return value.toString();
+  }
+}
+
+class _DiscoveryCard extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.primary.withOpacity(0.8),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.primary.withOpacity(0.3),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: const Icon(Icons.radar, color: Colors.white, size: 24),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Localizar Conexões',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      'Encontre pessoas próximas com interesses similares',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: Colors.white.withOpacity(0.9),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('🔍 Iniciando busca por conexões...'),
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: theme.colorScheme.primary,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Container(
-                    width: double.infinity,
-                    height: 16,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(4),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  Container(
-                    width: 120,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade300,
-                      borderRadius: BorderRadius.circular(4),
+                  const Icon(Icons.search),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Começar Busca',
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
                     ),
                   ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
+}
 
-  /// Construir estado vazio das missões
-  Widget _buildEmptyMissions(BuildContext context, ThemeData theme) {
-    return Padding(
-      padding: const EdgeInsets.all(40),
+class _ProgressCard extends StatelessWidget {
+  const _ProgressCard({required this.user});
+  final UserModel user; // Usar UserModel tipado
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final xp = user.xp;
+    final level = user.level; // user.level já é calculado no UserModel
+
+    // Usar LevelCalculator para cálculos precisos
+    final xpNeededForNextLevel = LevelCalculator.calculateXPToNextLevel(xp);
+    final progress = LevelCalculator.calculateLevelProgress(xp);
+    final nextLevel = level + 1;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+      ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer.withOpacity(0.3),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              Icons.assignment_outlined,
-              size: 48,
-              color: theme.colorScheme.primary,
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          Text(
-            'Nenhuma missão disponível',
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              color: theme.colorScheme.onSurface,
-            ),
-          ),
-
-          const SizedBox(height: 8),
-
-          Text(
-            'Novas missões serão geradas automaticamente.\nVolte em breve!',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-            ),
-            textAlign: TextAlign.center,
-          ),
-
-          const SizedBox(height: 20),
-
-          ElevatedButton.icon(
-            onPressed: () {},
-            // onPressed: () =>  _onRefresh(ref),
-            icon: const Icon(Icons.refresh),
-            label: const Text('Atualizar'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Row(
+            children: [
+              Icon(Icons.trending_up, color: Colors.green),
+              const SizedBox(width: 8),
+              Text(
+                'Progresso do Nível',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Nível $level'),
+              Text('${(progress * 100).toInt()}%'),
+            ],
+          ),
+          const SizedBox(height: 8),
+          LinearProgressIndicator(
+            value: progress,
+            backgroundColor: theme.colorScheme.outline.withOpacity(0.2),
+            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Faltam $xpNeededForNextLevel XP para o Nível $nextLevel',
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurface.withOpacity(0.7),
             ),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _QuickActions extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Ações Rápidas',
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.assignment,
+                label: 'Missões',
+                // Removido o SnackBar e agora ele pode navegar para a tela de missões
+                // Se a MissionsListScreen já está no body, você pode remover este botão
+                // ou fazê-lo rolar para a seção de missões, se implementado.
+                // Por agora, manterá o SnackBar para evitar navegação complexa de rota.
+                onTap: () => _showSnackBar(context, 'Missões'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.people,
+                label: 'Amigos',
+                onTap: () => _showSnackBar(context, 'Amigos'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: _ActionButton(
+                icon: Icons.settings,
+                label: 'Config',
+                onTap: () => _showSnackBar(context, 'Configurações'),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  void _showSnackBar(BuildContext context, String action) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('$action será implementado em breve')),
+    );
+  }
+}
+
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({
+    required this.icon,
+    required this.label,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 24),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: theme.textTheme.bodySmall,
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
       ),
     );
   }

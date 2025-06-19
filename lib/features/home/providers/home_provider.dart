@@ -113,8 +113,8 @@ class HomeNotifier extends StateNotifier<HomeState> {
       // Calcular estatísticas do usuário
       final stats = _calculateUserStats(user);
 
-      // Obter missões em destaque
-      final featuredMissions = _getFeaturedMissions();
+      // // Obter missões em destaque
+      // final featuredMissions = _getFeaturedMissions();
 
       // Obter ações rápidas disponíveis
       final quickActions = _getQuickActions(user);
@@ -122,7 +122,7 @@ class HomeNotifier extends StateNotifier<HomeState> {
       state = state.copyWith(
         user: user,
         userStats: stats,
-        featuredMissions: featuredMissions,
+        // featuredMissions: featuredMissions,
         quickActions: quickActions,
         lastUpdated: DateTime.now(),
       );
@@ -153,39 +153,39 @@ class HomeNotifier extends StateNotifier<HomeState> {
     };
   }
 
-  /// Obter missões em destaque (3 principais)
-  List<String> _getFeaturedMissions() {
-    final missionsState = _ref.read(missionsProvider);
-    final activeMissions = missionsState.activeMissions;
+  // /// Obter missões em destaque (3 principais)
+  // List<String> _getFeaturedMissions() {
+  //   final missionsState = _ref.read(missionsProvider);
+  //   final activeMissions = missionsState.activeMissions;
 
-    // Priorizar missões por critérios:
-    // 1. Missões próximas do prazo
-    // 2. Missões com maior recompensa
-    // 3. Missões não iniciadas
-    activeMissions.sort((a, b) {
-      // Critério 1: Tempo restante
-      final aHours = a.hoursRemaining;
-      final bHours = b.hoursRemaining;
-      if (aHours != bHours) {
-        return aHours.compareTo(bHours);
-      }
+  //   // Priorizar missões por critérios:
+  //   // 1. Missões próximas do prazo
+  //   // 2. Missões com maior recompensa
+  //   // 3. Missões não iniciadas
+  //   activeMissions.sort((a, b) {
+  //     // Critério 1: Tempo restante
+  //     final aHours = a.hoursRemaining;
+  //     final bHours = b.hoursRemaining;
+  //     if (aHours != bHours) {
+  //       return aHours.compareTo(bHours);
+  //     }
 
-      // Critério 2: Valor total da recompensa
-      final aReward = a.totalRewardPoints;
-      final bReward = b.totalRewardPoints;
-      if (aReward != bReward) {
-        return bReward.compareTo(aReward); // Maior recompensa primeiro
-      }
+  //     // Critério 2: Valor total da recompensa
+  //     final aReward = a.totalRewardPoints;
+  //     final bReward = b.totalRewardPoints;
+  //     if (aReward != bReward) {
+  //       return bReward.compareTo(aReward); // Maior recompensa primeiro
+  //     }
 
-      // Critério 3: Progresso (menos progresso primeiro)
-      final aProgress = missionsState.getMissionProgress(a.id);
-      final bProgress = missionsState.getMissionProgress(b.id);
-      return aProgress.compareTo(bProgress);
-    });
+  //     // Critério 3: Progresso (menos progresso primeiro)
+  //     final aProgress = missionsState.getMissionProgress(a.id);
+  //     final bProgress = missionsState.getMissionProgress(b.id);
+  //     return aProgress.compareTo(bProgress);
+  //   });
 
-    // Retornar os IDs das 3 primeiras missões
-    return activeMissions.take(3).map((m) => m.id).toList();
-  }
+  //   // Retornar os IDs das 3 primeiras missões
+  //   return activeMissions.take(3).map((m) => m.id).toList();
+  // }
 
   /// Obter ações rápidas disponíveis baseadas no estado do usuário
   Map<String, dynamic> _getQuickActions(UserModel user) {
@@ -381,7 +381,7 @@ final userEconomyProvider = Provider<Map<String, int>>((ref) {
 final homeHasUpdatesProvider = Provider<bool>((ref) {
   final homeState = ref.watch(homeProvider);
   final hasPendingRewards = ref.watch(hasPendingRewardsProvider);
-  final activeMissions = ref.watch(activeMissionsProvider);
+  // final activeMissions = ref.watch(activeMissionsProvider);
 
   // Considera que há atualizações se:
   // - Há recompensas pendentes
@@ -391,5 +391,5 @@ final homeHasUpdatesProvider = Provider<bool>((ref) {
       homeState.lastUpdated != null &&
       DateTime.now().difference(homeState.lastUpdated!).inMinutes < 5;
 
-  return hasPendingRewards || activeMissions.isNotEmpty || hasRecentUpdate;
+  return hasPendingRewards; // || activeMissions.isNotEmpty || hasRecentUpdate;
 });

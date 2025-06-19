@@ -1,11 +1,13 @@
 // lib/features/rewards/providers/rewards_provider.dart
-// Provider para gerenciamento de recompensas - Fase 3
+// Provider para gerenciamento de recompensas - Fase 3 (Atualizado com Firestore e Missões)
 
+import 'package:cloud_firestore/cloud_firestore.dart'; // Adicionado: Importação para FieldValue
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/core/utils/level_calculator.dart';
+import 'package:unlock/core/constants/gamification_constants.dart'; // Importar GamificationConstants
+import 'package:unlock/core/utils/level_calculator.dart'; // Importado
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/missions/models/mission_model.dart';
-import 'package:unlock/features/rewards/models/reward_model.dart';
+import 'package:unlock/features/missions/models/mission.dart'; // Correção: de MissionModel para Mission
+import 'package:unlock/features/rewards/models/reward_model.dart'; // Importado RewardModel
 import 'package:unlock/features/rewards/services/rewards_service.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
@@ -72,10 +74,29 @@ final rewardsProvider = StateNotifierProvider<RewardsNotifier, RewardsState>((
 /// Notifier para gerenciar estado das recompensas
 class RewardsNotifier extends StateNotifier<RewardsState> {
   final Ref _ref;
-  final RewardsService _service = RewardsService();
+  late final RewardsService _service; // Injetado via Riverpod
 
   RewardsNotifier(this._ref) : super(const RewardsState()) {
+    // Injeta RewardsService usando o provider dedicado
+    _service = _ref.read(rewardsServiceProvider);
     _initialize();
+
+    // Ouvir mudanças no AuthProvider para detectar level ups
+    _ref.listen<AuthState>(authProvider, (previous, next) {
+      final prevUser = previous?.user;
+      final nextUser = next.user;
+
+      if (prevUser != null &&
+          nextUser != null &&
+          nextUser.uid == prevUser.uid) {
+        if (nextUser.level > prevUser.level) {
+          AppLogger.info(
+            '🎉 Usuário ${nextUser.uid} subiu para o nível ${nextUser.level}! (Detectado pelo RewardsNotifier)',
+          );
+          grantLevelUpRewards(nextUser.level, nextUser);
+        }
+      }
+    });
   }
 
   /// Inicializar provider
@@ -109,6 +130,7 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
         '✅ Recompensas carregadas: ${pendingRewards.length} pendentes',
       );
     } catch (e, stackTrace) {
+      // Adicionado stackTrace ao log
       AppLogger.error('❌ Erro ao carregar recompensas', error: e);
       state = state.copyWith(
         isLoading: false,
@@ -118,53 +140,58 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
   }
 
   /// Conceder recompensas de missão
-  Future<void> grantMissionRewards(MissionModel mission, UserModel user) async {
+  /// Este método é chamado quando uma missão é CONCLUÍDA, mas ainda não RESGATADA.
+  /// Ele cria os objetos RewardModel e os registra como PENDENTES no Firestore.
+  Future<void> grantMissionRewards(Mission mission, UserModel user) async {
     try {
       AppLogger.debug('🎁 Concedendo recompensas da missão: ${mission.title}');
 
       final rewards = <RewardModel>[];
 
-      // Criar recompensas baseadas na missão
-      if (mission.xpReward > 0) {
+      // Criar recompensas baseadas na estrutura MissionReward da missão
+      if (mission.reward.xp > 0) {
+        // Correção: Usar mission.reward.xp
         rewards.add(
           RewardModel.xp(
             id: '${mission.id}_xp_${DateTime.now().millisecondsSinceEpoch}',
-            amount: mission.xpReward,
+            amount: mission.reward.xp, // Correção: Usar mission.reward.xp
             source: RewardSource.mission,
-            description: '+${mission.xpReward} XP de ${mission.title}',
+            description: '+${mission.reward.xp} XP de ${mission.title}',
             metadata: {'missionId': mission.id},
           ),
         );
       }
 
-      if (mission.coinsReward > 0) {
+      if (mission.reward.coins > 0) {
+        // Correção: Usar mission.reward.coins
         rewards.add(
           RewardModel.coins(
             id: '${mission.id}_coins_${DateTime.now().millisecondsSinceEpoch}',
-            amount: mission.coinsReward,
+            amount: mission.reward.coins, // Correção: Usar mission.reward.coins
             source: RewardSource.mission,
-            description: '+${mission.coinsReward} Coins de ${mission.title}',
+            description: '+${mission.reward.coins} Coins de ${mission.title}',
             metadata: {'missionId': mission.id},
           ),
         );
       }
 
-      if (mission.gemsReward > 0) {
+      if (mission.reward.gems > 0) {
+        // Correção: Usar mission.reward.gems
         rewards.add(
           RewardModel.gems(
             id: '${mission.id}_gems_${DateTime.now().millisecondsSinceEpoch}',
-            amount: mission.gemsReward,
+            amount: mission.reward.gems, // Correção: Usar mission.reward.gems
             source: RewardSource.mission,
-            description: '+${mission.gemsReward} Gems de ${mission.title}',
+            description: '+${mission.reward.gems} Gems de ${mission.title}',
             metadata: {'missionId': mission.id},
           ),
         );
       }
 
-      // Salvar recompensas
+      // Salvar recompensas no Firestore como pendentes
       await _service.grantRewards(user.uid, rewards);
 
-      // Atualizar estado local
+      // Atualizar estado local do provedor de recompensas
       final updatedPending = [...state.pendingRewards, ...rewards];
       state = state.copyWith(
         pendingRewards: updatedPending,
@@ -173,10 +200,8 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
 
       AppLogger.info('✅ Recompensas concedidas: ${rewards.length} itens');
     } catch (e, stackTrace) {
-      AppLogger.error(
-        '❌ Erro ao conceder recompensas da missão',
-        error :e ,
-      );
+      // Adicionado stackTrace ao log
+      AppLogger.error('❌ Erro ao conceder recompensas da missão', error: e);
     }
   }
 
@@ -186,12 +211,17 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       AppLogger.debug('🆙 Concedendo recompensas de level up: nível $newLevel');
 
       final levelRewards = LevelCalculator.getLevelUpRewards(newLevel);
-      if (levelRewards == null) return;
+      if (levelRewards == null) {
+        AppLogger.info(
+          '⚠️ Nenhuma recompensa definida para o nível $newLevel.',
+        );
+        return;
+      }
 
       final rewards = <RewardModel>[];
 
       // XP bonus (se aplicável)
-      if (levelRewards['xp'] != null) {
+      if (levelRewards['xp'] != null && levelRewards['xp']! > 0) {
         rewards.add(
           RewardModel.xp(
             id: 'levelup_${newLevel}_xp_${DateTime.now().millisecondsSinceEpoch}',
@@ -203,7 +233,7 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       }
 
       // Coins bonus
-      if (levelRewards['coins'] != null) {
+      if (levelRewards['coins'] != null && levelRewards['coins']! > 0) {
         rewards.add(
           RewardModel.coins(
             id: 'levelup_${newLevel}_coins_${DateTime.now().millisecondsSinceEpoch}',
@@ -215,7 +245,7 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       }
 
       // Gems bonus
-      if (levelRewards['gems'] != null) {
+      if (levelRewards['gems'] != null && levelRewards['gems']! > 0) {
         rewards.add(
           RewardModel.gems(
             id: 'levelup_${newLevel}_gems_${DateTime.now().millisecondsSinceEpoch}',
@@ -226,17 +256,26 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
         );
       }
 
-      // Título novo
+      // Título novo (sempre adicionado se houver um título para o nível)
       final newTitle = LevelCalculator.getUserTitle(newLevel);
-      rewards.add(
-        RewardModel.title(
-          id: 'levelup_${newLevel}_title_${DateTime.now().millisecondsSinceEpoch}',
-          titleId: 'level_$newLevel',
-          source: RewardSource.levelUp,
-          description: 'Novo título desbloqueado: $newTitle',
-          metadata: {'titleName': newTitle, 'level': newLevel},
-        ),
-      );
+      // Correção: Acessa levelTitles diretamente de GamificationConstants
+      if (newTitle != 'Viajante' ||
+          GamificationConstants.levelTitles.containsKey(newLevel)) {
+        rewards.add(
+          RewardModel.title(
+            id: 'levelup_${newLevel}_title_${DateTime.now().millisecondsSinceEpoch}',
+            titleId: 'level_$newLevel',
+            source: RewardSource.levelUp,
+            description: 'Novo título desbloqueado: $newTitle',
+            metadata: {'titleName': newTitle, 'level': newLevel},
+          ),
+        );
+      }
+
+      if (rewards.isEmpty) {
+        AppLogger.info('⚠️ Nenhuma recompensa gerada para o nível $newLevel.');
+        return;
+      }
 
       await _service.grantRewards(user.uid, rewards);
 
@@ -250,10 +289,8 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
         '✅ Recompensas de level up concedidas para nível $newLevel',
       );
     } catch (e, stackTrace) {
-      AppLogger.error(
-        '❌ Erro ao conceder recompensas de level up',
-        error :e 
-      );
+      // Adicionado stackTrace ao log
+      AppLogger.error('❌ Erro ao conceder recompensas de level up', error: e);
     }
   }
 
@@ -265,7 +302,12 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       );
 
       final bonusCoins = LevelCalculator.calculateDailyLoginBonus(streakDays);
-      if (bonusCoins <= 0) return;
+      if (bonusCoins <= 0) {
+        AppLogger.info(
+          '⚠️ Bônus de login diário não concedido (0 ou menos coins).',
+        );
+        return;
+      }
 
       final reward = RewardModel.coins(
         id: 'daily_login_${DateTime.now().millisecondsSinceEpoch}',
@@ -287,9 +329,10 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
         '✅ Recompensa de login diário concedida: +$bonusCoins coins',
       );
     } catch (e, stackTrace) {
+      // Adicionado stackTrace ao log
       AppLogger.error(
         '❌ Erro ao conceder recompensas de login diário',
-        error:e ,
+        error: e,
       );
     }
   }
@@ -298,7 +341,12 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
   Future<void> claimReward(String rewardId) async {
     try {
       final user = _ref.read(authProvider).user;
-      if (user == null) return;
+      if (user == null) {
+        AppLogger.warning(
+          '⚠️ Tentativa de coletar recompensa sem usuário logado.',
+        );
+        return;
+      }
 
       AppLogger.debug('🎁 Coletando recompensa: $rewardId');
 
@@ -306,16 +354,59 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       final rewardIndex = state.pendingRewards.indexWhere(
         (r) => r.id == rewardId,
       );
-      if (rewardIndex == -1) return;
+      if (rewardIndex == -1) {
+        AppLogger.warning(
+          '⚠️ Recompensa $rewardId não encontrada entre as pendentes.',
+        );
+        return;
+      }
 
       final reward = state.pendingRewards[rewardIndex];
+      // Marca a recompensa como coletada localmente
       final claimedReward = reward.claim();
 
       // Atualizar no Firestore
       await _service.claimReward(user.uid, claimedReward);
 
-      // Aplicar recompensa ao usuário
-      await _applyRewardToUser(claimedReward, user);
+      // Aplicar efeitos econômicos da recompensa
+      Map<String, dynamic> userUpdates = {};
+      int xpGained = 0;
+      int coinsGained = 0;
+      int gemsGained = 0;
+
+      if (reward.type == RewardType.xp && reward.amount > 0) {
+        userUpdates['xp'] = FieldValue.increment(reward.amount);
+        xpGained = reward.amount;
+      }
+      if (reward.type == RewardType.coins && reward.amount > 0) {
+        userUpdates['coins'] = FieldValue.increment(reward.amount);
+        coinsGained = reward.amount;
+      }
+      if (reward.type == RewardType.gems && reward.amount > 0) {
+        userUpdates['gems'] = FieldValue.increment(reward.amount);
+        gemsGained = reward.amount;
+      }
+
+      if (userUpdates.isNotEmpty) {
+        await _service.updateUserStats(user.uid, userUpdates);
+        _ref
+            .read(authProvider.notifier)
+            .addRewardsToCurrentUser(xpGained, coinsGained, gemsGained);
+      }
+
+      // Se houver recompensas de tipo diferente (achievement, item, title, boost)
+      // A lógica para estas deve ser tratada aqui ou por serviços dedicados.
+      // Por simplicidade, vamos chamar métodos mockados para os tipos não-econômicos.
+      if (reward.type == RewardType.achievement &&
+          reward.achievementId != null) {
+        await _unlockAchievement(user, reward.achievementId!);
+      } else if (reward.type == RewardType.item && reward.itemId != null) {
+        await _unlockItem(user, reward.itemId!);
+      } else if (reward.type == RewardType.title && reward.titleId != null) {
+        await _unlockTitle(user, reward.titleId!);
+      } else if (reward.type == RewardType.boost) {
+        await _applyBoost(user, reward);
+      }
 
       // Atualizar estado local
       final updatedPending = List<RewardModel>.from(state.pendingRewards)
@@ -330,7 +421,12 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
 
       AppLogger.info('✅ Recompensa coletada: ${reward.formattedAmount}');
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao coletar recompensa', error: e);
+      // Adicionado stackTrace ao log
+      AppLogger.error(
+        '❌ Erro ao coletar recompensa',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
@@ -338,134 +434,139 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
   Future<void> claimAllRewards() async {
     try {
       final user = _ref.read(authProvider).user;
-      if (user == null) return;
+      if (user == null) {
+        AppLogger.warning(
+          '⚠️ Tentativa de coletar todas as recompensas sem usuário logado.',
+        );
+        return;
+      }
 
-      if (state.pendingRewards.isEmpty) return;
+      if (state.pendingRewards.isEmpty) {
+        AppLogger.info('ℹ️ Nenhuma recompensa pendente para coletar.');
+        return;
+      }
 
       AppLogger.debug(
         '🎁 Coletando todas as recompensas: ${state.pendingRewards.length}',
       );
 
-      final claimedRewards = <RewardModel>[];
+      final claimedRewardsBatch = <RewardModel>[];
+
+      Map<String, dynamic> totalUserUpdates = {};
+      int totalXPGained = 0;
+      int totalCoinsGained = 0;
+      int totalGemsGained = 0;
 
       for (final reward in state.pendingRewards) {
-        final claimedReward = reward.claim();
-        await _service.claimReward(user.uid, claimedReward);
-        await _applyRewardToUser(claimedReward, user);
-        claimedRewards.add(claimedReward);
+        final claimedReward = reward
+            .claim(); // Marca a recompensa como coletada localmente
+        await _service.claimReward(
+          user.uid,
+          claimedReward,
+        ); // Atualiza no Firestore
+
+        // Acumula efeitos econômicos
+        if (claimedReward.type == RewardType.xp && claimedReward.amount > 0) {
+          totalXPGained += claimedReward.amount;
+        }
+        if (claimedReward.type == RewardType.coins &&
+            claimedReward.amount > 0) {
+          totalCoinsGained += claimedReward.amount;
+        }
+        if (claimedReward.type == RewardType.gems && claimedReward.amount > 0) {
+          totalGemsGained += claimedReward.amount;
+        }
+
+        // Lógica para tipos não-econômicos (conquistas, itens, títulos, boosts)
+        if (claimedReward.type == RewardType.achievement &&
+            claimedReward.achievementId != null) {
+          await _unlockAchievement(user, claimedReward.achievementId!);
+        } else if (claimedReward.type == RewardType.item &&
+            claimedReward.itemId != null) {
+          await _unlockItem(user, claimedReward.itemId!);
+        } else if (claimedReward.type == RewardType.title &&
+            claimedReward.titleId != null) {
+          await _unlockTitle(user, claimedReward.titleId!);
+        } else if (claimedReward.type == RewardType.boost) {
+          await _applyBoost(user, claimedReward);
+        }
+
+        claimedRewardsBatch.add(claimedReward);
       }
 
-      // Atualizar estado
-      final updatedClaimed = [...state.claimedRewards, ...claimedRewards];
+      // Construir o mapa totalUserUpdates APÓS o loop com os totais acumulados
+      if (totalXPGained > 0) {
+        totalUserUpdates['xp'] = FieldValue.increment(totalXPGained);
+      }
+      if (totalCoinsGained > 0) {
+        totalUserUpdates['coins'] = FieldValue.increment(totalCoinsGained);
+      }
+      if (totalGemsGained > 0) {
+        totalUserUpdates['gems'] = FieldValue.increment(totalGemsGained);
+      }
+
+      // Aplicar todas as atualizações econômicas de uma vez
+      if (totalUserUpdates.isNotEmpty) {
+        await _service.updateUserStats(user.uid, totalUserUpdates);
+        _ref
+            .read(authProvider.notifier)
+            .addRewardsToCurrentUser(
+              totalXPGained,
+              totalCoinsGained,
+              totalGemsGained,
+            );
+      }
+
+      // Atualizar estado local após processar todas as recompensas
+      final updatedClaimed = [...state.claimedRewards, ...claimedRewardsBatch];
       state = state.copyWith(
-        pendingRewards: [],
+        pendingRewards: [], // Limpa todas as pendentes
         claimedRewards: updatedClaimed,
         lastUpdated: DateTime.now(),
       );
 
       AppLogger.info(
-        '✅ Todas as recompensas coletadas: ${claimedRewards.length}',
+        '✅ Todas as recompensas coletadas: ${claimedRewardsBatch.length}',
       );
     } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao coletar todas as recompensas', error: e);
+      // Adicionado stackTrace ao log
+      AppLogger.error(
+        '❌ Erro ao coletar todas as recompensas',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 
-  /// Aplicar recompensa aos dados do usuário
-  Future<void> _applyRewardToUser(RewardModel reward, UserModel user) async {
-    try {
-      switch (reward.type) {
-        case RewardType.xp:
-          await _updateUserXP(user, reward.amount);
-          break;
-        case RewardType.coins:
-          await _updateUserCoins(user, reward.amount);
-          break;
-        case RewardType.gems:
-          await _updateUserGems(user, reward.amount);
-          break;
-        case RewardType.achievement:
-          await _unlockAchievement(user, reward.achievementId!);
-          break;
-        case RewardType.item:
-          await _unlockItem(user, reward.itemId!);
-          break;
-        case RewardType.title:
-          await _unlockTitle(user, reward.titleId!);
-          break;
-        case RewardType.boost:
-          await _applyBoost(user, reward);
-          break;
-      }
-    } catch (e, stackTrace) {
-      AppLogger.error('❌ Erro ao aplicar recompensa ao usuário', error: e);
-    }
-  }
-
-  /// Atualizar XP do usuário (com verificação de level up)
-  Future<void> _updateUserXP(UserModel user, int xpAmount) async {
-    final oldXP = user.xp;
-    final newXP = oldXP + xpAmount;
-
-    // Verificar se subiu de nível
-    final hasLeveledUp = LevelCalculator.hasLeveledUp(oldXP, newXP);
-    final newLevel = LevelCalculator.calculateLevel(newXP);
-
-    // Atualizar usuário no Firestore
-    await _service.updateUserStats(user.uid, {
-      'xp': newXP,
-      'level': newLevel,
-      'lastXPGain': DateTime.now().toIso8601String(),
-    });
-
-    // Se subiu de nível, conceder recompensas especiais
-    if (hasLeveledUp) {
-      await grantLevelUpRewards(newLevel, user);
-    }
-  }
-
-  /// Atualizar coins do usuário
-  Future<void> _updateUserCoins(UserModel user, int coinsAmount) async {
-    final newCoins = user.coins + coinsAmount;
-
-    await _service.updateUserStats(user.uid, {
-      'coins': newCoins,
-      'lastCoinsGain': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// Atualizar gems do usuário
-  Future<void> _updateUserGems(UserModel user, int gemsAmount) async {
-    final newGems = user.gems + gemsAmount;
-
-    await _service.updateUserStats(user.uid, {
-      'gems': newGems,
-      'lastGemsGain': DateTime.now().toIso8601String(),
-    });
-  }
-
-  /// Desbloquear conquista
+  /// Desbloquear conquista (lógica futura)
   Future<void> _unlockAchievement(UserModel user, String achievementId) async {
     // Implementação futura - adicionar conquista ao perfil do usuário
-    AppLogger.info('🏆 Conquista desbloqueada: $achievementId');
+    // Ex: _userAchievementsService.addAchievement(user.uid, achievementId);
+    AppLogger.info(
+      '🏆 Conquista desbloqueada: $achievementId para ${user.uid}',
+    );
+    // Pode disparar um pop-up de notificação de conquista aqui
   }
 
-  /// Desbloquear item
+  /// Desbloquear item (lógica futura)
   Future<void> _unlockItem(UserModel user, String itemId) async {
     // Implementação futura - adicionar item ao inventário
-    AppLogger.info('🎁 Item desbloqueado: $itemId');
+    // Ex: _userInventoryService.addItem(user.uid, itemId);
+    AppLogger.info('🎁 Item desbloqueado: $itemId para ${user.uid}');
   }
 
-  /// Desbloquear título
+  /// Desbloquear título (lógica futura)
   Future<void> _unlockTitle(UserModel user, String titleId) async {
     // Implementação futura - adicionar título disponível
-    AppLogger.info('🏅 Título desbloqueado: $titleId');
+    // Ex: _userProfileService.addTitle(user.uid, titleId);
+    AppLogger.info('🏅 Título desbloqueado: $titleId para ${user.uid}');
   }
 
-  /// Aplicar boost
+  /// Aplicar boost (lógica futura)
   Future<void> _applyBoost(UserModel user, RewardModel reward) async {
     // Implementação futura - aplicar boost temporário
-    AppLogger.info('🚀 Boost aplicado');
+    // Ex: _boostService.activateBoost(user.uid, reward.id, reward.amount);
+    AppLogger.info('🚀 Boost ${reward.id} aplicado para ${user.uid}');
   }
 
   /// Recarregar recompensas

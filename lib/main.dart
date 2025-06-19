@@ -11,9 +11,6 @@ import 'package:unlock/services/analytics/analytics_integration.dart';
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
 import 'package:unlock/unlockApp.dart';
 
-// Importar firebase_options.dart se existir
-// import 'firebase_options.dart';
-
 /// Entry point da aplicação Unlock
 void main() async {
   await _initializeApp();

@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/features/missions/providers/missions_provider.dart'; // Importar o MissionsNotifier
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/services/auth_service.dart';
 
@@ -69,6 +70,21 @@ class AuthState {
         !hasBirthDate;
   }
 
+  // ✅ GETTER PARA VERIFICAR SE É MENOR DE IDADE
+  bool get isMinor {
+    // Correção: Acessa birthDate através do objeto user
+    if (user?.birthDate == null) return false;
+    final age = DateTime.now().difference(user!.birthDate!).inDays ~/ 365;
+    return age < 18;
+  }
+
+  // ✅ GETTER PARA IDADE
+  int? get age {
+    // Correção: Acessa birthDate através do objeto user
+    if (user?.birthDate == null) return null;
+    return DateTime.now().difference(user!.birthDate!).inDays ~/ 365;
+  }
+
   // Propriedades de navegação
   bool get shouldShowSplash {
     return !isInitialized || isLoading;
@@ -98,7 +114,8 @@ class AuthState {
     AuthStatus? status,
   }) {
     return AuthState(
-      user: user,
+      user:
+          user, // Note: user is explicitly passed as nullable to allow nulling it out
       isLoading: isLoading ?? this.isLoading,
       isInitialized: isInitialized ?? this.isInitialized,
       error: error,
@@ -312,7 +329,18 @@ class AuthNotifier extends StateNotifier<AuthState> {
       AppLogger.auth('🎮 Disparando triggers de gamificação para ${user.uid}');
 
       // ✅ TRIGGER: Sistema de Missões
-      await _triggerMissionsSystem(user);
+      // Garante que as missões sejam carregadas antes de tentar reportar eventos
+      final missionsNotifier = _ref.read(missionsProvider.notifier);
+      if (missionsNotifier.state.isLoading) {
+        AppLogger.debug('MissionsNotifier ainda carregando, aguardando...');
+        // Aguarda até que o MissionsNotifier termine de carregar
+        await for (var _ in missionsNotifier.stream) {
+          if (!missionsNotifier.state.isLoading) break;
+        }
+        AppLogger.debug('MissionsNotifier finalizou o carregamento.');
+      }
+
+      await _triggerMissionsSystem(user); // Isso apenas loga agora
 
       // ✅ TRIGGER: Sistema de Recompensas
       await _triggerRewardsSystem(user);
@@ -332,9 +360,10 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       AppLogger.debug('🎯 Trigger: Sistema de Missões');
 
-      // Tentar acessar o MissionsProvider se disponível
-      // O sistema de auto-inicialização do MissionsProvider vai cuidar do resto
-      // Apenas loggar que o trigger foi executado
+      // Este trigger agora serve para garantir que o MissionsNotifier está ativo
+      // e pode começar a observar eventos.
+      // A inicialização real das missões (carregamento do repositório) acontece
+      // no construtor do MissionsNotifier quando ele é lido.
 
       await _trackAnalyticsEvent(
         'missions_system_triggered',
@@ -356,8 +385,8 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       AppLogger.debug('🎁 Trigger: Sistema de Recompensas');
 
-      // Verificar recompensas pendentes, login bonuses, etc.
-      // Por enquanto apenas loggar
+      // Lógica para verificar recompensas pendentes, login bonuses, etc.
+      // O `RewardsNotifier` em si já tem a lógica de carregar recompensas no initialize.
 
       await _trackAnalyticsEvent(
         'rewards_system_triggered',
@@ -383,9 +412,9 @@ class AuthNotifier extends StateNotifier<AuthState> {
     try {
       AppLogger.debug('📅 Trigger: Login Diário');
 
-      // Verificar se é o primeiro login do dia
-      // Aplicar bonificações se necessário
-      // Por enquanto apenas loggar
+      // ✅ CORREÇÃO: Chamar o método reportMissionEvent do MissionsNotifier
+      // Isso garantirá que o evento de login diário seja processado.
+      _ref.read(missionsProvider.notifier).reportMissionEvent('LOGIN_DAILY');
 
       await _trackAnalyticsEvent(
         'daily_login_triggered',
@@ -439,6 +468,23 @@ class AuthNotifier extends StateNotifier<AuthState> {
   // ================================================================================================
   // MÉTODOS PÚBLICOS EXISTENTES (mantidos inalterados)
   // ================================================================================================
+
+  /// Método para adicionar recompensas ao usuário logado.
+  /// Será chamado pelo RewardsService.
+  void addRewardsToCurrentUser(int xp, int coins, int gems) {
+    if (state.user != null) {
+      // Cria uma nova instância de UserModel com as recompensas adicionadas
+      // O método `addRewards` no UserModel já lida com a atualização e recalculo de nível.
+      final updatedUser = state.user!.addRewards(xp, coins, gems);
+      // Atualiza o estado do AuthProvider com o novo UserModel imutável
+      state = state.copyWith(user: updatedUser);
+      print(
+        'DEBUG: UserModel atualizado com recompensas: XP=${updatedUser.xp}, Coins=${updatedUser.coins}, Gems=${updatedUser.gems}',
+      );
+      // Opcional: Persistir o usuário atualizado no backend aqui, se necessário.
+      // _userRepository.updateUser(updatedUser);
+    }
+  }
 
   /// Login com Google
   Future<bool> signInWithGoogle() async {
@@ -555,54 +601,54 @@ class AuthNotifier extends StateNotifier<AuthState> {
   }
 
   // /// Completar onboarding
-  // Future<void> completeOnboarding({
-  //   required String codinome,
-  //   required String avatarId,
-  //   required DateTime birthDate,
-  //   required List<String> interesses,
-  //   String? relationshipGoal,
-  //   int? connectionLevel,
-  // }) async {
-  //   if (!state.isAuthenticated || _disposed) return;
+  // // Future<void> completeOnboarding({
+  // //   required String codinome,
+  // //   required String avatarId,
+  // //   required DateTime birthDate,
+  // //   required List<String> interesses,
+  // //   String? relationshipGoal,
+  // //   int? connectionLevel,
+  // // }) async {
+  // //   if (!state.isAuthenticated || _disposed) return;
 
-  //   try {
-  //     _log('✅ Completando onboarding para usuário ${state.user!.uid}...');
+  // //   try {
+  // //     _log('✅ Completando onboarding para usuário ${state.user!.uid}...');
 
-  //     // Atualizar dados no Firestore
-  //     await AuthService.updateUserField(state.user!.uid, {
-  //       'codinome': codinome,
-  //       'avatarId': avatarId,
-  //       'birthDate': birthDate.toIso8601String(),
-  //       'interesses': interesses,
-  //       'relationshipGoal': relationshipGoal,
-  //       'connectionLevel': connectionLevel ?? 5,
-  //       'onboardingCompleted': true,
-  //       'onboardingCompletedAt': DateTime.now().toIso8601String(),
-  //     });
+  // //     // Atualizar dados no Firestore
+  // //     await AuthService.updateUserField(state.user!.uid, {
+  // //       'codinome': codinome,
+  // //       'avatarId': avatarId,
+  // //       'birthDate': birthDate.toIso8601String(),
+  // //       'interesses': interesses,
+  // //       'relationshipGoal': relationshipGoal,
+  // //       'connectionLevel': connectionLevel ?? 5,
+  // //       'onboardingCompleted': true,
+  // //       'onboardingCompletedAt': DateTime.now().toIso8601String(),
+  // //     });
 
-  //     // Analytics
-  //     await _trackAnalyticsEvent(
-  //       'onboarding_completed',
-  //       data: {
-  //         'user_id': state.user!.uid,
-  //         'codinome_length': codinome.length,
-  //         'avatar_id': avatarId,
-  //         'interests_count': interesses.length,
-  //         'relationship_goal': relationshipGoal ?? 'not_specified',
-  //         'connection_level': connectionLevel ?? 5,
-  //       },
-  //     );
+  // //     // Analytics
+  // //     await _trackAnalyticsEvent(
+  // //       'onboarding_completed',
+  // //       data: {
+  // //         'user_id': state.user!.uid,
+  // //         'codinome_length': codinome.length,
+  // //         'avatar_id': avatarId,
+  // //         'interesses_count': interesses.length,
+  // //         'relationship_goal': relationshipGoal ?? 'not_specified',
+  // //         'connection_level': connectionLevel ?? 5,
+  // //       },
+  // //     );
 
-  //     // Força uma atualização do estado de autenticação
-  //     await refreshUser();
+  // //     // Força uma atualização do estado de autenticação
+  // //     await refreshUser();
 
-  //     _log('✅ Onboarding completed for user ${state.user!.uid}');
-  //   } catch (e) {
-  //     _log('❌ Complete onboarding failed: $e');
-  //     _handleError('Erro ao completar onboarding', e);
-  //     rethrow;
-  //   }
-  // }
+  // //     _log('✅ Onboarding completed for user ${state.user!.uid}');
+  // //   } catch (e) {
+  // //     _log('❌ Complete onboarding failed: $e');
+  // //     _handleError('Erro ao completar onboarding', e);
+  // //     rethrow;
+  // //   }
+  // // }
 
   /// Recheck do status de onboarding
   Future<void> recheckOnboardingStatus() async {

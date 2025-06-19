@@ -1,4 +1,4 @@
-﻿// lib/models/user_model.dart - Versão Corrigida com Onboarding
+﻿// lib/models/user_model.dart - Versão Corrigida com Onboarding (Atualizada conforme seu código)
 
 class UserModel {
   final String uid;
@@ -134,6 +134,52 @@ class UserModel {
       'onboardingCompleted': onboardingCompleted,
       'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
     };
+  }
+
+  /// Método para atualizar os pontos de XP, moedas e gemas do usuário.
+  /// Também recalcula o nível do usuário com base no XP total.
+  // ATENÇÃO: Adicionado este método para integrar com o sistema de missões.
+  // Certifique-se de que a lógica de recalculateLevel está correta para seu jogo.
+  UserModel addRewards(int addedXp, int addedCoins, int addedGems) {
+    int newXp = xp + addedXp;
+    int newCoins = coins + addedCoins;
+    int newGems = gems + addedGems;
+
+    // Lógica para recalcular o nível com base no XP.
+    // Isso deve ser adaptado à sua curva de XP/nível.
+    int newLevel = level; // Começa com o nível atual
+    // String? newTitle = title;
+
+    // Exemplo simples: 100 XP por nível
+    if (newXp >= (newLevel * 100)) {
+      // Se o XP atingir ou exceder o necessário para o próximo nível
+      newLevel = (newXp ~/ 100) + 1;
+      // Atualize o título se houver uma lógica associada ao nível
+      //  newTitle = getTitleForLevel(newLevel); // Descomente e implemente se tiver um método getTitleForLevel
+    }
+
+    return copyWith(
+      xp: newXp,
+      coins: newCoins,
+      gems: newGems,
+      level: newLevel,
+      // title: newTitle,
+    );
+  }
+
+  /// Recalcula o nível do usuário com base no XP.
+  /// Este é um exemplo simples; sua lógica de nivelamento pode ser mais complexa.
+  // ATENÇÃO: Este método agora retorna um novo UserModel,
+  // e é chamado dentro de addRewards.
+  UserModel _recalculateLevel() {
+    // Exemplo: 100 XP por nível
+    int newLevel = (xp ~/ 100) + 1;
+    if (newLevel != level) {
+      return copyWith(level: newLevel);
+      // Lógica para atualizar o título com base no novo nível
+      // this.title = getTitleForLevel(level); // Descomente e implemente se tiver um método getTitleForLevel
+    }
+    return this; // Retorna a instância atual se o nível não mudar
   }
 
   /// Permite copiar a instância com modificações

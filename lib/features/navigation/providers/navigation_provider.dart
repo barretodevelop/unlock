@@ -165,11 +165,11 @@ class NavigationNotifier extends StateNotifier<NavigationState> {
     try {
       final newBadges = <int, int>{};
 
-      // Badge para Missões (missões ativas não vistas)
-      final activeMissions = _ref.read(activeMissionsProvider);
-      if (activeMissions.isNotEmpty) {
-        newBadges[NavigationPage.missions.index] = activeMissions.length;
-      }
+      // // Badge para Missões (missões ativas não vistas)
+      // final activeMissions = _ref.read(activeMissionsProvider);
+      // if (activeMissions.isNotEmpty) {
+      //   newBadges[NavigationPage.missions.index] = activeMissions.length;
+      // }
 
       // Badge para Home (recompensas pendentes)
       final hasPendingRewards = _ref.read(hasPendingRewardsProvider);
