@@ -1,337 +1,314 @@
-// lib/features/home/screens/home_screen.dart
-// Home Screen com Feature de Missões Integrada e exibição de dados do usuário ajustada
-
+// lib/features/home/screens/home_screen.dart - VERSÃO COMPLETA
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Importe para HapticFeedback
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/core/utils/level_calculator.dart'; // Importa o LevelCalculator
-import 'package:unlock/features/missions/screens/missions_list_screen.dart'; // Importa a tela de missões
-import 'package:unlock/models/user_model.dart'; // Importa o UserModel
+import 'package:go_router/go_router.dart';
+import 'package:unlock/core/constants/app_constants.dart'; // Importe as constantes
+import 'package:unlock/core/router/app_router.dart';
+import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/features/missions/providers/missions_provider.dart';
+import 'package:unlock/features/missions/widgets/mission_card.dart';
+import 'package:unlock/models/user_model.dart'; // Importar UserModel
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/theme_provider.dart';
 
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
+/// ✅ Tela principal completa com logout e missões reais
+class HomeScreen extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends ConsumerState<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    AppLogger.info('🏠 HomeScreen inicializada');
+  }
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final authState = ref.watch(authProvider);
+    final missionsState = ref.watch(missionsProvider);
     final isDark = ref.watch(themeProvider);
     final theme = Theme.of(context);
 
+    // ✅ VERIFICAÇÃO SIMPLES - sem redirecionamento automático
+    // ✅ VERIFICAÇÃO DE NULIDADE E REDIRECIONAMENTO SE NECESSÁRIO
+    // Se o usuário não estiver autenticado ou o objeto user for nulo,
+    // mostre uma tela de carregamento e dispare o redirecionamento.
     if (!authState.isAuthenticated || authState.user == null) {
-      return Scaffold(
-        backgroundColor: theme.colorScheme.surface,
-        body: const Center(child: CircularProgressIndicator()),
+      AppLogger.warning(
+        '🏠 HomeScreen: Auth state inconsistent. User is null or not authenticated. Triggering redirect.',
       );
+      // Dispara o redirecionamento para o login no próximo frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // Verifica se o widget ainda está montado antes de navegar
+        if (mounted) {
+          // Verifica a rota atual para evitar loops se já estiver no login
+          // Correção: Usar GoRouterState.of(context).uri.toString() para obter a rota atual
+          if (GoRouterState.of(context).uri.toString() != AppRoutes.login) {
+            context.go(AppRoutes.login);
+          }
+        }
+      });
+      // Retorna uma tela de carregamento para evitar o erro de null safety
+      // enquanto o redirecionamento acontece.
+      return _buildLoadingScreen(theme);
     }
 
     final user = authState.user!;
 
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
-      appBar: AppBar(
-        backgroundColor: theme.colorScheme.surface,
-        elevation: 0,
-        title: Row(
-          children: [
-            // Avatar do usuário: usa user.avatar se for um URL, senão um fallback com a primeira letra
-            CircleAvatar(
-              radius: 20,
-              backgroundColor: theme.colorScheme.primary,
-              backgroundImage: user.avatar.startsWith('http')
-                  ? NetworkImage(user.avatar) as ImageProvider
-                  : null,
-              child: user.avatar.startsWith('http')
-                  ? null
-                  : Text(
-                      user.displayName?.substring(0, 1).toUpperCase() ?? 'U',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+      appBar: _buildAppBar(context, theme, user, isDark),
+      body: _buildBody(context, theme, user, missionsState), // Corpo principal
+      bottomNavigationBar: _buildBottomNav(
+        context,
+        theme,
+      ), // Barra de navegação inferior
+      floatingActionButton: _buildFloatingActionButton(
+        context,
+        theme,
+      ), // Botão de ação flutuante
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
+    );
+  }
+
+  /// ✅ Tela de loading
+  Widget _buildLoadingScreen(ThemeData theme) {
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      body: const Center(child: CircularProgressIndicator()),
+    );
+  }
+
+  // Funções auxiliares para nome e inicial do avatar
+  String _getDisplayFirstName(UserModel user) {
+    if (user.displayName.isNotEmpty) {
+      final parts = user.displayName.trim().split(' ');
+      if (parts.isNotEmpty && parts.first.isNotEmpty) {
+        return parts.first;
+      }
+    }
+    if (user.codinome != null && user.codinome!.trim().isNotEmpty) {
+      return user.codinome!;
+    }
+    return 'Usuário'; // Fallback genérico
+  }
+
+  String _getAvatarInitial(UserModel user) {
+    if (user.displayName.isNotEmpty) {
+      return user.displayName.trim().substring(0, 1).toUpperCase();
+    }
+    if (user.codinome != null && user.codinome!.trim().isNotEmpty) {
+      return user.codinome!.trim().substring(0, 1).toUpperCase();
+    }
+    return 'U';
+  }
+
+  /// ✅ AppBar completa com logout
+  PreferredSizeWidget _buildAppBar(
+    BuildContext context,
+    ThemeData theme,
+    UserModel user, // Tipar o usuário
+    bool isDark, // Manter isDark
+  ) {
+    return AppBar(
+      backgroundColor: theme.colorScheme.surface,
+      elevation: 0,
+      scrolledUnderElevation: 1,
+      title: Row(
+        children: [
+          // Avatar do usuário - melhorado
+          GestureDetector(
+            onTap: () {
+              HapticFeedback.lightImpact(); // Feedback tátil
+              NavigationUtils.navigateTo(context, AppRoutes.profile);
+            },
+            child: ClipRRect(
+              // Para aplicar cantos arredondados
+              borderRadius: BorderRadius.circular(
+                AppConstants.cardBorderRadius,
+              ),
+              child: Container(
+                width: AppConstants.avatarSize, // Tamanho do avatar
+                height: AppConstants.avatarSize, // Tamanho do avatar
+                decoration: BoxDecoration(
+                  color: theme
+                      .colorScheme
+                      .surface, // Cor de fundo para o placeholder/erro
+                  border: Border.all(
+                    color: theme.colorScheme.primary, // Cor da borda
+                    width: AppConstants.avatarBorderWidth, // Espessura da borda
+                  ),
+                  borderRadius: BorderRadius.circular(
+                    12.0,
+                  ), // Deve corresponder ao ClipRRect
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.primary.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
                     ),
+                  ],
+                ),
+                child:
+                    user.avatar != null &&
+                        user
+                            .avatar!
+                            .isNotEmpty // Assuming the field is photoURL
+                    ? CachedNetworkImage(
+                        imageUrl:
+                            user.avatar!, // Assuming the field is photoURL
+                        fit: BoxFit.cover,
+                        placeholder: (context, url) => Center(
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.0,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.primary,
+                            ),
+                          ),
+                        ),
+                        errorWidget: (context, url, error) => Center(
+                          child: Icon(
+                            Icons.person,
+                            color: theme.colorScheme.primary,
+                            size: 28,
+                          ),
+                        ),
+                      )
+                    : Center(
+                        // Fallback se não houver avatarUrl
+                        child: Text(
+                          // Exibe a inicial do nome ou codinome
+                          _getAvatarInitial(user),
+                          style: TextStyle(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.bold,
+                            fontSize: AppConstants.fontSizeAvatarInitial,
+                          ),
+                        ),
+                      ),
+              ),
             ),
-            const SizedBox(width: 12),
-            Column(
+          ),
+
+          const SizedBox(width: AppConstants.spacingLarge),
+          Expanded(
+            child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  user.displayName?.split(' ').first ?? 'Usuário',
+                  'Olá, ${_getDisplayFirstName(user)}!',
                   style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  'Nível ${user.level}', // Utiliza user.level diretamente do UserModel
+                  'Nível ${user.level} • ${user.xp} XP',
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: theme.colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
               ],
             ),
-          ],
-        ),
-        actions: [
-          IconButton(
-            onPressed: () => ref.read(themeProvider.notifier).toggleTheme(),
-            icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        onRefresh: () async {
-          // Atualiza o usuário e, consequentemente, as missões e recompensas
-          await ref.read(authProvider.notifier).refreshUser();
-        },
-        child: SingleChildScrollView(
-          physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Card de Boas-vindas
-              _WelcomeCard(user: user),
-
-              const SizedBox(height: 16),
-
-              // Card de Economia
-              _EconomyCard(user: user),
-
-              const SizedBox(height: 16),
-
-              // Card Principal - Descobrir Conexões
-              _DiscoveryCard(),
-
-              const SizedBox(height: 16),
-
-              // Card de Progresso (agora usando LevelCalculator)
-              _ProgressCard(user: user),
-
-              const SizedBox(height: 16),
-
-              // Nova seção: Lista de Missões
-              Text(
-                'Suas Missões',
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: theme.colorScheme.onSurface,
-                ),
+      actions: [
+        // Botão de tema
+        IconButton(
+          onPressed: () {
+            HapticFeedback.lightImpact(); // Feedback tátil
+            ref.read(themeProvider.notifier).toggleTheme();
+          },
+          icon: Icon(isDark ? Icons.light_mode : Icons.dark_mode),
+          tooltip: 'Alternar tema',
+        ),
+        // ✅ LOGOUT BUTTON - Adicionar botão direto na AppBar
+        IconButton(
+          onPressed: () => _showLogoutDialog(context),
+          icon: const Icon(Icons.logout),
+          tooltip: 'Sair',
+          color: theme.colorScheme.error,
+        ),
+        // Menu de opções adicional
+        PopupMenuButton<String>(
+          icon: const Icon(Icons.more_vert),
+          onSelected: (value) => _handleMenuAction(context, value),
+          itemBuilder: (context) => [
+            const PopupMenuItem<String>(
+              value: 'profile',
+              child: ListTile(
+                leading: Icon(Icons.person),
+                title: Text('Perfil'),
+                contentPadding: EdgeInsets.zero,
               ),
-              const SizedBox(height: 12),
-              SizedBox(
-                height:
-                    800, // Altura fixa para a lista de missões dentro do SingleChildScrollView
-                child: MissionsListScreen(), // Integra a tela de missões
+            ),
+            const PopupMenuItem<String>(
+              value: 'settings',
+              child: ListTile(
+                leading: Icon(Icons.settings),
+                title: Text('Configurações'),
+                contentPadding: EdgeInsets.zero,
               ),
-
-              const SizedBox(height: 16), // Espaço após a lista de missões
-              // Ações Rápidas (o ActionButton de missões será removido ou redirecionado)
-              _QuickActions(),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _WelcomeCard extends StatelessWidget {
-  const _WelcomeCard({required this.user});
-  final UserModel user; // Usar UserModel tipado
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final firstName = user.displayName?.split(' ').first ?? 'Usuário';
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            theme.colorScheme.primary.withOpacity(0.1),
-            theme.colorScheme.secondary.withOpacity(0.05),
+            ),
           ],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.primary.withOpacity(0.2)),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getGreeting(),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface.withOpacity(0.7),
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  firstName,
-                  style: theme.textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.primary.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    'Pronto para novas conexões? 🔓',
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: theme.colorScheme.primary,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-          Container(
-            width: 60,
-            height: 60,
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primary.withOpacity(0.2),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Icon(
-              Icons.lock_open_rounded,
-              color: theme.colorScheme.primary,
-              size: 30,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _getGreeting() {
-    final hour = DateTime.now().hour;
-    if (hour < 12) return 'Bom dia,';
-    if (hour < 18) return 'Boa tarde,';
-    return 'Boa noite,';
-  }
-}
-
-class _EconomyCard extends StatelessWidget {
-  const _EconomyCard({required this.user});
-  final UserModel user; // Usar UserModel tipado
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: _EconomyItem(
-              icon: '⚡',
-              label: 'XP',
-              value: user.xp, // Utiliza user.xp diretamente
-              color: Colors.green,
-            ),
-          ),
-          Expanded(
-            child: _EconomyItem(
-              icon: '🪙',
-              label: 'Coins',
-              value: user.coins, // Utiliza user.coins diretamente
-              color: Colors.amber,
-            ),
-          ),
-          Expanded(
-            child: _EconomyItem(
-              icon: '💎',
-              label: 'Gems',
-              value: user.gems, // Utiliza user.gems diretamente
-              color: Colors.purple,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EconomyItem extends StatelessWidget {
-  const _EconomyItem({
-    required this.icon,
-    required this.label,
-    required this.value,
-    required this.color,
-  });
-
-  final String icon;
-  final String label;
-  final int value;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      children: [
-        Text(icon, style: const TextStyle(fontSize: 24)),
-        const SizedBox(height: 4),
-        Text(
-          _formatValue(value),
-          style: theme.textTheme.titleMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        Text(
-          label,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: theme.colorScheme.onSurface.withOpacity(0.7),
-          ),
         ),
       ],
     );
   }
 
-  String _formatValue(int value) {
-    if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
-    if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
-    return value.toString();
+  /// ✅ Corpo principal da tela com missões reais
+  Widget _buildBody(
+    BuildContext context,
+    ThemeData theme,
+    user,
+    missionsState,
+  ) {
+    return RefreshIndicator(
+      // ✅ REFRESH CORRIGIDO - inclui missões
+      onRefresh: () => _handleRefreshData(context),
+      color: theme.colorScheme.primary,
+      child: CustomScrollView(
+        physics: const AlwaysScrollableScrollPhysics(),
+        slivers: [
+          // Header com estatísticas
+          SliverToBoxAdapter(child: _buildStatsCard(context, theme, user)),
+
+          // Ações rápidas
+          SliverToBoxAdapter(child: _buildQuickActions(context, theme)),
+
+          // ✅ MISSÕES REAIS - usando o provider
+          SliverToBoxAdapter(
+            child: _buildMissionsSection(context, theme, missionsState),
+          ),
+
+          // Espaço para floating button
+          const SliverToBoxAdapter(
+            child: SizedBox(height: AppConstants.bottomNavHeight),
+          ),
+        ],
+      ),
+    );
   }
-}
 
-class _DiscoveryCard extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+  /// ✅ Card de estatísticas melhorado
+  Widget _buildStatsCard(BuildContext context, ThemeData theme, user) {
     return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(20),
+      margin: const EdgeInsets.all(AppConstants.paddingMedium),
+      padding: const EdgeInsets.all(AppConstants.statsCardPadding),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
             theme.colorScheme.primary,
             theme.colorScheme.primary.withOpacity(0.8),
           ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
             color: theme.colorScheme.primary.withOpacity(0.3),
@@ -341,236 +318,588 @@ class _DiscoveryCard extends StatelessWidget {
         ],
       ),
       child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(16),
-                ),
-                child: const Icon(Icons.radar, color: Colors.white, size: 24),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Localizar Conexões',
-                      style: theme.textTheme.titleLarge?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    Text(
-                      'Encontre pessoas próximas com interesses similares',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.white.withOpacity(0.9),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: () {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('🔍 Iniciando busca por conexões...'),
-                  ),
-                );
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.white,
-                foregroundColor: theme.colorScheme.primary,
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.search),
-                  const SizedBox(width: 8),
-                  Text(
-                    'Começar Busca',
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProgressCard extends StatelessWidget {
-  const _ProgressCard({required this.user});
-  final UserModel user; // Usar UserModel tipado
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final xp = user.xp;
-    final level = user.level; // user.level já é calculado no UserModel
-
-    // Usar LevelCalculator para cálculos precisos
-    final xpNeededForNextLevel = LevelCalculator.calculateXPToNextLevel(xp);
-    final progress = LevelCalculator.calculateLevelProgress(xp);
-    final nextLevel = level + 1;
-
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
-      ),
-      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Icon(Icons.trending_up, color: Colors.green),
-              const SizedBox(width: 8),
               Text(
-                'Progresso do Nível',
-                style: theme.textTheme.titleMedium?.copyWith(
+                'Suas Conquistas',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: AppConstants.fontSizeExtraLarge,
                   fontWeight: FontWeight.bold,
                 ),
               ),
+              Icon(
+                Icons.emoji_events,
+                color: Colors.white.withOpacity(0.8),
+                size: 24,
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: AppConstants.spacingExtraLarge),
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Nível $level'),
-              Text('${(progress * 100).toInt()}%'),
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  'XP',
+                  user.xp?.toString() ?? '0',
+                  Icons.trending_up,
+                ),
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  'Moedas',
+                  user.coins?.toString() ?? '0',
+                  Icons.monetization_on,
+                ),
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  'Gemas',
+                  user.gems?.toString() ?? '0',
+                  Icons.diamond,
+                ),
+              ),
+              Expanded(
+                child: _buildStatItem(
+                  context,
+                  'Nível',
+                  user.level?.toString() ?? '1',
+                  Icons.star,
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 8),
-          LinearProgressIndicator(
-            value: progress,
-            backgroundColor: theme.colorScheme.outline.withOpacity(0.2),
-            valueColor: AlwaysStoppedAnimation<Color>(Colors.green),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Faltam $xpNeededForNextLevel XP para o Nível $nextLevel',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurface.withOpacity(0.7),
-            ),
           ),
         ],
       ),
     );
   }
-}
 
-class _QuickActions extends StatelessWidget {
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
+  /// ✅ Item de estatística
+  Widget _buildStatItem(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+  ) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(icon, color: Colors.white, size: 20),
+        ),
+        const SizedBox(height: 8),
         Text(
-          'Ações Rápidas',
-          style: theme.textTheme.titleMedium?.copyWith(
+          // Valor da estatística
+          value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
         ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.assignment,
-                label: 'Missões',
-                // Removido o SnackBar e agora ele pode navegar para a tela de missões
-                // Se a MissionsListScreen já está no body, você pode remover este botão
-                // ou fazê-lo rolar para a seção de missões, se implementado.
-                // Por agora, manterá o SnackBar para evitar navegação complexa de rota.
-                onTap: () => _showSnackBar(context, 'Missões'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.people,
-                label: 'Amigos',
-                onTap: () => _showSnackBar(context, 'Amigos'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _ActionButton(
-                icon: Icons.settings,
-                label: 'Config',
-                onTap: () => _showSnackBar(context, 'Configurações'),
-              ),
-            ),
-          ],
+        Text(
+          // Rótulo da estatística
+          label,
+          style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 10),
         ),
       ],
     );
   }
 
-  void _showSnackBar(BuildContext context, String action) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('$action será implementado em breve')),
+  /// ✅ Ações rápidas
+  Widget _buildQuickActions(BuildContext context, ThemeData theme) {
+    return Container(
+      margin: const EdgeInsets.symmetric(
+        horizontal: AppConstants.paddingMedium,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Ações Rápidas',
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.bold, // Manter peso da fonte do TextTheme
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildActionCard(
+                  context, // Passar context
+                  theme,
+                  'Perfil',
+                  Icons.visibility, // Ícone para "Ver meu perfil público"
+                  // Leva para o Perfil Público
+                  () => NavigationUtils.navigateTo(context, AppRoutes.profile),
+                ),
+              ),
+              const SizedBox(width: AppConstants.spacingLarge),
+              Expanded(
+                child: _buildActionCard(
+                  context, // Passar context
+                  theme,
+                  'Conexões',
+                  Icons.people,
+                  () => NavigationUtils.navigateTo(
+                    context,
+                    AppRoutes.connections,
+                  ),
+                ),
+              ),
+              const SizedBox(width: AppConstants.spacingLarge),
+              Expanded(
+                child: _buildActionCard(
+                  context, // Passar context
+                  theme,
+                  'Jogos', // Alterado para Jogos
+                  Icons.gamepad, // Ícone para Jogos
+                  () => NavigationUtils.navigateTo(
+                    context,
+                    AppRoutes.games,
+                  ), // Navegar para GamesScreen
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
   }
-}
 
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return GestureDetector(
-      onTap: onTap,
+  /// ✅ Card de ação
+  Widget _buildActionCard(
+    BuildContext context,
+    ThemeData theme,
+    String title,
+    IconData icon,
+    VoidCallback onTap,
+  ) {
+    return InkWell(
+      onTap: () {
+        HapticFeedback.lightImpact(); // Feedback tátil
+        onTap();
+      },
+      borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
       child: Container(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(AppConstants.cardPadding),
         decoration: BoxDecoration(
-          color: theme.colorScheme.surfaceVariant,
-          borderRadius: BorderRadius.circular(12),
+          color: theme.colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+          border: Border.all(
+            color: theme.colorScheme.primary.withOpacity(0.1),
+            width: 1,
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 24),
-            const SizedBox(height: 8),
+            Icon(
+              icon,
+              color: theme.colorScheme.onPrimaryContainer,
+              size: 28,
+            ), // Tamanho do ícone fixo
+            const SizedBox(height: AppConstants.spacingMedium),
             Text(
-              label,
-              style: theme.textTheme.bodySmall,
-              textAlign: TextAlign.center,
+              title,
+              style: TextStyle(
+                color: theme.colorScheme.onPrimaryContainer,
+                fontWeight: FontWeight.w500, // Manter peso da fonte
+                fontSize: AppConstants.fontSizeMedium, // Usar constante
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  /// ✅ Seção de missões REAL usando o provider
+  Widget _buildMissionsSection(
+    BuildContext context,
+    ThemeData theme,
+    missionsState,
+  ) {
+    return Container(
+      margin: const EdgeInsets.all(AppConstants.paddingMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Missões Ativas',
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ), // Manter peso da fonte
+              ),
+              TextButton.icon(
+                onPressed: () => NavigationUtils.navigateTo(
+                  context,
+                  AppRoutes.missions,
+                ), // Navegar para MissionsCategorizedScreen
+                icon: const Icon(
+                  Icons.arrow_forward,
+                  size: 16,
+                ), // Tamanho do ícone fixo
+                label: const Text('Ver todas'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // ✅ LISTA REAL DE MISSÕES
+          _buildMissionsList(context, theme, missionsState),
+        ],
+      ),
+    );
+  }
+
+  /// ✅ Lista real de missões usando o provider
+  Widget _buildMissionsList(
+    BuildContext context,
+    ThemeData theme,
+    missionsState,
+  ) {
+    // Loading state
+    if (missionsState.isLoading) {
+      return Container(
+        padding: const EdgeInsets.all(AppConstants.cardPadding),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: const Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 12),
+            Text('Carregando missões...'),
+          ],
+        ),
+      );
+    }
+
+    // Error state
+    if (missionsState.error != null) {
+      return Container(
+        padding: const EdgeInsets.all(AppConstants.cardPadding),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.errorContainer,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.error, color: theme.colorScheme.onErrorContainer),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Erro ao carregar missões',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                  Text(
+                    'Toque em "Ver todas" para tentar novamente',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onErrorContainer,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Empty state
+    if (missionsState.availableMissions.isEmpty) {
+      return Container(
+        padding: const EdgeInsets.all(AppConstants.cardPadding),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceVariant,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.assignment, color: theme.colorScheme.onSurfaceVariant),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Nenhuma missão disponível',
+                    style: theme.textTheme.titleSmall,
+                  ),
+                  Text(
+                    'Volte em breve para novas aventuras!',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // ✅ MISSÕES DISPONÍVEIS - mostrar até 3 na home
+    final missionsToShow = missionsState.availableMissions.take(3).toList();
+
+    return Column(
+      children: List<Widget>.from(
+        missionsToShow.map((mission) {
+          final progress = missionsState.userProgress[mission.id];
+          return Padding(
+            padding: const EdgeInsets.only(bottom: AppConstants.spacingMedium),
+            child: MissionCard(mission: mission, progress: progress),
+          );
+        }),
+      ),
+    );
+  }
+
+  /// ✅ Bottom Navigation
+  // Mantido o BottomNavigationBar, mas a navegação principal é via GoRouter
+  // O currentIndex agora é derivado do GoRouterState para consistência.
+  Widget _buildBottomNav(BuildContext context, ThemeData theme) {
+    final String currentLocation = GoRouterState.of(context).uri.toString();
+    int currentBottomNavIndex = 0;
+
+    if (currentLocation.startsWith(AppRoutes.missions)) {
+      currentBottomNavIndex = 1;
+    } else if (currentLocation.startsWith(AppRoutes.connections)) {
+      currentBottomNavIndex = 2;
+    } else if (currentLocation.startsWith(AppRoutes.profile)) {
+      currentBottomNavIndex = 3;
+    } else if (currentLocation.startsWith(AppRoutes.home)) {
+      currentBottomNavIndex = 0;
+    }
+
+    return BottomNavigationBar(
+      currentIndex: currentBottomNavIndex,
+      onTap: (index) {
+        HapticFeedback.lightImpact(); // Feedback tátil no tap
+        // A navegação via GoRouter no _handleBottomNavTap fará com que
+        // o widget seja reconstruído e o currentIndex seja atualizado.
+        _handleBottomNavTap(context, index);
+      },
+      type: BottomNavigationBarType.fixed,
+      selectedItemColor: theme.colorScheme.primary,
+      unselectedItemColor: theme.colorScheme.onSurface.withOpacity(
+        0.6,
+      ), // Ajustado cor
+      items: const [
+        BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
+        BottomNavigationBarItem(
+          icon: Icon(Icons.flag),
+          label: 'Missões', // Mantido Missões no BottomNav
+        ),
+        BottomNavigationBarItem(icon: Icon(Icons.people), label: 'Conexões'),
+        BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Perfil'),
+      ],
+    );
+  }
+
+  Widget _buildFloatingActionButton(BuildContext context, ThemeData theme) {
+    return FloatingActionButton(
+      onPressed: () {
+        HapticFeedback.lightImpact(); // Feedback tátil
+        // Navegar para a tela de conexões em vez de mostrar um diálogo
+        NavigationUtils.navigateTo(context, AppRoutes.connections);
+      },
+      backgroundColor: theme.colorScheme.primary,
+      child: const Icon(Icons.connect_without_contact),
+    );
+  }
+
+  // ========== EVENT HANDLERS ==========
+
+  /// ✅ REFRESH DE DADOS - inclui missões sem afetar navegação
+  Future<void> _handleRefreshData(BuildContext context) async {
+    try {
+      AppLogger.info('🔄 HomeScreen: Refreshing data including missions');
+
+      // ✅ REFRESH MISSÕES E OUTROS DADOS - não auth
+      await Future.wait([
+        ref.read(missionsProvider.notifier).refresh(),
+        // Adicionar outros providers aqui se necessário
+        // ref.read(rewardsProvider.notifier).refresh(),
+      ]);
+
+      AppLogger.info('✅ HomeScreen: Data refreshed successfully');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.refresh, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Dados atualizados!'),
+              ],
+            ),
+            backgroundColor: Theme.of(context).colorScheme.primary,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('❌ HomeScreen: Error refreshing data', error: e);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Erro ao atualizar dados'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
+
+  /// ✅ Ações do menu
+  void _handleMenuAction(BuildContext context, String action) {
+    switch (action) {
+      case 'profile':
+        // Leva para o Perfil Público
+        NavigationUtils.navigateTo(context, AppRoutes.profile);
+        break;
+      case 'settings':
+        NavigationUtils.navigateTo(
+          context,
+          AppRoutes.settings,
+        ); // Navegar para SettingsScreen
+        break;
+    }
+  }
+
+  /// ✅ Navegação do bottom nav
+  void _handleBottomNavTap(BuildContext context, int index) {
+    switch (index) {
+      case 0:
+        // Já estamos na home
+        // Usar context.go para garantir que a pilha de navegação seja limpa até a home
+        context.go(AppRoutes.home);
+        break;
+      case 1:
+        // Navegar para Missões
+        context.go(AppRoutes.missions); // Usar context.go
+        break;
+      case 2:
+        // Navegar para Conexões
+        context.go(AppRoutes.connections); // Usar context.go
+        break;
+      case 3:
+        // Navegar para Perfil Público
+        context.go(AppRoutes.profile);
+
+        break;
+    }
+  }
+
+  /// ✅ Diálogo de logout MELHORADO
+  void _showLogoutDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(Icons.logout, color: Theme.of(context).colorScheme.error),
+            const SizedBox(width: 8),
+            const Text('Sair do App'),
+          ],
+        ),
+        content: const Text('Tem certeza que deseja sair da sua conta?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Cancelar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.of(context).pop();
+              _performLogout(context);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: const Text('Sair'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ✅ Realizar logout COM FEEDBACK
+  void _performLogout(BuildContext context) async {
+    try {
+      AppLogger.info('🚪 HomeScreen: Performing logout');
+
+      // Mostrar loading
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 16),
+              Text('Saindo...'),
+            ],
+          ),
+        ),
+      );
+
+      // ✅ LOGOUT USANDO O PROVIDER CORRETO
+      await ref.read(authProvider.notifier).signOut();
+
+      AppLogger.info('✅ HomeScreen: Logout successful');
+    } catch (e) {
+      AppLogger.error('❌ HomeScreen: Logout error', error: e);
+
+      // Fechar dialog de loading
+      if (mounted) {
+        Navigator.of(context).pop();
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 8),
+                Text('Erro ao fazer logout. Tente novamente.'),
+              ],
+            ),
+            backgroundColor: Colors.red,
+            action: SnackBarAction(
+              label: 'TENTAR NOVAMENTE',
+              textColor: Colors.white,
+              onPressed: () => _performLogout(context),
+            ),
+          ),
+        );
+      }
+    } finally {
+      // Fechar dialog de loading se ainda estiver montado
+      if (mounted && Navigator.of(context).canPop()) {
+        Navigator.of(context).pop();
+      }
+    }
   }
 }

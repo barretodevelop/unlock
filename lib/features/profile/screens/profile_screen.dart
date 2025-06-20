@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/core/router/app_router.dart'; // Importar AppRoutes e NavigationUtils
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/profile/providers/profile_provider.dart';
 import 'package:unlock/shared/widgets/stat_card.dart';
@@ -37,12 +38,14 @@ class ProfileScreen extends ConsumerWidget {
             backgroundColor: colorScheme.primary,
             leading: IconButton(
               icon: Icon(Icons.arrow_back, color: colorScheme.onPrimary),
-              onPressed: () => context.pop(),
+              onPressed: () => NavigationUtils.popOrHome(context),
             ),
             actions: [
               IconButton(
                 icon: Icon(Icons.settings, color: colorScheme.onPrimary),
-                onPressed: () => context.push('/settings'),
+                onPressed: () => context.push(
+                  AppRoutes.settings,
+                ), // Navega para a tela de Configurações Gerais
               ),
             ],
             flexibleSpace: FlexibleSpaceBar(

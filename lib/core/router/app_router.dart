@@ -1,296 +1,421 @@
-// lib/core/router/app_router.dart - CORRIGIDO e COMPATÍVEL com sistema escalável
+// lib/core/router/app_router.dart - SISTEMA SIMPLIFICADO
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
-import 'package:unlock/core/navigation/navigation_system.dart';
 import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/features/auth/screens/login_screen.dart';
+import 'package:unlock/features/connections/screens/connections_screen.dart';
+import 'package:unlock/features/games/screens/games_screen.dart';
+import 'package:unlock/features/home/screens/home_screen.dart';
+import 'package:unlock/features/missions/screens/missions_categorized_screen.dart';
+import 'package:unlock/features/onboarding/onboarding_wrapper.dart';
+import 'package:unlock/features/profile/screens/profile_screen.dart'; // Importar ProfileScreen
+import 'package:unlock/features/profile/screens/user_public_profile_screen.dart'; // Importar UserPublicProfileScreen
+import 'package:unlock/features/settings/screens/settings_screen.dart'; // Importar SettingsScreen
+import 'package:unlock/providers/auth_provider.dart';
+import 'package:unlock/shared/screens/splash_screen.dart';
 
-/// 🔧 COMPATIBILIDADE: Interface antiga mantida, mas usando sistema escalável
-///
-/// Este arquivo mantém a interface `AppRouter.router` para compatibilidade
-/// com qualquer código existente, mas usa o novo NavigationSystem por baixo.
+/// ✅ SISTEMA DE NAVEGAÇÃO SIMPLIFICADO
+/// - Apenas 1 arquivo para toda a configuração
+/// - Lógica clara e direta
+/// - Fácil manutenção e debug
 class AppRouter {
-  static final GlobalKey<NavigatorState> _rootNavigatorKey =
-      GlobalKey<NavigatorState>();
-  static final GlobalKey<NavigatorState> _shellNavigatorKey =
-      GlobalKey<NavigatorState>();
+  static final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  // ✅ DELEGAÇÃO: Usar o sistema escalável criado
-  static GoRouter? _router;
-
-  /// Obter router (compatibilidade com código existente)
-  static GoRouter router(WidgetRef ref) {
-    _router ??= NavigationSystem.createRouter(ref);
-    return _router!;
-  }
-
-  /// 🆕 NOVA FORMA RECOMENDADA: Criar router diretamente
+  /// Criar router simples
   static GoRouter createRouter(WidgetRef ref) {
-    return NavigationSystem.createRouter(ref);
-  }
+    return GoRouter(
+      navigatorKey: _rootNavigatorKey,
+      initialLocation: '/',
+      debugLogDiagnostics: false,
 
-  // ========== GETTERS DE NAVIGATOR KEYS (COMPATIBILIDADE) ==========
+      // ✅ REDIRECT SIMPLES - sem complexidade desnecessária
+      redirect: (context, state) => _handleRedirect(ref, state),
 
-  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
-  static GlobalKey<NavigatorState> get shellNavigatorKey => _shellNavigatorKey;
-}
+      // ✅ REFRESH LISTENER SIMPLES - apenas para mudanças de auth
+      refreshListenable: _AuthChangeNotifier(ref),
 
-/// ✅ CONSTANTES DE ROTAS (COMPATIBILIDADE MANTIDA)
-class AppRoutes {
-  static const String splash = '/';
-  static const String login = '/login';
+      // ✅ ROTAS SIMPLES E DIRETAS
+      routes: [
+        // Splash Screen
+        GoRoute(
+          path: '/',
+          name: 'splash',
+          builder: (context, state) {
+            AppLogger.navigation('🎯 Building SplashScreen');
+            return const SplashScreen();
+          },
+        ),
 
-  // Onboarding routes
-  static const String onboarding = '/onboarding';
-  static const String onboardingWelcome = '/onboarding/welcome';
-  static const String onboardingIdentity = '/onboarding/identity';
-  static const String onboardingInterests = '/onboarding/interests';
+        // Login Screen
+        GoRoute(
+          path: '/login',
+          name: 'login',
+          builder: (context, state) {
+            AppLogger.navigation('🔑 Building LoginScreen');
+            return const LoginScreen();
+          },
+        ),
 
-  // Main app routes
-  static const String home = '/home';
-  static const String profile = '/profile';
-  static const String connections = '/connections';
-  static const String missions = '/missions';
-  static const String shop = '/shop';
-  static const String settings = '/settings';
+        // Onboarding Flow
+        GoRoute(
+          path: '/onboarding',
+          name: 'onboarding',
+          builder: (context, state) {
+            AppLogger.navigation('📝 Building OnboardingWrapper');
+            return const OnboardingWrapper();
+          },
+        ),
 
-  // Sub-rotas (para implementação futura)
-  static const String editProfile = '/profile/edit';
-  static const String connectionDetail = '/connections/:id';
-  static const String missionDetail = '/missions/:id';
-  static const String shopItem = '/shop/:id';
-  static const String game = '/game/:id';
-  static const String error = '/error';
-}
+        // Home Screen (Main App)
+        GoRoute(
+          path: '/home',
+          name: 'home',
+          builder: (context, state) {
+            AppLogger.navigation('🏠 Building HomeScreen');
+            return HomeScreen();
+          },
+        ),
 
-/// ✅ NOMES DAS ROTAS (COMPATIBILIDADE MANTIDA)
-class RouteNames {
-  static const String splash = 'splash';
-  static const String login = 'login';
+        // User Public Profile Screen (o que os outros veem)
+        GoRoute(
+          path: '/profile',
+          name: 'profile',
+          builder: (context, state) {
+            AppLogger.navigation('👤 Building UserPublicProfileScreen');
+            return const UserPublicProfileScreen();
+          },
+        ),
 
-  // Onboarding route names
-  static const String onboarding = 'onboarding';
-  static const String onboardingWelcome = 'onboarding_welcome';
-  static const String onboardingIdentity = 'onboarding_identity';
-  static const String onboardingInterests = 'onboarding_interests';
+        // Account Settings Screen (onde o usuário edita seus dados, o ProfileScreen atual)
+        GoRoute(
+          path: AppRoutes.accountSettings, // Nova rota
+          name: 'accountSettings',
+          builder: (context, state) {
+            AppLogger.navigation('👤 Building ProfileScreen');
+            return const ProfileScreen(); // Usar a ProfileScreen real
+          },
+        ),
 
-  // Main app route names
-  static const String home = 'home';
-  static const String profile = 'profile';
-  static const String connections = 'connections';
-  static const String missions = 'missions';
-  static const String shop = 'shop';
-  static const String settings = 'settings';
+        // Connections Screen
+        GoRoute(
+          path: '/connections',
+          name: 'connections',
+          builder: (context, state) {
+            AppLogger.navigation('🔗 Building ConnectionsScreen');
+            return const ConnectionsScreen(); // Usar a ConnectionsScreen (placeholder ou real)
+          },
+        ),
 
-  // Special routes
-  static const String error = 'error';
-}
+        // Missions Screen
+        GoRoute(
+          path: '/missions',
+          name: 'missions',
+          builder: (context, state) {
+            AppLogger.navigation('🚩 Building MissionsCategorizedScreen');
+            return const MissionsCategorizedScreen();
+          },
+        ),
+        // Settings Screen
+        GoRoute(
+          path: AppRoutes.settings, // Usar constante de AppRoutes
+          name: 'settings',
+          builder: (context, state) {
+            AppLogger.navigation('⚙️ Building SettingsScreen');
+            return const SettingsScreen();
+          },
+        ),
+        // Games Screen
+        GoRoute(
+          path: AppRoutes.games, // Usar constante de AppRoutes
+          name: 'games',
+          builder: (context, state) {
+            AppLogger.navigation('🎮 Building GamesScreen');
+            return const GamesScreen();
+          },
+        ),
+      ],
 
-/// ✅ EXTENSÕES DE NAVEGAÇÃO (COMPATIBILIDADE MANTIDA)
-extension AppRouterExtension on GoRouter {
-  /// Navegar para home
-  void goHome() => go(AppRoutes.home);
-
-  /// Navegar para login
-  void goLogin() => go(AppRoutes.login);
-
-  /// Navegação de onboarding
-  void goOnboarding() => go(AppRoutes.onboarding);
-  void goOnboardingWelcome() => go(AppRoutes.onboardingWelcome);
-  void goOnboardingIdentity() => go(AppRoutes.onboardingIdentity);
-  void goOnboardingInterests() => go(AppRoutes.onboardingInterests);
-
-  /// Navegar para outras seções
-  void goProfile() => go(AppRoutes.profile);
-  void goConnections() => go(AppRoutes.connections);
-  void goMissions() => go(AppRoutes.missions);
-  void goShop() => go(AppRoutes.shop);
-  void goSettings() => go(AppRoutes.settings);
-}
-
-/// ✅ UTILITÁRIOS DE NAVEGAÇÃO (COMPATIBILIDADE + MELHORIAS)
-class NavigationUtils {
-  /// Obter context do router
-  static BuildContext? get context =>
-      AppRouter._rootNavigatorKey.currentContext;
-
-  /// Verificar se pode voltar
-  static bool canPop() {
-    return AppRouter._rootNavigatorKey.currentState?.canPop() ?? false;
-  }
-
-  /// Voltar se possível
-  static void popIfCan() {
-    if (canPop()) {
-      AppRouter._rootNavigatorKey.currentState?.pop();
-    }
-  }
-
-  /// Limpar stack e ir para home
-  static void goHomeAndClearStack() {
-    _getCurrentRouter()?.go(AppRoutes.home);
-  }
-
-  /// Navegação específica de onboarding
-  static void goToOnboarding() {
-    _getCurrentRouter()?.go(AppRoutes.onboarding);
-  }
-
-  static void goToOnboardingStep(int step) {
-    final router = _getCurrentRouter();
-    if (router == null) return;
-
-    switch (step) {
-      case 0:
-        router.go(AppRoutes.onboardingWelcome);
-        break;
-      case 1:
-        router.go(AppRoutes.onboardingIdentity);
-        break;
-      case 2:
-        router.go(AppRoutes.onboardingInterests);
-        break;
-      default:
-        router.go(AppRoutes.onboarding);
-    }
-  }
-
-  /// 🆕 NOVO: Navegar usando NavigationSystem (recomendado)
-  static void navigateToRoute(BuildContext context, String path) {
-    NavigationSystem.navigateTo(context, path);
-  }
-
-  /// Log da rota atual
-  static void logCurrentRoute() {
-    final context = NavigationUtils.context;
-    if (context != null) {
-      try {
-        final location = GoRouter.of(
-          context,
-        ).routeInformationProvider.value.uri;
-        AppLogger.navigation(
-          'Rota atual',
-          data: {'location': location.toString()},
+      // ✅ ERROR HANDLER SIMPLES
+      errorBuilder: (context, state) {
+        AppLogger.error('❌ Route error: ${state.error}');
+        return _ErrorScreen(
+          error: state.error?.toString() ?? 'Rota não encontrada',
         );
-      } catch (e) {
-        AppLogger.warning('Não foi possível obter rota atual: $e');
-      }
-    }
-  }
-
-  /// Verificar se está em onboarding
-  static bool isInOnboarding() {
-    final context = NavigationUtils.context;
-    if (context != null) {
-      try {
-        final location = GoRouter.of(
-          context,
-        ).routeInformationProvider.value.uri.toString();
-        return location.startsWith(AppRoutes.onboarding);
-      } catch (e) {
-        AppLogger.warning(
-          'Não foi possível verificar se está em onboarding: $e',
-        );
-        return false;
-      }
-    }
-    return false;
-  }
-
-  /// Verificar se a rota é pública
-  static bool isPublicRoute(String path) {
-    return [AppRoutes.splash, AppRoutes.login, AppRoutes.error].contains(path);
-  }
-
-  /// Verificar se a rota requer autenticação
-  static bool requiresAuth(String path) {
-    return !isPublicRoute(path);
-  }
-
-  /// Obter router atual (helper interno)
-  static GoRouter? _getCurrentRouter() {
-    try {
-      final context = NavigationUtils.context;
-      if (context != null) {
-        return GoRouter.of(context);
-      }
-    } catch (e) {
-      AppLogger.warning('Não foi possível obter router atual: $e');
-    }
-    return null;
-  }
-}
-
-/// 🚨 CLASSE DEPRECADA (mantida para compatibilidade)
-///
-/// Esta classe era parte do sistema antigo. Use NavigationSystem em vez disso.
-@Deprecated('Use NavigationSystem.createRouter() em vez disso')
-class LegacyAppRouter {
-  @Deprecated('Use NavigationSystem.createRouter() em vez disso')
-  static GoRouter createRouter() {
-    throw UnsupportedError(
-      'LegacyAppRouter.createRouter() foi removido. '
-      'Use NavigationSystem.createRouter(ref) em vez disso.',
-    );
-  }
-}
-
-/// ✅ CONSTANTES ADICIONAIS PARA COMPATIBILIDADE
-class AppPaths {
-  // Alias para AppRoutes (algumas partes do código podem usar)
-  static const String splash = AppRoutes.splash;
-  static const String login = AppRoutes.login;
-  static const String onboarding = AppRoutes.onboarding;
-  static const String home = AppRoutes.home;
-  static const String profile = AppRoutes.profile;
-  static const String connections = AppRoutes.connections;
-  static const String missions = AppRoutes.missions;
-  static const String shop = AppRoutes.shop;
-  static const String settings = AppRoutes.settings;
-}
-
-/// ✅ HELPERS PARA MIGRAÇÃO
-class NavigationMigrationHelpers {
-  /// Migrar do sistema antigo para o novo
-  static void logMigrationInfo() {
-    AppLogger.info(
-      '📦 Sistema de navegação migrado',
-      data: {
-        'old_system': 'app_router.dart manual',
-        'new_system': 'NavigationSystem escalável',
-        'compatibility': 'AppRouter.router() mantido para compatibilidade',
-        'recommended':
-            'Use NavigationSystem.createRouter(ref) para novos códigos',
       },
     );
   }
 
-  /// Verificar se há conflitos de importação
-  static void checkForConflicts() {
-    AppLogger.debug('🔍 Verificando conflitos de navegação...');
+  /// ✅ LÓGICA DE REDIRECT SIMPLIFICADA - SEM LOOPS
+  /// ✅ REDIRECT SIMPLES E CORRIGIDO - SEM LOOPS INFINITOS
+  static String? _handleRedirect(WidgetRef ref, GoRouterState state) {
+    try {
+      final location = state.uri.toString();
+      final authState = ref.read(authProvider);
 
-    // TODO: Adicionar verificações específicas se necessário
-    AppLogger.debug('✅ Nenhum conflito detectado');
+      // ✅ PERMITIR NAVEGAÇÃO SE ESTÁ EM LOGIN OU SPLASH MESMO COM isLoading == true
+      if (authState.isLoading) {
+        AppLogger.navigation('⏳ Auth loading...');
+        if (location == '/login' || location == '/') {
+          return null; // permitir permanecer no login/splash
+        }
+        return null; // não redirecionar ainda
+      }
+
+      // ✅ AGORA QUE NÃO ESTÁ LOADING, TRATAR OS ESTADOS
+      // Se não inicializado, mostrar splash
+      if (!authState.isInitialized) {
+        AppLogger.navigation('🎯 Redirect to splash (not initialized)');
+        return '/';
+      }
+
+      // Se não autenticado, mostrar login
+      if (!authState.isAuthenticated) {
+        // Se não estiver já na tela de login, redireciona para login.
+        // Isso permite que o splash ('/') seja exibido e, em seguida, redirecionado.
+        if (location != '/login') {
+          AppLogger.navigation('🔑 Redirect to login (not authenticated)');
+          return '/login';
+        }
+        return null;
+      }
+
+      // Se precisa onboarding, mostrar onboarding
+      if (authState.needsOnboarding) {
+        if (!location.startsWith('/onboarding')) {
+          AppLogger.navigation('📝 Redirect to onboarding (needs completion)');
+          return '/onboarding';
+        }
+        return null;
+      }
+
+      // Se está autenticado e não precisa de onboarding
+      if (authState.isAuthenticated && !authState.needsOnboarding) {
+        // Se estiver tentando acessar login, onboarding ou splash, redireciona para home
+        if (location == AppRoutes.login ||
+            location == AppRoutes.onboarding ||
+            location == AppRoutes.splash) {
+          AppLogger.navigation(
+            '🏠 User authenticated and onboarding complete. Redirecting from $location to home',
+          );
+          return AppRoutes.home;
+        }
+        return null; // Permite a navegação para a rota solicitada (ex: /profile, /settings, etc.)
+      }
+
+      // Caso padrão
+      return null;
+    } catch (e, stackTrace) {
+      AppLogger.error('❌ Redirect error', error: e, stackTrace: stackTrace);
+      return '/';
+    }
+  }
+
+  // ✅ GETTERS SIMPLES PARA COMPATIBILIDADE
+  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
+  static BuildContext? get context => _rootNavigatorKey.currentContext;
+}
+
+/// ✅ CONSTANTES DE ROTAS SIMPLIFICADAS
+class AppRoutes {
+  static const String splash = '/';
+  static const String login = '/login';
+  static const String onboarding = '/onboarding';
+  static const String home = '/home';
+  static const String profile = '/profile';
+  static const String accountSettings = '/account-settings'; // Nova rota
+  static const String connections = '/connections';
+  static const String missions = '/missions';
+  static const String settings =
+      '/settings'; // Adicionar rota para configurações
+  static const String games = '/games'; // Adicionar rota para jogos
+}
+
+/// ✅ UTILITÁRIOS SIMPLES DE NAVEGAÇÃO
+class NavigationUtils {
+  /// Navegar para rota
+  static void navigateTo(BuildContext context, String path) {
+    AppLogger.navigation('🧭 Navigating to: $path');
+    context.go(path);
+  }
+
+  /// Voltar se possível, senão ir para home
+  static void popOrHome(BuildContext context) {
+    if (GoRouter.of(context).canPop()) {
+      context.pop();
+    } else {
+      context.go(AppRoutes.home);
+    }
+  }
+
+  /// Ir para home e limpar stack
+  static void goHome(BuildContext context) {
+    context.go('/home');
+  }
+
+  /// Verificar se pode voltar
+  static bool canPop(BuildContext context) {
+    return GoRouter.of(context).canPop();
   }
 }
 
-/// 📋 INSTRUÇÕES DE USO
-/// 
-/// ✅ CÓDIGO EXISTENTE (ainda funciona):
-/// ```dart
-/// MaterialApp.router(
-///   routerConfig: AppRouter.router(ref),
-/// );
-/// ```
-/// 
-/// 🆕 CÓDIGO NOVO (recomendado):
-/// ```dart
-/// MaterialApp.router(
-///   routerConfig: NavigationSystem.createRouter(ref),
-/// );
-/// ```
-/// 
-/// 🔄 MIGRAÇÃO GRADUAL:
-/// 1. Código existente continua funcionando
-/// 2. Novos códigos devem usar NavigationSystem
-/// 3. Eventualmente, migrar todo código para NavigationSystem
+/// ✅ LISTENER SIMPLES PARA MUDANÇAS DE AUTH - SEM COMPLEXIDADE
+class _AuthChangeNotifier extends ChangeNotifier {
+  final WidgetRef _ref;
+  bool _isDisposed = false;
+
+  _AuthChangeNotifier(this._ref) {
+    // ✅ ESCUTAR APENAS MUDANÇAS RELEVANTES NO AUTH
+    _ref.listen(authProvider, (previous, current) {
+      if (_isDisposed) return;
+
+      // ✅ SÓ NOTIFICAR SE MUDANÇA SIGNIFICATIVA
+      final shouldNotify = _shouldNotifyChange(previous, current);
+
+      if (shouldNotify) {
+        AppLogger.navigation(
+          '🔄 Auth state changed, notifying router',
+          data: {
+            'wasAuth': previous?.isAuthenticated,
+            'isAuth': current.isAuthenticated,
+            'wasLoading': previous?.isLoading,
+            'isLoading': current.isLoading,
+          },
+        );
+
+        notifyListeners();
+      }
+    });
+  }
+
+  /// ✅ DECIDIR SE DEVE NOTIFICAR - EVITA LOOPS
+  bool _shouldNotifyChange(AuthState? previous, AuthState current) {
+    if (previous == null) return true;
+
+    // Notificar se qualquer um dos seguintes estados mudou:
+    final bool isLoadingChanged = previous.isLoading != current.isLoading;
+    final bool isAuthenticatedChanged =
+        previous.isAuthenticated != current.isAuthenticated;
+    final bool needsOnboardingChanged =
+        previous.needsOnboarding != current.needsOnboarding;
+    final bool isInitializedChanged =
+        previous.isInitialized != current.isInitialized;
+    final bool errorChanged =
+        (previous.error == null) != (current.error == null);
+    final bool statusChanged = previous.status != current.status;
+
+    return isLoadingChanged ||
+        isAuthenticatedChanged ||
+        needsOnboardingChanged ||
+        isInitializedChanged ||
+        errorChanged ||
+        statusChanged;
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
+  }
+}
+
+/// ✅ TELA DE PLACEHOLDER SIMPLES
+class _PlaceholderScreen extends StatelessWidget {
+  final String title;
+  final String description;
+  final VoidCallback? onBack;
+
+  const _PlaceholderScreen({
+    required this.title,
+    required this.description,
+    this.onBack,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text(title),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: onBack ?? () => NavigationUtils.popOrHome(context),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.construction,
+                size: 64,
+                color: Theme.of(context).primaryColor,
+              ),
+              const SizedBox(height: 16),
+              Text(title, style: Theme.of(context).textTheme.headlineSmall),
+              const SizedBox(height: 8),
+              Text(
+                description,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: onBack ?? () => NavigationUtils.popOrHome(context),
+                icon: const Icon(Icons.home),
+                label: const Text('Voltar à Home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// ✅ TELA DE ERRO SIMPLES
+class _ErrorScreen extends StatelessWidget {
+  final String error;
+
+  const _ErrorScreen({required this.error});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text('Erro')),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                'Oops! Algo deu errado',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                error,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: () => NavigationUtils.goHome(context),
+                icon: const Icon(Icons.home),
+                label: const Text('Voltar à Home'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}

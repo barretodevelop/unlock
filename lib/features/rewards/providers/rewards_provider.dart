@@ -480,6 +480,50 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
     }
   }
 
+  /// Resgata todas as recompensas pendentes associadas a uma missionId específica.
+  /// Chamado pelo MissionsNotifier quando uma missão é marcada como resgatada pelo usuário.
+  Future<void> claimRewardsForCompletedMission(
+    String missionId,
+    String userId,
+  ) async {
+    try {
+      AppLogger.debug(
+        '🎁 Tentando resgatar recompensas para a missão concluída: $missionId para o usuário $userId',
+      );
+
+      // Filtra as recompensas pendentes que correspondem à missionId e são do tipo missão.
+      // É importante verificar a source para não resgatar acidentalmente outras recompensas com metadata similar.
+      final rewardsToClaim = state.pendingRewards
+          .where(
+            (r) =>
+                r.metadata['missionId'] == missionId &&
+                r.source == RewardSource.mission,
+          )
+          .toList();
+
+      if (rewardsToClaim.isEmpty) {
+        AppLogger.info(
+          '🤔 Nenhuma recompensa pendente encontrada para a missão $missionId ou já foram resgatadas.',
+        );
+        return;
+      }
+
+      AppLogger.info(
+        '✨ Resgatando ${rewardsToClaim.length} recompensas pendentes para a missão $missionId.',
+      );
+      for (final reward in rewardsToClaim) {
+        // O método claimReward já lida com a atualização do estado, persistência e aplicação dos efeitos.
+        await claimReward(reward.id);
+      }
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ Erro ao resgatar recompensas para a missão $missionId',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+  }
+
   /// Coletar todas as recompensas pendentes
   Future<void> claimAllRewards() async {
     try {

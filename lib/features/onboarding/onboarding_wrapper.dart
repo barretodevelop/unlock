@@ -246,8 +246,7 @@ class _OnboardingWrapperState extends ConsumerState<OnboardingWrapper>
 
     Navigator.of(context).pushReplacement(
       PageRouteBuilder(
-        pageBuilder: (context, animation, secondaryAnimation) =>
-            const HomeScreen(),
+        pageBuilder: (context, animation, secondaryAnimation) => HomeScreen(),
         transitionDuration: AppConstants.longAnimationDuration,
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
           return FadeTransition(

@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:unlock/core/router/app_router.dart'; // Importar AppRoutes e NavigationUtils
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/settings/providers/settings_provider.dart';
 import 'package:unlock/features/settings/widgets/settings_tile.dart';
@@ -32,7 +33,7 @@ class SettingsScreen extends ConsumerWidget {
         elevation: 0,
         leading: IconButton(
           icon: Icon(Icons.arrow_back, color: colorScheme.onSurface),
-          onPressed: () => context.pop(),
+          onPressed: () => NavigationUtils.popOrHome(context),
         ),
       ),
       body: SingleChildScrollView(
@@ -169,7 +170,7 @@ class SettingsScreen extends ConsumerWidget {
                   icon: Icons.person,
                   title: 'Editar Perfil',
                   subtitle: 'Alterar informações do perfil',
-                  onTap: () => _navigateToProfile(context),
+                  onTap: () => _navigateToAccountSettings(context), // Alterado
                   iconColor: Colors.purple,
                 ),
 
@@ -297,8 +298,10 @@ class SettingsScreen extends ConsumerWidget {
   }
 
   /// Navegar para perfil
-  void _navigateToProfile(BuildContext context) {
-    context.go('/profile');
+  void _navigateToAccountSettings(BuildContext context) {
+    context.push(
+      AppRoutes.accountSettings,
+    ); // Alterado para a rota de configurações da conta
   }
 
   /// Mostrar configurações de privacidade

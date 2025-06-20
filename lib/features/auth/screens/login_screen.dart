@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:unlock/features/home/screens/home_screen.dart';
-import 'package:unlock/models/user_model.dart';
-import 'package:unlock/providers/user_provider.dart';
-import 'package:unlock/services/auth_service.dart';
+import 'package:unlock/providers/auth_provider.dart'; // ✅ Importar AuthProvider
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -14,7 +11,7 @@ class LoginScreen extends ConsumerStatefulWidget {
 
 class _LoginScreenState extends ConsumerState<LoginScreen>
     with TickerProviderStateMixin {
-  bool _isLoading = false;
+  // Removido _isLoading local para depender do AuthProvider
   late AnimationController _logoController;
   late AnimationController _textController;
   late Animation<double> _logoAnimation;
@@ -68,36 +65,35 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Future<void> _handleSignIn() async {
-    setState(() {
-      _isLoading = true;
-    });
+    // ✅ Usar o método signInWithGoogle do AuthProvider
+    final success = await ref.read(authProvider.notifier).signInWithGoogle();
 
-    UserModel? user = await AuthService.signInWithGoogle();
+    // O isLoading agora é gerenciado pelo AuthProvider,
+    // então não precisamos mais de _isLoading local para o processo de login em si.
+    // Poderíamos manter _isLoading para feedback visual específico do botão, se desejado,
+    // mas o estado global de carregamento da autenticação é tratado pelo AuthProvider.
+    // Por simplicidade, vamos remover o setState aqui, pois o GoRouter reagirá
+    // às mudanças no AuthProvider.
 
     if (!mounted) return;
 
-    setState(() {
-      _isLoading = false;
-    });
-
-    if (user != null) {
-      ref.read(userProvider.notifier).setUser(user);
-
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (context) => const HomeScreen()),
-      );
-    } else {
+    if (!success) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Falha ao fazer login com Google. Tente novamente.'),
         ),
       );
     }
+    // Não há necessidade de setState para _isLoading = false aqui,
+    // pois o AuthProvider cuidará do estado de carregamento.
+    // A navegação será tratada pelo GoRouter observando o AuthProvider.
   }
 
   @override
   Widget build(BuildContext context) {
-    final size = MediaQuery.of(context).size;
+    final authState = ref.watch(
+      authProvider,
+    ); // Observar o estado do AuthProvider para o botão
     final theme = Theme.of(context);
 
     return Scaffold(
@@ -118,11 +114,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
         child: SafeArea(
           child: SingleChildScrollView(
             child: Padding(
+              // Removido SizedBox(height: size.height * 0.1) inicial
               padding: const EdgeInsets.symmetric(horizontal: 32.0),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SizedBox(height: size.height * 0.1),
+                  // SizedBox(height: size.height * 0.1),
 
                   // Logo/Ícone principal com animação
                   AnimatedBuilder(
@@ -172,8 +169,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     },
                   ),
 
-                  const SizedBox(height: 40),
-
+                  const SizedBox(height: 60), // Aumentado espaço
                   // Título com animação typewriter
                   AnimatedBuilder(
                     animation: _textAnimation,
@@ -236,8 +232,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     },
                   ),
 
-                  SizedBox(height: size.height * 0.1),
-
+                  const SizedBox(height: 80), // Aumentado espaço
                   // Card do formulário
                   Container(
                     width: double.infinity,
@@ -279,8 +274,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         SizedBox(
                           width: double.infinity,
                           height: 56,
-                          child: _isLoading
+                          child:
+                              authState
+                                  .isLoading // Usar o isLoading do AuthProvider diretamente
                               ? Container(
+                                  // ou observar ref.watch(authProvider.select((s) => s.status == AuthStatus.loading || s.isLoading))
+                                  // se quiser ser mais preciso sobre o estado de carregamento do AuthProvider.
+                                  // Por ora, vamos manter o _isLoading local para o feedback do botão.
                                   decoration: BoxDecoration(
                                     color: theme.primaryColor.withOpacity(0.1),
                                     borderRadius: BorderRadius.circular(16),
@@ -375,8 +375,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                     ),
                   ),
 
-                  SizedBox(height: size.height * 0.05),
-
+                  const SizedBox(height: 40), // Ajustado espaço
                   // Rodapé
                   Text(
                     '© 2025 Unlock App',

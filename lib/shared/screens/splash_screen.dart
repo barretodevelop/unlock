@@ -1,15 +1,15 @@
-// lib/shared/screens/splash_screen.dart - SIMPLIFICADO PARA SISTEMA ESCALÁVEL
+// lib/shared/screens/splash_screen.dart - SIMPLIFICADA PARA NOVO SISTEMA
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/constants/app_constants.dart';
-import 'package:unlock/core/navigation/navigation_providers.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/providers/auth_provider.dart';
 
-/// SplashScreen que delega navegação para o sistema de providers
+/// ✅ SplashScreen simplificada - APENAS escuta AuthProvider
 ///
 /// Esta tela NÃO faz navegação manual - apenas exibe uma animação
-/// enquanto o sistema de providers/GoRouter decide para onde navegar.
+/// enquanto o GoRouter (AppRouter) decide automaticamente para onde navegar
+/// baseado no estado do AuthProvider.
 class SplashScreen extends ConsumerStatefulWidget {
   const SplashScreen({super.key});
 
@@ -36,7 +36,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
   void initState() {
     super.initState();
 
-    AppLogger.info('🚀 SplashScreen iniciado (sistema escalável)');
+    AppLogger.info('🚀 SplashScreen iniciada (sistema simplificado)');
 
     _initializeAnimations();
     _startAnimations();
@@ -100,17 +100,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
   @override
   Widget build(BuildContext context) {
-    // ========== ESCUTAR MUDANÇAS DE ESTADO PARA DEBUG ==========
-
+    // ✅ ESCUTAR APENAS AUTHPROVIDER - SEM DEPENDÊNCIAS COMPLEXAS
     ref.listen<AuthState>(authProvider, (previous, current) {
       _logAuthStateChange(previous, current);
     });
-
-    ref.listen<NavigationRoute>(currentRouteProvider, (previous, current) {
-      _logNavigationChange(previous, current);
-    });
-
-    // ========== CONSTRUIR UI ==========
 
     return Scaffold(
       backgroundColor: Theme.of(context).colorScheme.primary,
@@ -217,15 +210,8 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
         const SizedBox(height: 16),
 
-        // // Versão do app (apenas em debug)
-        // if (AppConstants.isDebugMode) ...[
-        //   Text(
-        //     'v${AppConstants.appVersion}',
-        //     style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        //       color: Colors.white.withOpacity(0.6),
-        //     ),
-        //   ),
-        // ],
+        // Debug info (apenas em debug mode)
+        // if (AppConstants.isDebugMode) ...[_buildDebugInfo(context)],
       ],
     );
   }
@@ -235,77 +221,127 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     return AnimatedBuilder(
       animation: _progressAnimation,
       builder: (context, child) {
-        return Container(
-          width: 200,
-          height: 4,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.2),
-            borderRadius: BorderRadius.circular(2),
-          ),
-          child: FractionallySizedBox(
-            widthFactor: _progressAnimation.value,
-            alignment: Alignment.centerLeft,
-            child: Container(
+        return Column(
+          children: [
+            // Barra de progresso
+            Container(
+              width: 200,
+              height: 4,
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: Colors.white.withOpacity(0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
+              child: FractionallySizedBox(
+                alignment: Alignment.centerLeft,
+                widthFactor: _progressAnimation.value,
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
             ),
-          ),
+
+            const SizedBox(height: 8),
+
+            // Porcentagem
+            Text(
+              '${(_progressAnimation.value * 100).toInt()}%',
+              style: TextStyle(
+                color: Colors.white.withOpacity(0.8),
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
         );
       },
     );
   }
 
-  /// Status dinâmico baseado no estado de auth
+  /// Status dinâmico baseado no AuthProvider
   Widget _buildDynamicStatus(BuildContext context) {
     return Consumer(
       builder: (context, ref, child) {
         final authState = ref.watch(authProvider);
-        final currentRoute = ref.watch(currentRouteProvider);
 
-        String statusText = _getStatusText(authState, currentRoute);
-        Color statusColor = _getStatusColor(authState);
-
-        return AnimatedSwitcher(
-          duration: const Duration(milliseconds: 500),
-          child: Text(
-            statusText,
-            key: ValueKey(statusText),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: statusColor,
-              fontWeight: FontWeight.w500,
+        return Column(
+          children: [
+            // Ícone de status
+            Container(
+              width: 24,
+              height: 24,
+              child: _buildStatusIcon(authState),
             ),
-            textAlign: TextAlign.center,
-          ),
+
+            const SizedBox(height: 8),
+
+            // Texto de status
+            Text(
+              _getStatusText(authState),
+              style: TextStyle(
+                color: _getStatusColor(authState),
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
         );
       },
     );
   }
 
-  /// Obter texto de status baseado no estado
-  String _getStatusText(AuthState authState, NavigationRoute currentRoute) {
+  /// Ícone de status baseado no estado
+  Widget _buildStatusIcon(AuthState authState) {
+    if (authState.error != null) {
+      return const Icon(Icons.warning_rounded, color: Colors.orange, size: 24);
+    }
+
+    if (authState.isAuthenticated && !authState.needsOnboarding) {
+      return const Icon(
+        Icons.check_circle_rounded,
+        color: Colors.green,
+        size: 24,
+      );
+    }
+
+    return SizedBox(
+      width: 20,
+      height: 20,
+      child: CircularProgressIndicator(
+        strokeWidth: 2,
+        valueColor: AlwaysStoppedAnimation<Color>(
+          Colors.white.withOpacity(0.8),
+        ),
+      ),
+    );
+  }
+
+  /// Texto de status baseado no estado
+  String _getStatusText(AuthState authState) {
+    if (authState.error != null) {
+      return 'Erro na autenticação';
+    }
+
     if (!authState.isInitialized) {
       return 'Inicializando...';
     }
 
-    if (authState.isLoading) {
-      return 'Carregando...';
-    }
-
-    if (authState.error != null) {
-      return 'Verificando conexão...';
-    }
-
     if (!authState.isAuthenticated) {
-      return 'Preparando login...';
+      return 'Verificando autenticação...';
     }
 
     if (authState.needsOnboarding) {
-      return 'Preparando cadastro...';
+      return 'Redirecionando para cadastro...';
     }
 
-    return 'Bem-vindo de volta!';
+    if (authState.isAuthenticated) {
+      return 'Carregando sua conta...';
+    }
+
+    return 'Preparando aplicativo...';
   }
 
   /// Obter cor de status baseado no estado
@@ -321,18 +357,78 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
     return Colors.white.withOpacity(0.8);
   }
 
+  /// Info de debug (apenas em debug mode)
+  Widget _buildDebugInfo(BuildContext context) {
+    return Consumer(
+      builder: (context, ref, child) {
+        final authState = ref.watch(authProvider);
+
+        return Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.black.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'DEBUG INFO',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Auth: ${authState.isAuthenticated ? "✅" : "❌"}',
+                style: TextStyle(color: Colors.green, fontSize: 10),
+              ),
+              Text(
+                'Init: ${authState.isInitialized ? "✅" : "❌"}',
+                style: TextStyle(color: Colors.blue, fontSize: 10),
+              ),
+              Text(
+                'Loading: ${authState.isLoading ? "⏳" : "✅"}',
+                style: TextStyle(color: Colors.yellow, fontSize: 10),
+              ),
+              Text(
+                'Onboarding: ${authState.needsOnboarding ? "📝" : "✅"}',
+                style: TextStyle(color: Colors.purple, fontSize: 10),
+              ),
+              if (authState.user != null) ...[
+                Text(
+                  'User: ${authState.user!.uid.substring(0, 8)}...',
+                  style: TextStyle(color: Colors.cyan, fontSize: 10),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   // ========== MÉTODOS DE DEBUG ==========
 
-  /// Log mudanças no estado de auth
+  /// Log mudanças no estado de auth (simplificado)
   void _logAuthStateChange(AuthState? previous, AuthState current) {
     if (!_hasLoggedInitialState) {
       _hasLoggedInitialState = true;
-      AppLogger.navigation(
+      AppLogger.info(
         '🎯 SPLASH: Estado inicial de auth',
-        data: NavigationCalculator.getNavigationDebugInfo(current),
+        data: {
+          'isAuthenticated': current.isAuthenticated,
+          'isInitialized': current.isInitialized,
+          'needsOnboarding': current.needsOnboarding,
+          'isLoading': current.isLoading,
+          'hasError': current.error != null,
+          'userId': current.user?.uid,
+        },
       );
     } else {
-      AppLogger.navigation(
+      AppLogger.info(
         '🔄 SPLASH: Auth state mudou',
         data: {
           'previous_authenticated': previous?.isAuthenticated,
@@ -341,24 +437,10 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
           'current_needsOnboarding': current.needsOnboarding,
           'previous_initialized': previous?.isInitialized,
           'current_initialized': current.isInitialized,
+          'previous_loading': previous?.isLoading,
+          'current_loading': current.isLoading,
         },
       );
     }
-  }
-
-  /// Log mudanças na navegação
-  void _logNavigationChange(
-    NavigationRoute? previous,
-    NavigationRoute current,
-  ) {
-    AppLogger.navigation(
-      '🧭 SPLASH: Navigation route mudou',
-      data: {
-        'previous_path': previous?.path,
-        'current_path': current.path,
-        'reason': current.reason,
-        'params': current.params,
-      },
-    );
   }
 }

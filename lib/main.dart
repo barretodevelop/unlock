@@ -43,6 +43,12 @@ Future<void> _initializeApp() async {
     );
     AppLogger.info('✅ Firebase inicializado');
 
+    // Adicionado log temporário para verificar a emissão inicial do stream
+    // FirebaseAuth.instance.authStateChanges().listen((User? user) {
+    //   AppLogger.info('[MAIN - AuthStream] User: ${user?.uid}');
+    // }).onError((error) {
+    //   AppLogger.error('[MAIN - AuthStream] Error: $error');
+    // });
     // ========== INICIALIZAÇÃO DO ANALYTICS ==========
 
     // await AnalyticsIntegration.initialize();

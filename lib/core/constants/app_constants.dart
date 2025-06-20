@@ -1,5 +1,35 @@
 // lib/core/constants/app_constants.dart - Constantes Centralizadas
 class AppConstants {
+  // Espaçamentos Comuns
+  static const double paddingSmall = 8.0;
+  static const double paddingMedium = 16.0;
+  static const double paddingLarge = 20.0;
+  static const double spacingSmall = 4.0;
+  static const double spacingMedium = 8.0;
+  static const double spacingLarge = 12.0;
+  static const double spacingExtraLarge = 20.0;
+
+  // Tamanhos de Fonte Comuns (além do TextTheme)
+  static const double fontSizeSmall = 10.0; // Usado em rótulos de stats
+  static const double fontSizeMedium =
+      12.0; // Usado em títulos de ações rápidas
+  static const double fontSizeLarge = 16.0; // Usado em valores de stats
+  static const double fontSizeExtraLarge =
+      20.0; // Usado em títulos de stats e inicial do avatar
+  static const double fontSizeAvatarInitial =
+      20.0; // Tamanho específico para a inicial do avatar
+
+  // Dimensões de Componentes
+  static const double avatarSize = 48.0; // Tamanho do avatar na AppBar
+  static const double avatarBorderWidth = 4.0; // Espessura da borda do avatar
+  static const double cardBorderRadius = 12.0; // Raio da borda de cards
+  static const double cardElevation = 1.0; // Elevação padrão de cards
+  static const double cardPadding = 16.0; // Padding interno padrão de cards
+  static const double statsCardPadding =
+      20.0; // Padding interno do card de stats
+  static const double bottomNavHeight =
+      80.0; // Altura para evitar sobreposição do BottomNav/FAB
+
   // Informações do App
   static const String appName = 'Unlock';
   static const String appVersion = '1.0.0';
@@ -34,10 +64,6 @@ class AppConstants {
   static const Duration animationDuration = Duration(milliseconds: 250);
   static const Duration longAnimationDuration = Duration(milliseconds: 500);
   static const Duration connectionTimeout = Duration(seconds: 30);
-
-  // Configurações de Cache
-  static const Duration cacheExpiration = Duration(hours: 24);
-  static const int maxCacheSize = 100; // MB
 
   // Configurações de Notificações
   static const Duration notificationDelay = Duration(seconds: 1);
@@ -80,7 +106,7 @@ class AppConstants {
   // Configurações de Performance
   static const int imageQuality = 85;
   static const int thumbnailSize = 150;
-  static const int avatarSize = 100;
+  // static const int avatarSize = 100;
   static const int maxImageSizeMB = 5;
 }
 

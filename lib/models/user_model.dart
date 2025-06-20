@@ -1,5 +1,6 @@
 ﻿// lib/models/user_model.dart - Versão Corrigida com Onboarding (Atualizada conforme seu código)
-
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:flutter/foundation.dart'; // For mapEquals
 import 'package:unlock/core/constants/gamification_constants.dart'; // Para usar GamificationConstants.calculateLevelFromXP
 
 class UserModel {
@@ -28,6 +29,7 @@ class UserModel {
   // Campos para controle de Login Diário e Streak
   final DateTime? lastLoginDate;
   final int? loginStreak;
+  final Map<String, bool> unlockedFeatures;
 
   const UserModel({
     required this.uid,
@@ -52,6 +54,7 @@ class UserModel {
     this.onboardingCompletedAt,
     this.lastLoginDate,
     this.loginStreak,
+    this.unlockedFeatures = const {}, // Default to an empty map
   });
 
   // ✅ GETTER PARA VERIFICAR SE PRECISA DE ONBOARDING
@@ -103,6 +106,10 @@ class UserModel {
       // ✅ NOVOS CAMPOS COM FALLBACKS SEGUROS
       codinome: json['codinome'],
       avatarId: json['avatarId'],
+      lastLoginDate: (json['lastLoginDate'] is Timestamp)
+          ? (json['lastLoginDate'] as Timestamp).toDate()
+          : null,
+      loginStreak: json['loginStreak'] as int?,
       birthDate: json['birthDate'] != null
           ? DateTime.tryParse(json['birthDate'])
           : null,
@@ -114,6 +121,9 @@ class UserModel {
       onboardingCompletedAt: json['onboardingCompletedAt'] != null
           ? DateTime.tryParse(json['onboardingCompletedAt'])
           : null,
+      unlockedFeatures: Map<String, bool>.from(
+        json['unlockedFeatures'] as Map? ?? {},
+      ),
     );
   }
 
@@ -141,7 +151,10 @@ class UserModel {
       'connectionLevel': connectionLevel,
       'onboardingCompleted': onboardingCompleted,
       'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
+      'lastLoginDate': lastLoginDate?.toIso8601String(),
+      'loginStreak': loginStreak,
     };
+    // unlockedFeatures will be handled by copyWith or direct update in Firestore
   }
 
   /// Método para atualizar os pontos de XP, moedas e gemas do usuário.
@@ -202,6 +215,9 @@ class UserModel {
     int? connectionLevel,
     bool? onboardingCompleted,
     DateTime? onboardingCompletedAt,
+    DateTime? lastLoginDate,
+    int? loginStreak,
+    Map<String, bool>? unlockedFeatures,
   }) {
     return UserModel(
       uid: uid ?? this.uid,
@@ -224,12 +240,73 @@ class UserModel {
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       onboardingCompletedAt:
           onboardingCompletedAt ?? this.onboardingCompletedAt,
+      lastLoginDate: lastLoginDate ?? this.lastLoginDate,
+      loginStreak: loginStreak ?? this.loginStreak,
+      unlockedFeatures:
+          unlockedFeatures ?? Map<String, bool>.from(this.unlockedFeatures),
     );
   }
 
   @override
   String toString() {
     return 'UserModel(uid: $uid, username: $username, onboardingCompleted: $onboardingCompleted, needsOnboarding: $needsOnboarding)';
+  }
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+
+    return other is UserModel &&
+        other.uid == uid &&
+        other.username == username &&
+        other.displayName == displayName &&
+        other.avatar == avatar &&
+        other.email == email &&
+        other.level == level &&
+        other.xp == xp &&
+        other.coins == coins &&
+        other.gems == gems &&
+        other.createdAt == createdAt &&
+        mapEquals(other.aiConfig, aiConfig) &&
+        other.codinome == codinome &&
+        other.avatarId == avatarId &&
+        other.birthDate == birthDate &&
+        listEquals(other.interesses, interesses) &&
+        other.relationshipGoal == relationshipGoal &&
+        other.connectionLevel == connectionLevel &&
+        other.onboardingCompleted == onboardingCompleted &&
+        other.onboardingCompletedAt == onboardingCompletedAt &&
+        other.lastLoginDate == lastLoginDate && // Already included, good.
+        other.loginStreak == loginStreak && // Already included, good.
+        mapEquals(other.unlockedFeatures, unlockedFeatures);
+  }
+
+  @override
+  int get hashCode {
+    return Object.hashAll([
+      uid,
+      username,
+      displayName,
+      avatar,
+      email,
+      level,
+      xp,
+      coins,
+      gems,
+      createdAt,
+      aiConfig,
+      codinome,
+      avatarId,
+      birthDate,
+      interesses,
+      relationshipGoal,
+      connectionLevel,
+      onboardingCompleted,
+      onboardingCompletedAt,
+      lastLoginDate,
+      loginStreak,
+      unlockedFeatures,
+    ]);
   }
 
   /// Factory para criar usuário inicial após login (pré-onboarding)
@@ -261,6 +338,9 @@ class UserModel {
       onboardingCompleted: false,
       onboardingCompletedAt: null,
       relationshipGoal: null,
+      lastLoginDate: null, // Provide initial null value
+      loginStreak: 0, // Provide initial 0 value
+      unlockedFeatures: {}, // Initialize with empty map
     );
   }
 }

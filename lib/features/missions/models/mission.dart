@@ -6,6 +6,7 @@ class Mission {
   final String id;
   final String title;
   final String description;
+  final String category; // Novo campo para categoria
   final MissionType type; // Ex: DAILY, WEEKLY, ONE_TIME, EVENT
   final MissionCriterion criterion;
   final MissionReward reward;
@@ -15,6 +16,7 @@ class Mission {
     required this.id,
     required this.title,
     required this.description,
+    required this.category, // Adicionar ao construtor
     required this.type,
     required this.criterion,
     required this.reward,
@@ -27,6 +29,8 @@ class Mission {
       id: json['id'],
       title: json['title'],
       description: json['description'],
+      category:
+          json['category'] ?? 'Outras', // Desserializa a categoria com fallback
       // Converte a string do tipo de missão para o enum MissionType.
       type: MissionType.values.firstWhere(
         (e) => e.toString().split('.').last == json['type'],
@@ -42,6 +46,7 @@ class Mission {
       'id': id,
       'title': title,
       'description': description,
+      'category': category, // Serializa a categoria
       'type': type.toString().split('.').last,
       'criterion': criterion.toJson(),
       'reward': reward.toJson(),

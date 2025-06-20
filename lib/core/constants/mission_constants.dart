@@ -31,10 +31,10 @@ class MissionConstants {
 
   /// Recompensas base para missões diárias
   static const Map<String, int> dailyRewards = {
-    'xp_min': 30,
-    'xp_max': 100,
-    'coins_min': 15,
-    'coins_max': 50,
+    'xp_min': 20, // Ajustado para exemplos
+    'xp_max': 50, // Ajustado para exemplos
+    'coins_min': 10, // Ajustado para exemplos
+    'coins_max': 30, // Ajustado para exemplos
     'gems': 0, // Missões diárias não dão gems
   };
 
@@ -84,117 +84,233 @@ class MissionConstants {
   // ================================================================================================
 
   /// Templates para geração automática de missões diárias
+  /// - `id_template`: Usado como base para gerar o ID da instância da missão.
+  /// - `title`: Título da missão.
+  /// - `description_template`: Template da descrição, pode usar `{targetCount}`.
+  /// - `category`: Categoria da missão.
+  /// - `eventType`: O tipo de evento que aciona o progresso (de MissionEventTypes).
+  /// - `targetCountRange`: [min, max] para randomizar o `targetCount`. Se apenas um valor, usar [X, X].
+  /// - `reward`: Mapa com `xp`, `coins`, `gems`.
+  /// - `difficulty`: Nível de dificuldade.
+  /// - `requirements`: (Opcional) Condições para a missão aparecer.
   static const List<Map<String, dynamic>> dailyMissionTemplates = [
     {
-      'id': 'complete_profile',
-      'title': 'Complete seu perfil',
-      'description': 'Adicione mais informações ao seu perfil anônimo',
-      'category': 'profile',
-      'target': 1,
-      'xp': 50,
-      'coins': 25,
-      'difficulty': 1,
-      'requirements': ['has_incomplete_profile'],
-    },
-    {
-      'id': 'view_profiles',
-      'title': 'Explore novos perfis',
-      'description': 'Visualize 3 perfis de outros usuários',
-      'category': 'exploration',
-      'target': 3,
-      'xp': 30,
-      'coins': 15,
-      'difficulty': 1,
-      'requirements': [],
-    },
-    {
-      'id': 'send_invite',
-      'title': 'Envie um convite',
-      'description': 'Envie um convite de conexão para alguém interessante',
-      'category': 'social',
-      'target': 1,
-      'xp': 100,
-      'coins': 50,
-      'difficulty': 2,
-      'requirements': ['has_viewed_profiles'],
-    },
-    {
-      'id': 'login_streak',
-      'title': 'Mantenha a sequência',
-      'description': 'Faça login por 3 dias consecutivos',
+      'id_template':
+          'daily_login_template', // Já existe uma missão de login no MissionRepository
+      'title': 'Check-in Diário',
+      'description_template': 'Faça login hoje para sua recompensa diária!',
       'category': 'gamification',
-      'target': 3,
-      'xp': 75,
-      'coins': 35,
+      'eventType': 'LOGIN_DAILY', // Usar MissionEventTypes.LOGIN_DAILY
+      'targetCountRange': [1, 1],
+      'reward': {'xp': 20, 'coins': 50, 'gems': 0},
+      'difficulty': 1,
+      'requirements': [],
+    },
+    {
+      'id_template': 'view_profiles_daily',
+      'title': 'Explorador Diário',
+      'description_template': 'Visualize {targetCount} perfis diferentes hoje.',
+      'category': 'exploration',
+      'eventType':
+          'VIEW_PROFILE_UNIQUE_TODAY', // Usar MissionEventTypes.VIEW_PROFILE_UNIQUE_TODAY
+      'targetCountRange': [3, 5],
+      'reward': {'xp': 30, 'coins': 15, 'gems': 0},
+      'difficulty': 1,
+      'requirements': [],
+    },
+    {
+      'id_template': 'send_messages_daily',
+      'title': 'Papo em Dia',
+      'description_template':
+          'Envie mensagens para {targetCount} conexões hoje.',
+      'category': 'social',
+      'eventType': 'SEND_MESSAGE', // Usar MissionEventTypes.SEND_MESSAGE
+      'targetCountRange': [2, 3],
+      'reward': {'xp': 40, 'coins': 20, 'gems': 0},
+      'difficulty': 2,
+      'requirements': [
+        // Estrutura de requisitos atualizada
+        {'type': 'level', 'value': 3}, // Requer nível 3 ou superior
+        {'type': 'connections', 'value': 1}, // Requer pelo menos 1 conexão
+      ],
+    },
+    {
+      'id_template': 'comment_posts_daily',
+      'title': 'Interaja na Comunidade',
+      'description_template': 'Comente em {targetCount} posts hoje.',
+      'category': 'social',
+      'eventType': 'COMMENT_POST', // Usar MissionEventTypes.COMMENT_POST
+      'targetCountRange': [2, 4],
+      'reward': {'xp': 35, 'coins': 20, 'gems': 0},
       'difficulty': 2,
       'requirements': [],
     },
     {
-      'id': 'answer_questions',
-      'title': 'Responda perguntas',
-      'description': 'Responda 5 perguntas de compatibilidade',
+      'id_template': 'like_profiles_daily',
+      'title': 'Distribua Likes',
+      'description_template': 'Curta {targetCount} perfis hoje.',
       'category': 'social',
-      'target': 5,
-      'xp': 60,
-      'coins': 30,
+      'eventType': 'LIKE_PROFILE', // Usar MissionEventTypes.LIKE_PROFILE
+      'targetCountRange': [5, 10],
+      'reward': {'xp': 25, 'coins': 10, 'gems': 0},
+      'difficulty': 1,
+      'requirements': [],
+    },
+  ];
+
+  // ================================================================================================
+  // TEMPLATES DE MISSÕES "ONE_TIME" (Exemplos adicionais)
+  // Estas podem ser adicionadas diretamente ao MissionRepository ou carregadas de forma similar
+  // ================================================================================================
+  static const List<Map<String, dynamic>> oneTimeMissionTemplates = [
+    {
+      'id': 'onetime_complete_profile_about', // ID único da missão
+      'title': 'Conte-nos Sobre Você',
+      'description_template': 'Preencha o campo "Sobre mim" do seu perfil.',
+      'category': 'profile',
+      'eventType':
+          'PROFILE_FIELD_UPDATED', // Usar MissionEventTypes.PROFILE_FIELD_UPDATED
+      // Para 'PROFILE_FIELD_UPDATED', o 'details' do evento pode conter o nome do campo.
+      // A lógica de validação no MissionsNotifier precisaria checar details['fieldName'] == 'about_me'.
+      // Por simplicidade mockada, o targetCount é 1.
+      'targetCountRange': [1, 1],
+      'reward': {'xp': 50, 'coins': 25, 'gems': 0},
+      'difficulty': 1,
+      'requirements': [
+        // Exemplo de requisito
+        // {'type': 'profile_field_empty', 'value': 'about_me'} // Exemplo: se o campo "sobre mim" estiver vazio
+      ],
+    },
+    {
+      'id': 'onetime_first_connection',
+      'title': 'Primeira Conexão!',
+      'description_template': 'Faça sua primeira conexão com outro usuário.',
+      'category': 'social',
+      'eventType':
+          'NEW_CONNECTION_ACCEPTED', // Usar MissionEventTypes.NEW_CONNECTION_ACCEPTED
+      'targetCountRange': [1, 1],
+      'reward': {'xp': 100, 'coins': 50, 'gems': 5},
       'difficulty': 2,
-      'requirements': ['has_connections'],
+      'requirements': [],
+    },
+    {
+      'id': 'onetime_add_interests',
+      'title': 'Mostre Seus Interesses',
+      'description_template':
+          'Adicione pelo menos {targetCount} interesses ao seu perfil.',
+      'category': 'gamification',
+      'eventType': 'ADD_INTEREST', // Usar MissionEventTypes.ADD_INTEREST
+      'targetCountRange': [3, 3],
+      'reward': {'xp': 60, 'coins': 30, 'gems': 0},
+      'difficulty': 2,
+      'requirements': [],
+    },
+    {
+      'id': 'onetime_reach_level_5',
+      'title': 'Nível 5 Alcançado!',
+      'description_template': 'Parabéns por alcançar o nível 5.',
+      'category': 'gamification',
+      'eventType': 'LEVEL_UP', // Usar MissionEventTypes.LEVEL_UP
+      // A lógica de validação no MissionsNotifier precisaria checar details['newLevel'] == 5.
+      'targetCountRange': [5, 5], // O target aqui seria o nível.
+      'reward': {'xp': 150, 'coins': 75, 'gems': 10},
+      'difficulty': 2,
+      'requirements': [],
+    },
+    {
+      'id':
+          'onetime_tutorial_completed', // Já existe uma missão de tutorial no MissionRepository
+      'title': 'Tutorial Concluído',
+      'description_template':
+          'Você completou o tutorial e está pronto para começar!',
+      'category': 'gamification',
+      'eventType':
+          'TUTORIAL_COMPLETED', // Usar MissionEventTypes.TUTORIAL_COMPLETED
+      'targetCountRange': [1, 1],
+      'reward': {'xp': 80, 'coins': 150, 'gems': 10},
+      'difficulty': 1,
+      'requirements': [],
     },
   ];
 
   // ================================================================================================
   // TEMPLATES DE MISSÕES SEMANAIS
   // ================================================================================================
-
   /// Templates para geração automática de missões semanais
   static const List<Map<String, dynamic>> weeklyMissionTemplates = [
     {
-      'id': 'complete_daily_missions',
+      'id_template': 'weekly_complete_daily_missions',
       'title': 'Mestre das missões',
-      'description': 'Complete 5 missões diárias esta semana',
+      'description_template':
+          'Complete {targetCount} missões diárias esta semana.',
       'category': 'gamification',
-      'target': 5,
-      'xp': 200,
-      'coins': 100,
-      'gems': 5,
+      'eventType':
+          'DAILY_MISSION_CLAIMED', // Usar MissionEventTypes.DAILY_MISSION_CLAIMED
+      'targetCountRange': [3, 5],
+      'reward': {'xp': 200, 'coins': 100, 'gems': 5},
       'difficulty': 3,
       'requirements': [],
     },
     {
-      'id': 'make_connections',
+      'id_template': 'weekly_make_connections',
       'title': 'Conecte-se',
-      'description': 'Faça 3 novas conexões esta semana',
+      'description_template': 'Faça {targetCount} novas conexões esta semana.',
       'category': 'social',
-      'target': 3,
-      'xp': 500,
-      'coins': 250,
-      'gems': 10,
+      'eventType':
+          'NEW_CONNECTION_ACCEPTED', // Usar MissionEventTypes.NEW_CONNECTION_ACCEPTED
+      'targetCountRange': [2, 3],
+      'reward': {'xp': 250, 'coins': 120, 'gems': 10}, // Ajustado
       'difficulty': 4,
       'requirements': [],
     },
     {
-      'id': 'win_minigames',
+      'id_template': 'weekly_win_minigames',
       'title': 'Jogador expert',
-      'description': 'Vença 2 minijogos de conexão',
+      'description_template': 'Vença {targetCount} minijogos de conexão.',
       'category': 'social',
-      'target': 2,
-      'xp': 300,
-      'coins': 150,
-      'gems': 8,
+      'eventType': 'MINIGAME_WON', // Exemplo de novo eventType
+      'targetCountRange': [1, 2],
+      'reward': {'xp': 300, 'coins': 150, 'gems': 8},
       'difficulty': 4,
-      'requirements': ['has_unlocked_minigames'],
+      'requirements': [
+        // Exemplo de requisito
+        {
+          'type': 'level',
+          'value': 10,
+        }, // Requer nível 10 para desbloquear minijogos
+      ],
     },
     {
-      'id': 'customize_profile',
+      'id_template': 'weekly_customize_profile',
       'title': 'Personalização única',
-      'description': 'Compre e aplique 3 itens de personalização',
+      'description_template':
+          'Compre e aplique {targetCount} itens de personalização.',
       'category': 'profile',
-      'target': 3,
-      'xp': 150,
-      'coins': 75,
-      'gems': 5,
+      'eventType': 'ITEM_PURCHASED_AND_APPLIED', // Exemplo de novo eventType
+      'targetCountRange': [1, 3],
+      'reward': {'xp': 150, 'coins': 75, 'gems': 5},
       'difficulty': 3,
-      'requirements': ['has_shop_access'],
+      'requirements': [
+        // Exemplo de requisito
+        {
+          'type': 'feature_unlocked',
+          'value': 'shop',
+        }, // Requer que a loja esteja desbloqueada
+      ],
+    },
+    {
+      'id_template': 'weekly_post_engagement',
+      'title': 'Engajador da Semana',
+      'description_template':
+          'Receba {targetCount} likes em seus posts esta semana.',
+      'category': 'social',
+      'eventType': 'POST_RECEIVES_LIKE', // Novo eventType a ser criado
+      'targetCountRange': [10, 20],
+      'reward': {'xp': 220, 'coins': 110, 'gems': 7},
+      'difficulty': 3,
+      'requirements': [
+        {'type': 'level', 'value': 5},
+      ],
     },
   ];
 

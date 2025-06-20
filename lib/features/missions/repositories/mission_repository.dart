@@ -3,6 +3,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/features/missions/models/mission.dart'; // Importa os modelos de missão
 import 'package:unlock/features/missions/models/user_mission_progress.dart';
+import 'package:unlock/features/missions/repositories/mission_repository_interface.dart';
 
 /// Provedor Riverpod para o MissionRepository.
 ///
@@ -16,12 +17,13 @@ final missionRepositoryProvider = Provider<MissionRepository>((ref) {
   // final firestore = ref.read(firestoreProvider);
   // return MissionRepository(firestore: firestore);
   return MissionRepository(); // Por enquanto, usa uma implementação simples com dados mockados.
-});
+}); // ✅ Implementa a interface
 
 /// Repositório para gerenciar a obtenção e atualização de dados de missões e
 /// progresso do usuário.
-class MissionRepository {
-  // Simulação de dados de backend para missões.
+
+// Simulação de dados de backend para missões.
+class MissionRepository implements IMissionRepository {
   // Em uma aplicação real, estas missões seriam carregadas de um serviço de backend
   // que as definiria, ativaria e desativaria.
   final List<Mission> _allMissions = [
@@ -29,6 +31,7 @@ class MissionRepository {
       id: 'missao_login_diario_001',
       title: 'Login Diário',
       description: 'Faça login no jogo hoje para ganhar uma recompensa.',
+      category: 'gamification', // Adicionar categoria
       type: MissionType.DAILY,
       criterion: MissionCriterion(eventType: 'LOGIN_DAILY', targetCount: 1),
       reward: MissionReward(coins: 50, xp: 20),
@@ -37,6 +40,7 @@ class MissionRepository {
       id: 'missao_curtir_perfil_001',
       title: 'Curta 3 Perfis',
       description: 'Curta 3 perfis de outros usuários para ganhar recompensas.',
+      category: 'social', // Adicionar categoria
       type: MissionType.ONE_TIME,
       criterion: MissionCriterion(eventType: 'LIKE_PROFILE', targetCount: 3),
       reward: MissionReward(coins: 100, xp: 50),
@@ -45,6 +49,7 @@ class MissionRepository {
       id: 'missao_fazer_post_001',
       title: 'Crie um Post',
       description: 'Crie um novo post no feed da comunidade.',
+      category: 'social', // Adicionar categoria
       type: MissionType.ONE_TIME,
       criterion: MissionCriterion(eventType: 'CREATE_POST', targetCount: 1),
       reward: MissionReward(gems: 5, xp: 30),
@@ -54,6 +59,7 @@ class MissionRepository {
       title: 'Conclua o Tutorial',
       description:
           'Complete o tutorial do jogo para entender as mecânicas básicas.',
+      category: 'gamification', // Adicionar categoria
       type: MissionType.ONE_TIME,
       criterion: MissionCriterion(
         eventType: 'TUTORIAL_COMPLETED',
@@ -99,10 +105,15 @@ class MissionRepository {
     return Future.value(_userProgress[key]!);
   }
 
+  bool missionExists(String missionId) {
+    return _allMissions.any((mission) => mission.id == missionId);
+  }
+
   /// Atualiza o progresso de uma missão para um usuário no "banco de dados".
   ///
   /// Em uma aplicação real, este método faria uma requisição ao backend
   /// para persistir as mudanças no progresso do usuário.
+  @override // ✅ Adicionar @override
   Future<void> updateMissionProgress(UserMissionProgress progress) async {
     final key = '${progress.userId}-${progress.missionId}';
     _userProgress[key] = progress;
@@ -119,6 +130,7 @@ class MissionRepository {
   /// NOTA: Em um sistema de produção, o reset de missões diárias/semanais
   /// deve ser orquestrado e executado no backend (via cron jobs, por exemplo).
   /// Este método é uma simulação para fins de desenvolvimento no cliente.
+  @override // ✅ Adicionar @override
   Future<void> resetDailyMissionProgress(
     String userId,
     String missionId,
@@ -126,32 +138,26 @@ class MissionRepository {
     final key = '$userId-$missionId';
     if (_userProgress.containsKey(key)) {
       final progress = _userProgress[key]!;
-      // Apenas reseta se for uma missão diária e o último update foi em um dia diferente
-      final mission = _allMissions.firstWhere(
-        (m) => m.id == missionId,
-        orElse: () => throw Exception('Missão não encontrada'),
-      );
-
-      if (mission.type == MissionType.DAILY) {
-        final now = DateTime.now();
-        if (progress.lastUpdateDate == null ||
-            progress.lastUpdateDate!.day != now.day ||
-            progress.lastUpdateDate!.month != now.month ||
-            progress.lastUpdateDate!.year != now.year) {
-          _userProgress[key] = UserMissionProgress(
-            userId: userId,
-            missionId: missionId,
-            currentProgress: 0,
-            isCompleted: false,
-            isClaimed: false, // Mantém isClaimed como false no reset
-            lastUpdateDate:
-                null, // Define lastUpdateDate como null para forçar o reprocessamento do evento
-          );
-          print(
-            'DEBUG: Missão diária ${missionId} resetada para o usuário ${userId}',
-          );
-          await updateMissionProgress(_userProgress[key]!); // Persiste o reset
-        }
+      // A verificação se é uma missão diária que precisa ser resetada é feita pelo chamador (MissionsNotifier).
+      // Este método apenas executa a lógica de reset se o progresso existir e a condição de data for atendida.
+      final now = DateTime.now();
+      if (progress.lastUpdateDate == null ||
+          progress.lastUpdateDate!.day != now.day ||
+          progress.lastUpdateDate!.month != now.month ||
+          progress.lastUpdateDate!.year != now.year) {
+        _userProgress[key] = UserMissionProgress(
+          userId: userId,
+          missionId: missionId,
+          currentProgress: 0,
+          isCompleted: false,
+          isClaimed: false, // Mantém isClaimed como false no reset
+          lastUpdateDate:
+              null, // Define lastUpdateDate como null para forçar o reprocessamento do evento
+        );
+        print(
+          'DEBUG: Missão diária $missionId resetada para o usuário $userId',
+        );
+        await updateMissionProgress(_userProgress[key]!); // Persiste o reset
       }
     }
   }

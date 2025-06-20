@@ -1,16 +1,15 @@
-// lib/unlockApp.dart - COMPATÍVEL com app_router.dart corrigido
+// lib/unlockApp.dart - ATUALIZADO PARA SISTEMA SIMPLIFICADO
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:unlock/core/constants/app_constants.dart';
-import 'package:unlock/core/navigation/navigation_system.dart';
 import 'package:unlock/core/router/app_router.dart';
 import 'package:unlock/core/theme/app_theme.dart';
 import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/theme_provider.dart';
 
-/// Widget principal do app Unlock com navegação escalável
+/// ✅ Widget principal do app Unlock com navegação simplificada
 class UnlockApp extends ConsumerWidget {
   const UnlockApp({super.key});
 
@@ -19,11 +18,11 @@ class UnlockApp extends ConsumerWidget {
     final isDarkMode = ref.watch(themeProvider);
 
     AppLogger.info(
-      '🚀 UnlockApp construindo',
+      '🚀 UnlockApp construindo com sistema simplificado',
       data: {
         'isDarkMode': isDarkMode,
         'isDebugMode': kDebugMode,
-        'system': 'Navegação escalável com compatibilidade',
+        'navigationSystem': 'Simplificado',
       },
     );
 
@@ -37,9 +36,8 @@ class UnlockApp extends ConsumerWidget {
       darkTheme: AppTheme.darkTheme,
       themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
 
-      // ========== 🎯 SISTEMA DE NAVEGAÇÃO ==========
-      // Usa o sistema escalável através da interface compatível
-      routerConfig: _createCompatibleRouter(ref),
+      // ========== 🎯 SISTEMA DE NAVEGAÇÃO SIMPLIFICADO ==========
+      routerConfig: AppRouter.createRouter(ref),
 
       // ========== BUILDER PARA ERROR HANDLING ==========
       builder: (context, child) {
@@ -47,346 +45,135 @@ class UnlockApp extends ConsumerWidget {
       },
     );
   }
-
-  /// Criar router compatível que usa o sistema escalável
-  GoRouter _createCompatibleRouter(WidgetRef ref) {
-    try {
-      // 🆕 PREFERÊNCIA: Usar sistema escalável se disponível
-      AppLogger.info('🔄 Criando router com sistema escalável');
-      return NavigationSystem.createRouter(ref);
-    } catch (e) {
-      // 🔧 FALLBACK: Se houver problema, tentar interface compatível
-      AppLogger.warning(
-        '⚠️ Fallback para interface compatível de navegação',
-        data: {'error': e.toString()},
-      );
-
-      try {
-        return AppRouter.createRouter(ref);
-      } catch (e2) {
-        AppLogger.error('❌ Erro crítico na criação do router', error: e2);
-
-        // 🚨 ÚLTIMO RECURSO: Router mínimo
-        return _createMinimalRouter();
-      }
-    }
-  }
-
-  /// Router mínimo para casos de emergência
-  GoRouter _createMinimalRouter() {
-    AppLogger.warning('🚨 Usando router mínimo de emergência');
-
-    return GoRouter(
-      initialLocation: '/',
-      routes: [
-        GoRoute(
-          path: '/',
-          builder: (context, state) => const _EmergencyScreen(),
-        ),
-      ],
-      errorBuilder: (context, state) =>
-          _ErrorScreen(error: state.error?.toString() ?? 'Erro de navegação'),
-    );
-  }
 }
 
-/// Builder do app com error handling
-class _AppBuilder extends ConsumerWidget {
+/// ✅ Builder com error handling e overlays
+class _AppBuilder extends StatelessWidget {
   final Widget? child;
 
   const _AppBuilder({this.child});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    // Configurar error widget personalizado
-    ErrorWidget.builder = (errorDetails) {
-      AppLogger.error(
-        '❌ Widget error occurred',
-        error: errorDetails.exception,
-        stackTrace: errorDetails.stack,
-        data: {
-          'library': errorDetails.library,
-          'context': errorDetails.context?.toString(),
-        },
-      );
-
-      return _CustomErrorWidget(error: errorDetails.exception);
-    };
-
-    return Stack(
-      children: [
-        // App principal
-        child ?? const SizedBox.shrink(),
-
-        // Debug tools (apenas em desenvolvimento)
-        // if (kDebugMode) ...[_DebugTools()],
-      ],
-    );
-  }
-}
-
-/// Widget de erro personalizado
-class _CustomErrorWidget extends StatelessWidget {
-  final Object error;
-
-  const _CustomErrorWidget({required this.error});
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.red.shade50,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Ícone de erro
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Colors.red.shade100,
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    Icons.error_outline,
-                    size: 64,
-                    color: Colors.red.shade700,
-                  ),
-                ),
-
-                const SizedBox(height: 24),
-
-                // Título
-                Text(
-                  'Ops! Algo deu errado',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Colors.red.shade700,
-                    fontWeight: FontWeight.bold,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-
-                const SizedBox(height: 16),
-
-                // Descrição
-                Text(
-                  'Ocorreu um erro inesperado no aplicativo.',
-                  style: Theme.of(
-                    context,
-                  ).textTheme.bodyMedium?.copyWith(color: Colors.red.shade600),
-                  textAlign: TextAlign.center,
-                ),
-
-                // Detalhes do erro (apenas em debug)
-                if (kDebugMode) ...[
-                  const SizedBox(height: 24),
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.red.shade100,
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.red.shade300),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Debug Info:',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red.shade800,
-                          ),
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          error.toString(),
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontFamily: 'monospace',
-                            color: Colors.red.shade700,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-
-                const SizedBox(height: 32),
-
-                // Botão de recarregar
-                ElevatedButton.icon(
-                  onPressed: () {
-                    AppLogger.info('🔄 User requested app reload');
-                    // Em uma implementação real, isso reiniciaria o app
-                  },
-                  icon: const Icon(Icons.refresh),
-                  label: const Text('Tentar Novamente'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.red.shade700,
-                    foregroundColor: Colors.white,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+    return GestureDetector(
+      // ✅ Fechar teclado ao tocar fora
+      onTap: () {
+        final currentFocus = FocusScope.of(context);
+        if (!currentFocus.hasPrimaryFocus &&
+            currentFocus.focusedChild != null) {
+          currentFocus.focusedChild!.unfocus();
+        }
+      },
+      child: Stack(
+        children: [
+          // ✅ App principal
+          child ?? const _EmergencyScreen(),
+          // Removido Debug overlay para simplificar
+          // ✅ Debug overlay apenas em desenvolvimento
+          // if (kDebugMode) ...[
+          //   const Positioned(top: 100, right: 10, child: _DebugOverlay()),
+          // ],
+        ],
       ),
     );
   }
 }
 
-/// Tela de emergência para casos críticos
+/// ✅ Debug overlay simplificado
+class _DebugOverlay extends ConsumerWidget {
+  const _DebugOverlay();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final authState = ref.watch(authProvider);
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: Colors.black87,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            'DEBUG',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 10,
+            ),
+          ),
+          Text(
+            'Auth: ${authState.isAuthenticated ? "✅" : "❌"}',
+            style: const TextStyle(color: Colors.green, fontSize: 10),
+          ),
+          Text(
+            'Loading: ${authState.isLoading ? "⏳" : "✅"}',
+            style: const TextStyle(color: Colors.yellow, fontSize: 10),
+          ),
+          Text(
+            'Onboarding: ${authState.needsOnboarding ? "📝" : "✅"}',
+            style: const TextStyle(color: Colors.blue, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// ✅ Tela de emergência para casos críticos
 class _EmergencyScreen extends StatelessWidget {
   const _EmergencyScreen();
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.orange.shade50,
-      body: SafeArea(
-        child: Center(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.construction,
-                  size: 80,
-                  color: Colors.orange.shade700,
-                ),
-                const SizedBox(height: 24),
-                Text(
-                  'Sistema de Navegação',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.orange.shade700,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'O sistema de navegação está sendo inicializado.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.orange.shade600,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 32),
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(
-                    Colors.orange.shade700,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// Tela de erro para problemas de rota
-class _ErrorScreen extends StatelessWidget {
-  final String error;
-
-  const _ErrorScreen({required this.error});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Erro'),
-        backgroundColor: Theme.of(context).colorScheme.errorContainer,
-        foregroundColor: Theme.of(context).colorScheme.onErrorContainer,
-      ),
+      backgroundColor: Colors.red.shade50,
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(24.0),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
-                Icons.error_outline,
+                Icons.warning_amber_rounded,
                 size: 64,
-                color: Theme.of(context).colorScheme.error,
+                color: Colors.red.shade600,
               ),
               const SizedBox(height: 16),
               Text(
-                'Erro de Navegação',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                'Erro Crítico',
+                style: TextStyle(
+                  fontSize: 24,
                   fontWeight: FontWeight.bold,
+                  color: Colors.red.shade800,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                error,
-                style: Theme.of(context).textTheme.bodyMedium,
+                'O sistema de navegação falhou. '
+                'Reinicie o aplicativo.',
                 textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 16, color: Colors.red.shade700),
               ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
+              const SizedBox(height: 24),
+              ElevatedButton(
                 onPressed: () {
-                  // Tentar navegar para home
-                  try {
-                    NavigationUtils.goHomeAndClearStack();
-                  } catch (e) {
-                    AppLogger.error('Erro ao navegar para home: $e');
-                  }
+                  // Tentar recriar o app
+                  AppLogger.error('🚨 Emergency restart requested');
                 },
-                icon: const Icon(Icons.home),
-                label: const Text('Ir para Início'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red.shade600,
+                  foregroundColor: Colors.white,
+                ),
+                child: const Text('Reiniciar App'),
               ),
             ],
           ),
         ),
       ),
     );
-  }
-}
-
-/// Debug tools simplificado
-class _DebugTools extends ConsumerWidget {
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Positioned(
-      top: MediaQuery.of(context).padding.top + 10,
-      right: 10,
-      child: FloatingActionButton.small(
-        heroTag: "debug_navigation",
-        onPressed: () {
-          _showDebugInfo(context, ref);
-        },
-        backgroundColor: Colors.black87,
-        child: const Icon(Icons.bug_report, color: Colors.white, size: 20),
-      ),
-    );
-  }
-
-  void _showDebugInfo(BuildContext context, WidgetRef ref) {
-    try {
-      // final debugInfo = NavigationSystem.getNavigationDebugInfo(ref);
-      // AppLogger.info('🐛 Debug Navigation Info', data: debugInfo);
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Debug info logged to console'),
-          duration: Duration(seconds: 2),
-        ),
-      );
-    } catch (e) {
-      AppLogger.error('Erro ao obter debug info: $e');
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erro no debug: $e'),
-          backgroundColor: Colors.red,
-          duration: const Duration(seconds: 3),
-        ),
-      );
-    }
   }
 }
