@@ -1,4 +1,4 @@
-// lib/features/home/screens/home_screen.dart - VERSÃO COMPLETA
+// lib/features/home/screens/home_screen.dart - VERSÃO COMPLETA E CORRIGIDA
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart'; // Importe para HapticFeedback
@@ -19,11 +19,43 @@ class HomeScreen extends ConsumerStatefulWidget {
   ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends ConsumerState<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen>
+    with SingleTickerProviderStateMixin {
+  // Animação para o emoji do humor
+  late final AnimationController _moodAnimationController;
+  late final Animation<Offset> _moodOffsetAnimation;
+  late final Animation<double> _moodFadeAnimation;
+  String _animatingMoodEmoji = '';
+
   @override
   void initState() {
     super.initState();
+    _moodAnimationController = AnimationController(
+      duration: const Duration(milliseconds: 1200),
+      vsync: this,
+    );
+
+    _moodOffsetAnimation =
+        Tween<Offset>(
+          begin: Offset.zero,
+          end: const Offset(0.0, -4.0), // Sobe 4x a sua altura
+        ).animate(
+          CurvedAnimation(
+            parent: _moodAnimationController,
+            curve: Curves.easeOut,
+          ),
+        );
+
+    _moodFadeAnimation = Tween<double>(begin: 1.0, end: 0.0).animate(
+      CurvedAnimation(parent: _moodAnimationController, curve: Curves.easeIn),
+    );
     AppLogger.info('🏠 HomeScreen inicializada');
+  }
+
+  @override
+  void dispose() {
+    _moodAnimationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -260,6 +292,263 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
+  /// Seletor de humor do usuário
+  Widget _buildMoodSelector(
+    BuildContext context,
+    ThemeData theme,
+    UserModel user,
+  ) {
+    final moods = [
+      {'id': 'social', 'icon': Icons.people, 'label': 'Social', 'emoji': '🥳'},
+      {
+        'id': 'creative',
+        'icon': Icons.palette,
+        'label': 'Criativo',
+        'emoji': '🎨',
+      },
+      {
+        'id': 'chill',
+        'icon': Icons.self_improvement,
+        'label': 'Relaxar',
+        'emoji': '🧘',
+      },
+      {
+        'id': 'adventure',
+        'icon': Icons.explore,
+        'label': 'Aventura',
+        'emoji': '🚀',
+      },
+    ];
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.paddingMedium,
+            ),
+            child: Text(
+              'Como você está se sentindo?',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppConstants.spacingLarge),
+          // Stack para permitir a animação do emoji sobre os botões
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              SizedBox(
+                height: 48, // Altura fixa para os botões
+                child: ListView.builder(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: moods.length,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: AppConstants.paddingMedium,
+                  ),
+                  itemBuilder: (context, index) {
+                    final mood = moods[index];
+                    final isSelected =
+                        user.currentMood ==
+                        mood['id']; // Usa o humor do UserModel
+
+                    return GestureDetector(
+                      onTap: () {
+                        HapticFeedback.lightImpact();
+                        final moodId = mood['id'] as String;
+                        final emoji = mood['emoji'] as String;
+
+                        // Dispara a animação
+                        setState(() {
+                          _animatingMoodEmoji = emoji;
+                        });
+                        _moodAnimationController.forward(from: 0.0);
+
+                        // Atualiza o estado no Firebase
+                        ref.read(authProvider.notifier).updateUserMood(moodId);
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(
+                          right: AppConstants.spacingLarge,
+                        ),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 20,
+                          vertical: 12,
+                        ),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? theme.colorScheme.primaryContainer
+                              : theme.colorScheme.surfaceVariant,
+                          borderRadius: BorderRadius.circular(
+                            AppConstants.cardBorderRadius,
+                          ),
+                          border: isSelected
+                              ? Border.all(
+                                  color: theme.colorScheme.primary,
+                                  width: 2,
+                                )
+                              : Border.all(
+                                  color: theme.colorScheme.outline.withOpacity(
+                                    0.2,
+                                  ),
+                                ),
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              mood['icon'] as IconData,
+                              size: 20,
+                              color: isSelected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                            const SizedBox(width: AppConstants.spacingMedium),
+                            Text(
+                              mood['label'] as String,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: isSelected
+                                    ? theme.colorScheme.primary
+                                    : theme.colorScheme.onSurfaceVariant,
+                                fontWeight: isSelected
+                                    ? FontWeight.bold
+                                    : FontWeight.normal,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+              // Emoji animado
+              FadeTransition(
+                opacity: _moodFadeAnimation,
+                child: SlideTransition(
+                  position: _moodOffsetAnimation,
+                  child: Text(
+                    _animatingMoodEmoji,
+                    style: const TextStyle(fontSize: 40),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Seção de Sugestões de Conexão
+  Widget _buildConnectionsSuggestions(BuildContext context, ThemeData theme) {
+    return Padding(
+      // Adiciona padding para alinhar com outras seções
+      padding: const EdgeInsets.symmetric(vertical: AppConstants.paddingMedium),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.symmetric(
+              horizontal: AppConstants.paddingMedium,
+            ),
+            child: Text(
+              'Sugestões de Conexão',
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          const SizedBox(height: AppConstants.spacingLarge),
+          SizedBox(
+            height: 120,
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: 5, // Mocked count
+              padding: const EdgeInsets.symmetric(
+                horizontal: AppConstants.paddingMedium,
+              ),
+              itemBuilder: (context, index) {
+                // Passa o tema para o card
+                return _buildSuggestionCard(context, theme, index);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// Card individual de sugestão de conexão
+  Widget _buildSuggestionCard(
+    BuildContext context,
+    ThemeData theme,
+    int index,
+  ) {
+    // Cores para os avatares, podem ser mantidas para variedade visual
+    final colors = [
+      Colors.red.shade300,
+      Colors.blue.shade300,
+      Colors.green.shade300,
+      Colors.purple.shade300,
+      Colors.orange.shade300,
+    ];
+
+    return Container(
+      width: 100,
+      margin: const EdgeInsets.only(right: AppConstants.spacingLarge),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceVariant, // Cor adaptável ao tema
+        borderRadius: BorderRadius.circular(AppConstants.cardBorderRadius),
+        border: Border.all(color: theme.colorScheme.outline.withOpacity(0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withOpacity(
+              theme.brightness == Brightness.dark ? 0.4 : 0.1,
+            ),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Container(
+            width: AppConstants.avatarSize,
+            height: AppConstants.avatarSize,
+            decoration: BoxDecoration(
+              color: colors[index % colors.length],
+              shape: BoxShape.circle,
+            ),
+            child: const Icon(Icons.person, color: Colors.white, size: 24),
+          ),
+          const SizedBox(height: AppConstants.spacingMedium),
+          Text(
+            'Anônimo ${index + 1}',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
+          ),
+          const SizedBox(height: AppConstants.spacingSmall),
+          Text(
+            '95% match',
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: theme.colorScheme.primary,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   /// ✅ Corpo principal da tela com missões reais
   Widget _buildBody(
     BuildContext context,
@@ -279,6 +568,18 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
           // Ações rápidas
           SliverToBoxAdapter(child: _buildQuickActions(context, theme)),
+
+          SliverToBoxAdapter(
+            child: _buildMoodSelector(
+              context,
+              theme,
+              user,
+            ), // Passa o user para o seletor de humor
+          ),
+
+          SliverToBoxAdapter(
+            child: _buildConnectionsSuggestions(context, theme),
+          ),
 
           // ✅ MISSÕES REAIS - usando o provider
           SliverToBoxAdapter(

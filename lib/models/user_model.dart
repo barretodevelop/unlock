@@ -15,6 +15,7 @@ class UserModel {
   final int gems;
   final DateTime createdAt;
   final Map<String, dynamic> aiConfig;
+  final String? currentMood; // Adicionado: Humor atual do usuário
 
   // ✅ NOVOS CAMPOS PARA ONBOARDING
   final String? codinome; // Nome anônimo escolhido
@@ -43,6 +44,7 @@ class UserModel {
     required this.gems,
     required this.createdAt,
     required this.aiConfig,
+    this.currentMood,
     // Novos campos com defaults seguros
     this.codinome,
     this.avatarId,
@@ -102,6 +104,7 @@ class UserModel {
       gems: json['gems'] ?? 20,
       createdAt: DateTime.tryParse(json['createdAt'] ?? '') ?? DateTime.now(),
       aiConfig: Map<String, dynamic>.from(json['aiConfig'] ?? {}),
+      currentMood: json['currentMood'] as String?,
 
       // ✅ NOVOS CAMPOS COM FALLBACKS SEGUROS
       codinome: json['codinome'],
@@ -140,6 +143,7 @@ class UserModel {
       'coins': coins,
       'gems': gems,
       'createdAt': createdAt.toIso8601String(),
+      'currentMood': currentMood,
       'aiConfig': aiConfig,
 
       // ✅ NOVOS CAMPOS
@@ -206,6 +210,7 @@ class UserModel {
     int? coins,
     int? gems,
     DateTime? createdAt,
+    ValueGetter<String?>? currentMood, // Usar ValueGetter para permitir null
     Map<String, dynamic>? aiConfig,
     String? codinome,
     String? avatarId,
@@ -231,6 +236,7 @@ class UserModel {
       gems: gems ?? this.gems,
       createdAt: createdAt ?? this.createdAt,
       aiConfig: aiConfig ?? this.aiConfig,
+      currentMood: currentMood != null ? currentMood() : this.currentMood,
       codinome: codinome ?? this.codinome,
       avatarId: avatarId ?? this.avatarId,
       birthDate: birthDate ?? this.birthDate,
@@ -249,7 +255,7 @@ class UserModel {
 
   @override
   String toString() {
-    return 'UserModel(uid: $uid, username: $username, onboardingCompleted: $onboardingCompleted, needsOnboarding: $needsOnboarding)';
+    return 'UserModel(uid: $uid, username: $username, currentMood: $currentMood, onboardingCompleted: $onboardingCompleted, needsOnboarding: $needsOnboarding)';
   }
 
   @override
@@ -268,6 +274,7 @@ class UserModel {
         other.gems == gems &&
         other.createdAt == createdAt &&
         mapEquals(other.aiConfig, aiConfig) &&
+        other.currentMood == currentMood &&
         other.codinome == codinome &&
         other.avatarId == avatarId &&
         other.birthDate == birthDate &&
@@ -295,6 +302,7 @@ class UserModel {
       gems,
       createdAt,
       aiConfig,
+      currentMood,
       codinome,
       avatarId,
       birthDate,
@@ -328,7 +336,7 @@ class UserModel {
       gems: 20, // bonus inicial
       createdAt: DateTime.now(),
       aiConfig: {'apiUrl': '', 'apiKey': '', 'enabled': false},
-
+      currentMood: null, // Humor inicial nulo
       // Campos de onboarding vazios/padrão
       codinome: '',
       avatarId: '',

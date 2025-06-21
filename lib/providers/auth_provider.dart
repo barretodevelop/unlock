@@ -746,6 +746,50 @@ class AuthNotifier extends StateNotifier<AuthState> {
     }
   }
 
+  /// ✅ Atualiza o humor do usuário no estado local e no Firestore.
+  /// Se o mesmo humor for selecionado novamente, ele será desmarcado (null).
+  Future<void> updateUserMood(String moodId) async {
+    if (_disposed || state.user == null) {
+      AppLogger.warning(
+        'AuthProvider: Tentativa de atualizar humor sem usuário logado ou provider descartado.',
+      );
+      return;
+    }
+
+    final currentUser = state.user!;
+    // Permite desmarcar o humor se o mesmo for tocado novamente
+    final String? newMood = currentUser.currentMood == moodId ? null : moodId;
+
+    AppLogger.auth(
+      '🎭 Atualizando humor do usuário para: $newMood',
+      data: {'uid': currentUser.uid, 'oldMood': currentUser.currentMood},
+    );
+
+    // 1. Atualiza o estado local imediatamente para uma UI responsiva
+    final updatedUser = currentUser.copyWith(currentMood: () => newMood);
+    _updateState(user: updatedUser);
+
+    try {
+      // 2. Persiste a mudança no Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(currentUser.uid)
+          .update({'currentMood': newMood});
+
+      AppLogger.auth(
+        '✅ Humor do usuário atualizado e persistido no Firestore.',
+      );
+    } catch (e) {
+      AppLogger.error(
+        '❌ Erro ao persistir humor do usuário no Firestore',
+        error: e,
+        stackTrace: StackTrace.current,
+      );
+      // Reverte a mudança local se a persistência falhar
+      _updateState(user: currentUser);
+    }
+  }
+
   /// Atualizar dados do usuário
   Future<void> refreshUser() async {
     if (_disposed) return;

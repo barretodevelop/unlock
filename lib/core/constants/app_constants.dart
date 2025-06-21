@@ -96,6 +96,7 @@ class AppConstants {
   static const String themeKey = 'theme_mode';
   static const String languageKey = 'language';
   static const String onboardingCompleteKey = 'onboarding_complete';
+  static const String moodKey = 'user_mood';
   static const String lastSyncKey = 'last_sync';
 
   // Configurações de Segurança
