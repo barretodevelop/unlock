@@ -1,7 +1,6 @@
-﻿// lib/models/user_model.dart - Versão Corrigida com Onboarding (Atualizada conforme seu código)
+//lib/models/user_model.dart - Versão Corrigida com Onboarding (Atualizada conforme seu código)
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart'; // For mapEquals
-import 'package:unlock/core/constants/gamification_constants.dart'; // Para usar GamificationConstants.calculateLevelFromXP
 
 class UserModel {
   final String uid;
@@ -61,20 +60,9 @@ class UserModel {
 
   // ✅ GETTER PARA VERIFICAR SE PRECISA DE ONBOARDING
   bool get needsOnboarding {
-    // Se já marcou como completado, não precisa
-    if (onboardingCompleted) return false;
-
-    // Verificar se tem os dados mínimos necessários
-    final hasBasicData =
-        codinome != null &&
-        codinome!.isNotEmpty &&
-        avatarId != null &&
-        birthDate != null &&
-        interesses.length >= 3 &&
-        relationshipGoal != null;
-
-    // Se não tem dados básicos, precisa de onboarding
-    return !hasBasicData;
+    // A propriedade `onboardingCompleted` é a única fonte de verdade para determinar
+    // se o fluxo de onboarding foi finalizado.
+    return !onboardingCompleted;
   }
 
   // ✅ GETTER PARA VERIFICAR SE É MENOR DE IDADE
@@ -159,43 +147,6 @@ class UserModel {
       'loginStreak': loginStreak,
     };
     // unlockedFeatures will be handled by copyWith or direct update in Firestore
-  }
-
-  /// Método para atualizar os pontos de XP, moedas e gemas do usuário.
-  /// Também recalcula o nível do usuário com base no XP total.
-  // ATENÇÃO: Adicionado este método para integrar com o sistema de missões.
-  // Certifique-se de que a lógica de recalculateLevel está correta para seu jogo.
-  UserModel addRewards(int addedXp, int addedCoins, int addedGems) {
-    int newXp = xp + addedXp;
-    int newCoins = coins + addedCoins;
-    int newGems = gems + addedGems;
-
-    int newLevel = level; // Começa com o nível atual
-    // Usa a lógica de GamificationConstants para consistência no cálculo de nível
-    newLevel = GamificationConstants.calculateLevelFromXP(newXp);
-
-    return copyWith(
-      xp: newXp,
-      coins: newCoins,
-      gems: newGems,
-      level: newLevel,
-      // title: newTitle,
-    );
-  }
-
-  /// Recalcula o nível do usuário com base no XP.
-  /// Este é um exemplo simples; sua lógica de nivelamento pode ser mais complexa.
-  // ATENÇÃO: Este método agora retorna um novo UserModel,
-  // e é chamado dentro de addRewards.
-  UserModel _recalculateLevel() {
-    // Exemplo: 100 XP por nível
-    int newLevel = (xp ~/ 100) + 1;
-    if (newLevel != level) {
-      return copyWith(level: newLevel);
-      // Lógica para atualizar o título com base no novo nível
-      // this.title = getTitleForLevel(level); // Descomente e implemente se tiver um método getTitleForLevel
-    }
-    return this; // Retorna a instância atual se o nível não mudar
   }
 
   /// Permite copiar a instância com modificações

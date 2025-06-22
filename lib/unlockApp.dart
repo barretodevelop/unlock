@@ -15,7 +15,7 @@ class UnlockApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final isDarkMode = ref.watch(themeProvider);
+    final isDarkMode = ref.watch(themeProvider); // Observa o provedor de tema
 
     AppLogger.info(
       '🚀 UnlockApp construindo com sistema simplificado',
@@ -34,8 +34,9 @@ class UnlockApp extends ConsumerWidget {
       // ========== TEMA ==========
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
-      themeMode: isDarkMode ? ThemeMode.dark : ThemeMode.light,
-
+      themeMode: isDarkMode
+          ? ThemeMode.dark
+          : ThemeMode.light, // Aplica o modo de tema
       // ========== 🎯 SISTEMA DE NAVEGAÇÃO SIMPLIFICADO ==========
       routerConfig: AppRouter.createRouter(ref),
 
@@ -68,11 +69,10 @@ class _AppBuilder extends StatelessWidget {
         children: [
           // ✅ App principal
           child ?? const _EmergencyScreen(),
-          // Removido Debug overlay para simplificar
           // ✅ Debug overlay apenas em desenvolvimento
-          // if (kDebugMode) ...[
-          //   const Positioned(top: 100, right: 10, child: _DebugOverlay()),
-          // ],
+          if (kDebugMode) ...[
+            const Positioned(top: 100, right: 10, child: _DebugOverlay()),
+          ],
         ],
       ),
     );

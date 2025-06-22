@@ -113,93 +113,6 @@ class AppConstants {
   static const int maxImageSizeMB = 5;
 }
 
-/// Constantes específicas para missões
-class MissionConstants {
-  // Tipos de Missão
-  static const String typDaily = 'daily';
-  static const String typeWeekly = 'weekly';
-  static const String typeAchievement = 'achievement';
-
-  // Categorias de Missão
-  static const String categoryProfile = 'profile';
-  static const String categoryConnection = 'connection';
-  static const String categorySocial = 'social';
-  static const String categoryGame = 'game';
-  static const String categoryShop = 'shop';
-
-  // Recompensas padrão
-  static const int dailyMissionReward = 30;
-  static const int weeklyMissionReward = 100;
-  static const int achievementReward = 200;
-  static const int bonusGemsReward = 5;
-
-  // IDs de missões especiais
-  static const String firstConnectionMission = 'first_connection';
-  static const String completeProfileMission = 'complete_profile';
-  static const String firstGameMission = 'first_game';
-}
-
-/// Constantes específicas para conexões
-class ConnectionConstants {
-  // Status de Convite
-  static const String inviteStatusPending = 'pending';
-  static const String inviteStatusAccepted = 'accepted';
-  static const String inviteStatusDeclined = 'declined';
-  static const String inviteStatusCanceled = 'canceled';
-
-  // Status de Conexão
-  static const String connectionStatusActive = 'active';
-  static const String connectionStatusBlocked = 'blocked';
-  static const String connectionStatusRemoved = 'removed';
-
-  // Tipos de Interação
-  static const String interactionLike = 'like';
-  static const String interactionPass = 'pass';
-  static const String interactionSuperLike = 'super_like';
-}
-
-/// Constantes para o shop
-class ShopConstants {
-  // Categorias de Itens
-  static const String categoryAvatar = 'avatar';
-  static const String categoryAccessory = 'accessory';
-  static const String categoryTheme = 'theme';
-  static const String categoryBoost = 'boost';
-  static const String categoryPremium = 'premium';
-
-  // Tipos de Moeda
-  static const String currencyCoins = 'coins';
-  static const String currencyGems = 'gems';
-  static const String currencyReal = 'real';
-
-  // Pacotes de Moedas
-  static const Map<String, Map<String, dynamic>> coinPackages = {
-    'small': {'coins': 500, 'price': 1.99, 'bonus': 0},
-    'medium': {'coins': 1200, 'price': 4.99, 'bonus': 200},
-    'large': {'coins': 2500, 'price': 9.99, 'bonus': 500},
-  };
-
-  static const Map<String, Map<String, dynamic>> gemPackages = {
-    'small': {'gems': 50, 'price': 2.99, 'bonus': 0},
-    'medium': {'gems': 120, 'price': 6.99, 'bonus': 20},
-    'large': {'gems': 250, 'price': 12.99, 'bonus': 50},
-  };
-}
-
-/// Constantes para minijogos
-class GameConstants {
-  // Configurações do Jogo da Memória
-  static const int memoryGameRows = 4;
-  static const int memoryGameCols = 4;
-  static const int memoryGameMinScore = 50;
-  static const Duration memoryGameTurnTime = Duration(seconds: 30);
-  static const Duration cardFlipDuration = Duration(milliseconds: 600);
-
-  // Configurações Gerais
-  static const int maxGameDuration = 10; // minutos
-  static const int minPlayersRequired = 2;
-}
-
 /// Constantes para validação
 class ValidationConstants {
   // Expressões regulares
@@ -215,141 +128,6 @@ class ValidationConstants {
   static const String passwordMismatchError = 'Senhas não coincidem';
   static const String invalidUsernameError = 'Nome de usuário inválido';
   static const String ageTooYoungError = 'Idade mínima não atingida';
-}
-
-// /// Constantes para animações
-// class AnimationConstants {
-//   // Durações
-//   static const Duration fastAnimation = Duration(milliseconds: 150);
-//   static const Duration normalAnimation = Duration(milliseconds: 300);
-//   static const Duration slowAnimation = Duration(milliseconds: 500);
-
-//   // Curves
-//   static const String defaultCurve = 'easeInOut';
-//   static const String bounceCurve = 'bounceOut';
-//   static const String elasticCurve = 'elasticOut';
-// }
-
-/// Constantes para cores (complementa o tema)
-class ColorConstants {
-  // Cores de status
-  static const int successColor = 0xFF4CAF50;
-  static const int warningColor = 0xFFFF9800;
-  static const int errorColor = 0xFFF44336;
-  static const int infoColor = 0xFF2196F3;
-
-  // Cores de gamificação
-  static const int coinsColor = 0xFFFFD700;
-  static const int gemsColor = 0xFF9C27B0;
-  static const int xpColor = 0xFF4CAF50;
-  static const int levelColor = 0xFF2196F3;
-}
-
-/// Utilitários para constantes
-class ConstantsUtils {
-  // Calcular level baseado no XP
-  static int calculateLevel(int xp) {
-    return (xp / AppConstants.xpPerLevel).floor() + 1;
-  }
-
-  // Calcular XP necessário para próximo level
-  static int xpForNextLevel(int currentLevel) {
-    return currentLevel * AppConstants.xpPerLevel;
-  }
-
-  // Verificar se é menor de idade
-  static bool isMinor(DateTime birthDate) {
-    final age = DateTime.now().difference(birthDate).inDays ~/ 365;
-    return age < AppConstants.adultAge;
-  }
-
-  // Verificar idade mínima
-  static bool meetsMinimumAge(DateTime birthDate) {
-    final age = DateTime.now().difference(birthDate).inDays ~/ 365;
-    return age >= AppConstants.minimumAge;
-  }
-
-  // Gerar ID único para documentos
-  static String generateId() {
-    return DateTime.now().millisecondsSinceEpoch.toString();
-  }
-
-  // Formatação de números para gamificação
-  static String formatGameNumber(int number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
-    }
-    return number.toString();
-  }
-
-  // ========== ANIMAÇÕES ==========
-  static const Duration fastAnimation = Duration(milliseconds: 150);
-  static const Duration normalAnimation = Duration(milliseconds: 300);
-  static const Duration slowAnimation = Duration(milliseconds: 500);
-  static const Duration extraSlowAnimation = Duration(milliseconds: 800);
-
-  // ========== EMOJIS DOS HUMORES ==========
-  static const Map<String, Map<String, dynamic>> moodEmojis = {
-    'social': {
-      'emoji': '🤝',
-      'label': 'Social',
-      'description': 'Pronto para fazer conexões',
-    },
-    'creative': {
-      'emoji': '🎨',
-      'label': 'Criativo',
-      'description': 'Inspirado e artístico',
-    },
-    'chill': {
-      'emoji': '😌',
-      'label': 'Relaxar',
-      'description': 'Momento zen e tranquilo',
-    },
-    'adventure': {
-      'emoji': '🌟',
-      'label': 'Aventura',
-      'description': 'Buscando novas experiências',
-    },
-    'happy': {
-      'emoji': '😊',
-      'label': 'Feliz',
-      'description': 'Estado de alegria',
-    },
-    'focused': {
-      'emoji': '🎯',
-      'label': 'Focado',
-      'description': 'Concentrado em objetivos',
-    },
-  };
-
-  // ========== CORES DE STATUS ==========
-  static const int successColor = 0xFF4CAF50;
-  static const int warningColor = 0xFFFF9800;
-  static const int errorColor = 0xFFF44336;
-  static const int infoColor = 0xFF2196F3;
-
-  // ========== CORES DE GAMIFICAÇÃO ==========
-  static const int coinsColor = 0xFFFFD700;
-  static const int gemsColor = 0xFF9C27B0;
-  static const int xpColor = 0xFF4CAF50;
-  static const int levelColor = 0xFF2196F3;
-
-  // ========== CONFIGURAÇÕES DE MISSÕES ==========
-  static const int maxActiveMissions = 5;
-  static const int missionRefreshHours = 24;
-  static const int maxMissionProgress = 100;
-
-  // ========== CONFIGURAÇÕES DE CONEXÕES ==========
-  static const int maxConnectionsPerDay = 10;
-  static const int connectionRadius = 50; // km
-  static const int maxSuggestionsShown = 5;
-
-  // ========== CONFIGURAÇÕES DE PERFORMANCE ==========
-  static const int listItemCacheExtent = 500;
-  static const int imageMemoryCacheSize = 100;
-  static const Duration debounceDelay = Duration(milliseconds: 500);
 }
 
 /// Constantes específicas para animações
@@ -388,4 +166,68 @@ class AnimationConstants {
   static const String defaultCurve = 'easeInOut';
   // static const String bounceCurve = 'bounceOut';
   // static const String elasticCurve = 'elasticOut';
+}
+
+/// Constantes para cores (complementa o tema)
+class ColorConstants {
+  // Cores de status
+  static const int successColor = 0xFF4CAF50;
+  static const int warningColor = 0xFFFF9800;
+  static const int errorColor = 0xFFF44336;
+  static const int infoColor = 0xFF2196F3;
+
+  // Cores de gamificação
+  static const int coinsColor = 0xFFFFD700;
+  static const int gemsColor = 0xFF9C27B0;
+  static const int xpColor = 0xFF4CAF50;
+  static const int levelColor = 0xFF2196F3;
+}
+
+/// Constantes para emojis de humor
+class MoodConstants {
+  static const Map<String, Map<String, dynamic>> moodEmojis = {
+    'social': {
+      'emoji': '🤝',
+      'label': 'Social',
+      'description': 'Pronto para fazer conexões',
+    },
+    'creative': {
+      'emoji': '🎨',
+      'label': 'Criativo',
+      'description': 'Inspirado e artístico',
+    },
+    'chill': {
+      'emoji': '😌',
+      'label': 'Relaxar',
+      'description': 'Momento zen e tranquilo',
+    },
+    'adventure': {
+      'emoji': '🌟',
+      'label': 'Aventura',
+      'description': 'Buscando novas experiências',
+    },
+    'happy': {
+      'emoji': '😊',
+      'label': 'Feliz',
+      'description': 'Estado de alegria',
+    },
+    'focused': {
+      'emoji': '🎯',
+      'label': 'Focado',
+      'description': 'Concentrado em objetivos',
+    },
+  };
+}
+
+/// Utilitários de formatação e cálculo
+class AppUtils {
+  // Formatação de números para gamificação
+  static String formatGameNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
+  }
 }

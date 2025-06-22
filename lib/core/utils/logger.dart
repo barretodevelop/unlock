@@ -1,4 +1,5 @@
 // lib/core/utils/logger.dart - Sistema de Logs Centralizado
+import 'package:firebase_crashlytics/firebase_crashlytics.dart'; // Importação adicionada para Crashlytics
 import 'package:flutter/foundation.dart';
 import 'package:logger/logger.dart';
 
@@ -22,10 +23,12 @@ class AppLogger {
     if (_isInitialized) return;
 
     _logger = Logger(
-      filter: _AppLogFilter(enableInRelease: enableInRelease),
+      filter: AppLogFilter(
+        enableInRelease: enableInRelease,
+      ), // Corrigido: Usando AppLogFilter
       printer: _AppLogPrinter(),
-      output: _AppLogOutput(),
-      // level: logLevel,
+      // output: _AppLogOutput(), // Removido: Lógica de Crashlytics movida para _AppLogPrinter
+      level: logLevel, // Garante que o nível de log configurado seja aplicado
     );
 
     _isInitialized = true;
@@ -74,14 +77,12 @@ class AppLogger {
     String? feature,
   }) {
     _ensureInitialized();
-    final formattedMessage = _formatMessage(
-      message,
-      data,
-      feature,
-      error,
-      stackTrace,
+    _logger.e(
+      // Passa a mensagem, erro e stackTrace para o logger
+      _formatMessage(message, data, feature),
+      error: error,
+      stackTrace: stackTrace,
     );
-    _logger.e(formattedMessage);
   }
 
   // Logs críticos (falhas graves do sistema)
@@ -93,14 +94,12 @@ class AppLogger {
     String? feature,
   }) {
     _ensureInitialized();
-    final formattedMessage = _formatMessage(
-      message,
-      data,
-      feature,
-      error,
-      stackTrace,
+    _logger.f(
+      // Passa a mensagem, erro e stackTrace para o logger
+      _formatMessage(message, data, feature),
+      error: error,
+      stackTrace: stackTrace,
     );
-    _logger.f(formattedMessage);
   }
 
   // Logs específicos para features
@@ -138,10 +137,8 @@ class AppLogger {
   static String _formatMessage(
     String message,
     Map<String, dynamic>? data,
-    String? feature, [
-    Object? error,
-    StackTrace? stackTrace,
-  ]) {
+    String? feature,
+  ) {
     final buffer = StringBuffer();
 
     if (feature != null) {
@@ -154,23 +151,16 @@ class AppLogger {
       buffer.write(' | Data: ${data.toString()}');
     }
 
-    if (error != null) {
-      buffer.write(' | Error: ${error.toString()}');
-    }
-
-    if (stackTrace != null) {
-      buffer.write(' | StackTrace: ${stackTrace.toString()}');
-    }
-
     return buffer.toString();
   }
 }
 
 /// Filtro personalizado para controlar quando logs são exibidos
-class _AppLogFilter extends LogFilter {
+class AppLogFilter extends LogFilter {
+  // Renomeado para classe pública
   final bool enableInRelease;
 
-  _AppLogFilter({this.enableInRelease = false});
+  AppLogFilter({this.enableInRelease = false});
 
   @override
   bool shouldLog(LogEvent event) {
@@ -200,35 +190,43 @@ class _AppLogPrinter extends PrettyPrinter {
 
   @override
   List<String> log(LogEvent event) {
+    // Primeiro, obtenha as linhas formatadas do log (para console)
     final originalLog = super.log(event);
 
-    // Adicionar timestamp mais legível
-    final timestamp = DateTime.now().toIso8601String().substring(11, 23);
-
-    // Personalizar primeira linha com app identifier
-    if (originalLog.isNotEmpty) {
-      originalLog[0] = '🔓 UNLOCK [$timestamp] ${originalLog[0]}';
-    }
-
-    return originalLog;
-  }
-}
-
-/// Output personalizado para logs (pode ser expandido para enviar para serviços externos)
-class _AppLogOutput extends LogOutput {
-  @override
-  void output(OutputEvent event) {
-    // Em desenvolvimento, só printar no console
+    // Em desenvolvimento, printar no console
     if (kDebugMode) {
-      for (final line in event.lines) {
+      // Adicionar timestamp mais legível
+      final timestamp = DateTime.now().toIso8601String().substring(11, 23);
+      if (originalLog.isNotEmpty) {
+        originalLog[0] = '🔓 UNLOCK [$timestamp] ${originalLog[0]}';
+      }
+      for (final line in originalLog) {
         print(line);
       }
     }
 
-    // TODO: Em produção, enviar logs críticos para serviços como Firebase Crashlytics
-    // if (event.level == Level.error || event.level == Level.fatal) {
-    //   _sendToExternalService(event);
-    // }
+    // Em produção, enviar logs críticos para Firebase Crashlytics
+    if (!kDebugMode &&
+        (event.level == Level.error || event.level == Level.fatal)) {
+      final error = event.error; // O objeto de erro original
+      if (error != null) {
+        // A mensagem formatada já está em originalLog.first
+        final reason = originalLog.isNotEmpty
+            ? originalLog.first
+            : 'No message provided';
+        FirebaseCrashlytics.instance.recordError(
+          error,
+          event.stackTrace,
+          reason:
+              'AppLogger: ${event.level.toString().split('.').last.toUpperCase()} - $reason',
+          fatal: event.level == Level.fatal,
+        );
+      }
+    }
+
+    // Retorna as linhas formatadas para o LogOutput (se houver um)
+    // Como _AppLogOutput foi removido, isso é apenas para compatibilidade interna do logger.
+    return originalLog;
   }
 }
 

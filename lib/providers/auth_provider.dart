@@ -1,15 +1,10 @@
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
-import 'package:flutter/src/widgets/basic.dart';
-import 'package:flutter/src/widgets/framework.dart';
+import 'package:firebase_auth/firebase_auth.dart' show User;
+import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/features/connections/services/connections_service.dart'; // Importar ConnectionsService
-import 'package:unlock/features/missions/providers/missions_provider.dart'; // Importar o MissionsNotifier
-import 'package:unlock/features/rewards/models/reward_model.dart';
-import 'package:unlock/features/rewards/providers/rewards_provider.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/services/auth_service.dart';
 
@@ -42,37 +37,11 @@ class AuthState {
 
   // ✅ ONBOARDING - Verifica se usuário precisa completar perfil
   bool get needsOnboarding {
-    if (!isAuthenticated || user == null) return false;
-
-    // Verificar campos obrigatórios do onboarding
-    final hasOnboardingCompleted = user!.onboardingCompleted;
-    final hasCodinome = user!.codinome?.isNotEmpty == true;
-    final hasAvatarId = user!.avatarId?.isNotEmpty == true;
-    final hasInterests = user!.interesses.length >= 3;
-    final hasBirthDate = user!.birthDate != null;
-
-    // Debug para verificar valores
-    if (kDebugMode) {
-      AppLogger.debug(
-        '🔍 Checking onboarding for ${user!.uid}',
-        data: {
-          'onboardingCompleted': hasOnboardingCompleted,
-          'hasCodinome': hasCodinome,
-          'hasAvatarId': hasAvatarId,
-          'hasInterests': hasInterests,
-          'hasBirthDate': hasBirthDate,
-        },
-      );
-    }
-
-    // Usuário precisa de onboarding se:
-    // 1. Não marcou onboarding como completo OU
-    // 2. Qualquer campo obrigatório está vazio
-    return !hasOnboardingCompleted ||
-        !hasCodinome ||
-        !hasAvatarId ||
-        !hasInterests ||
-        !hasBirthDate;
+    // A única fonte de verdade para o fluxo de navegação deve ser o booleano
+    // `onboardingCompleted`. Se o usuário está autenticado, mas não completou
+    // o onboarding, ele precisa ser direcionado para o fluxo de onboarding.
+    // As validações de campos individuais pertencem à lógica interna do onboarding.
+    return isAuthenticated && user != null && !user!.onboardingCompleted;
   }
 
   // ✅ GETTER PARA VERIFICAR SE É MENOR DE IDADE
@@ -182,172 +151,45 @@ class AuthNotifier extends StateNotifier<AuthState> {
   DateTime? _sessionStartTime;
 
   AuthNotifier(this._ref) : super(const AuthState()) {
-    // ✅ NOVO: Construtor com ref
-    _initialize();
+    _initialize(); // Inicia o listener de autenticação
   }
 
-  /// Inicialização do provider com triggers de gamificação
-  Future<void> _initialize() async {
-    if (_disposed) return;
-    try {
-      _sessionStartTime = DateTime.now();
-      AppLogger.auth('🔄 Inicializando AuthProvider com triggers...');
-      // Analytics: Início da inicialização
-      await _trackAnalyticsEvent('auth_provider_init_start');
-      // Resetar estado completamente
-      state = const AuthState(
-        isLoading: true,
-        status: AuthStatus.unknown,
-        isInitialized: false,
-      );
-      // Escutar mudanças de autenticação
-      _authSubscription = AuthService.authStateChanges.listen(
-        _handleAuthStateChange,
-        onError: _handleAuthError,
-      );
-      // Bloco removido: A verificação síncrona de `AuthService.currentUser == null` foi removida.
-      // A lógica para definir o estado inicial (incluindo isInitialized = true)
-      // agora depende exclusivamente do primeiro evento processado pelo _handleAuthStateChange,
-      // garantindo que `isInitialized` só se torne `true` após o stream de autenticação
-      // ter emitido e sido processado.
-      AppLogger.auth('✅ AuthProvider inicializado com triggers');
-      // Analytics: Inicialização concluída
-      await _trackAnalyticsEvent(
-        'auth_provider_init_success',
-        data: {
-          'init_duration_ms': DateTime.now()
-              .difference(_sessionStartTime!)
-              .inMilliseconds,
-        },
-      );
-    } catch (error) {
-      _handleError('Erro na inicialização do AuthProvider', error);
-    }
-  }
+  /// Inicializa o Notifier, escutando as mudanças de autenticação.
+  void _initialize() {
+    AppLogger.auth('🚀 AuthNotifier Initializing...');
+    _updateState(isLoading: true, isInitialized: false);
 
-  /// Handler melhorado para mudanças de autenticação
-  Future<void> _handleAuthStateChange(dynamic firebaseUser) async {
-    if (_disposed) return;
-
-    AppLogger.auth(
-      '🔥 _handleAuthStateChange TRIGGERED',
-      data: {'hasFirebaseUser': firebaseUser != null, 'uid': firebaseUser?.uid},
-    );
-
-    // ✅ NOVO: Adicionar timeout para a inicialização/carregamento
-    const initializationTimeout = Duration(
-      seconds: 15,
-    ); // Tempo limite de 15 segundos
-    try {
-      AppLogger.auth(
-        // Mantém o log original
-        '🔄 Mudança no estado de autenticação',
-        data: {
-          'hasUser': firebaseUser != null,
-          'uid': firebaseUser?.uid,
-          'email': firebaseUser?.email,
-        },
-      );
-      // Garante que o estado de loading seja definido no início do processamento.
-      // Não definimos isInitialized aqui, pois isso acontece ao final do login/logout.
-      _updateState(isLoading: true, error: null);
-      // Envolve a lógica principal em um timeout
-      await (() async {
-        if (firebaseUser == null) {
-          // Limpar estado e triggers no logout
-          await _handleUserLogout();
-        } else {
-          // Carregar dados e disparar triggers no login
-          await _handleUserLogin(firebaseUser);
-        }
-      }()).timeout(
-        initializationTimeout,
-        onTimeout: () {
-          AppLogger.error(
-            // Corrige a mensagem de log
-            '❌ Inicialização/Carregamento de Auth excedeu o tempo limite (${initializationTimeout.inSeconds}s).',
-          );
-          // Define um estado de erro no timeout, garantindo isLoading: false e isInitialized: true
-          _updateState(
-            isLoading: false,
-            isInitialized: true,
-            error: 'Tempo limite excedido ao carregar dados.',
-            status: AuthStatus.error,
-          );
-        },
-      );
-    } on TimeoutException catch (_) {
-      // O erro de timeout já foi tratado no onTimeout.
-      // Apenas garantimos que o estado final seja consistente se não foi definido lá.
-      if (state.isLoading || !state.isInitialized) {
-        _updateState(
-          isLoading: false,
-          isInitialized: true,
-          status: AuthStatus.error,
-          error: state.error ?? 'Timeout não tratado.',
-        );
-      }
-    } catch (error) {
-      // Captura outros erros que não sejam TimeoutException
-      _handleError('Erro ao processar mudança de autenticação', error);
-    } finally {
-      // Bloco finally para garantir que isLoading seja false e isInitialized seja true,
-      // caso algum fluxo de erro não tenha feito isso.
-      if (state.isLoading || !state.isInitialized) {
-        // Se o status ainda é unknown e não há erro, provavelmente é unauthenticated.
-        // Caso contrário, mantém o status atual (que pode ser error ou authenticated).
-        final finalStatus =
-            (state.status == AuthStatus.unknown && state.error == null)
-            ? AuthStatus.unauthenticated
-            : state.status;
-        _updateState(
-          isLoading: false,
-          isInitialized: true,
-          status: finalStatus,
-          user: finalStatus == AuthStatus.unauthenticated ? null : state.user,
-        );
+    _authSubscription = AuthService.authStateChanges.listen((
+      firebaseUser,
+    ) async {
+      if (_disposed) return;
+      if (firebaseUser != null) {
         AppLogger.auth(
-          '🚪 _handleAuthStateChange FINALLY fallback state update',
-          data: {'state': state.toString()},
+          '🔥 Auth stream event: User found (uid: ${firebaseUser.uid})',
         );
+        await _handleUserLogin(firebaseUser);
+      } else {
+        AppLogger.auth('🔥 Auth stream event: No user found.');
+        await _handleUserLogout();
       }
-    }
+    }, onError: _handleAuthError);
   }
 
-  // ================================================================================================
-  // ✅ NOVOS MÉTODOS: TRIGGERS DE GAMIFICAÇÃO
-  // ================================================================================================
-
-  /// Lidar com login do usuário (com triggers)
-  Future<void> _handleUserLogin(dynamic firebaseUser) async {
+  /// Lida com o login bem-sucedido, buscando dados do usuário.
+  Future<void> _handleUserLogin(User firebaseUser) async {
     if (_disposed) return;
     try {
-      final loadStartTime = DateTime.now();
-      AppLogger.auth('🔄 Carregando dados do usuário: ${firebaseUser.uid}');
-      // Manter loading durante carregamento
-      // isLoading já deve ter sido definido por _handleAuthStateChange
-      // _updateState(isLoading: true, error: null);
-      // Buscar dados atualizados do Firestore
+      AppLogger.auth('🔄 Handling user login for ${firebaseUser.uid}');
+      // Mantém o loading enquanto busca dados do Firestore
+      _updateState(isLoading: true);
+
       final userModel = await AuthService.getOrCreateUserInFirestore(
         firebaseUser,
       );
-      if (userModel != null) {
-        final loadDuration = DateTime.now().difference(loadStartTime);
-        // Dados carregados com sucesso
-        await _trackAnalyticsEvent(
-          'user_data_loaded',
-          data: {
-            'load_duration_ms': loadDuration.inMilliseconds,
-            'user_level': userModel.level,
-            'user_coins': userModel.coins,
-            'user_gems': userModel.gems,
-            'onboarding_completed': userModel.onboardingCompleted,
-            'needs_onboarding': userModel.needsOnboarding,
-            'is_new_user': userModel.createdAt.isAfter(
-              DateTime.now().subtract(const Duration(minutes: 5)),
-            ),
-          },
-        );
+
+      if (userModel != null && !_disposed) {
+        AppLogger.auth('✅ User model loaded: ${userModel.username}');
+        _sessionStartTime = DateTime.now();
         _updateState(
           user: userModel,
           isLoading: false,
@@ -355,226 +197,22 @@ class AuthNotifier extends StateNotifier<AuthState> {
           status: AuthStatus.authenticated,
           error: null,
         );
-        // ✅ NOVO: TRIGGER GAMIFICAÇÃO APÓS LOGIN COMPLETO
-        await _triggerGamificationSystems(userModel);
-        // Log final do estado para debug
-        AppLogger.auth(
-          '🎯 Estado final do usuário',
-          data: {
-            'needsOnboarding': userModel.needsOnboarding,
-            'shouldShowOnboarding': state.shouldShowOnboarding,
-            'shouldShowHome': state.shouldShowHome,
-          },
-        );
-      } else {
-        // Falha ao carregar dados - forçar logout
-        AppLogger.auth('❌ Falha ao carregar dados do usuário');
-        // O signOut será tratado pelo stream, que chamará _handleUserLogout.
-        // Apenas garantimos que o estado atual reflita o erro.
-        _updateState(
-          isLoading: false,
-          isInitialized: true,
-          status: AuthStatus.error,
-          error: 'Falha ao carregar dados do usuário.',
-          user: null,
-        );
-        // Chamada explícita ao signOut para garantir que o Firebase também seja deslogado.
-        // O _handleUserLogout subsequente (via stream) apenas confirmará o estado.
-        await AuthService.signOut().catchError(
-          (e) =>
-              AppLogger.error("Erro no signOut após falha de carregamento: $e"),
-        );
-      }
-    } catch (error) {
-      _handleError('Erro ao carregar dados do usuário', error);
-      // Em caso de erro, também forçar logout para manter consistência
-      try {
-        // Garante que o estado reflita o erro antes de tentar o signOut.
-        if (!_disposed) {
-          _updateState(
-            isLoading: false,
-            isInitialized: true,
-            status: AuthStatus.error,
-            error: state.error ?? 'Erro ao carregar usuário.',
-            user: null,
-          );
-        }
-        await AuthService.signOut();
-      } catch (signOutError) {
-        AppLogger.auth('❌ Erro adicional no logout: $signOutError');
-      }
-    }
-  }
-
-  /// Trigger para sistemas de gamificação após login
-  Future<void> _triggerGamificationSystems(UserModel user) async {
-    if (_disposed) return;
-    try {
-      AppLogger.auth('🎮 Disparando triggers de gamificação para ${user.uid}');
-      // ✅ TRIGGER: Sistema de Missões
-      // Garante que as missões sejam carregadas antes de tentar reportar eventos
-      final missionsNotifier = _ref.read(missionsProvider.notifier);
-      if (missionsNotifier.state.isLoading) {
-        AppLogger.debug('MissionsNotifier ainda carregando, aguardando...');
-        // Aguarda até que o MissionsNotifier termine de carregar
-        await for (var _ in missionsNotifier.stream) {
-          if (!missionsNotifier.state.isLoading) break;
-        }
-        AppLogger.debug('MissionsNotifier finalizou o carregamento.');
-      }
-      await _triggerMissionsSystem(user); // Isso apenas loga agora
-      // ✅ TRIGGER: Sistema de Recompensas
-      await _triggerRewardsSystem(user);
-      // ✅ TRIGGER: Login Diário
-      await _triggerDailyLogin(user);
-      AppLogger.auth('✅ Todos os triggers de gamificação executados');
-    } catch (e) {
-      AppLogger.error('❌ Erro ao disparar triggers de gamificação', error: e);
-      // Não falhar o login por causa dos triggers
-    }
-  }
-
-  /// Trigger específico para sistema de missões
-  Future<void> _triggerMissionsSystem(UserModel user) async {
-    try {
-      AppLogger.debug('🎯 Trigger: Sistema de Missões');
-      // Este trigger agora serve para garantir que o MissionsNotifier está ativo
-      // e pode começar a observar eventos.
-      // A inicialização real das missões (carregamento do repositório) acontece
-      // no construtor do MissionsNotifier quando ele é lido.
-      await _trackAnalyticsEvent(
-        'missions_system_triggered',
-        data: {
-          'user_id': user.uid,
-          'user_level': user.level,
-          'onboarding_completed': user.onboardingCompleted,
-        },
-      );
-      AppLogger.debug('✅ Trigger de missões executado');
-    } catch (e) {
-      AppLogger.error('⚠️ Trigger de missões falhou (não crítico)', error: e);
-    }
-  }
-
-  /// Trigger específico para sistema de recompensas
-  Future<void> _triggerRewardsSystem(UserModel user) async {
-    try {
-      AppLogger.debug('🎁 Trigger: Sistema de Recompensas');
-      // Lógica para verificar recompensas pendentes, login bonuses, etc.
-      // O `RewardsNotifier` em si já tem a lógica de carregar recompensas no initialize.
-      await _trackAnalyticsEvent(
-        'rewards_system_triggered',
-        data: {'user_id': user.uid},
-      );
-      AppLogger.debug('✅ Trigger de recompensas executado');
-    } catch (e) {
-      AppLogger.error(
-        '⚠️ Trigger de recompensas falhou (não crítico)',
-        error: e,
-      );
-    }
-  }
-
-  /// Trigger para login diário
-  Future<void> _triggerDailyLogin(UserModel user) async {
-    try {
-      AppLogger.debug('📅 Trigger: Login Diário');
-      final now = DateTime.now();
-      final today = DateTime(now.year, now.month, now.day);
-      // Assumindo que UserModel agora tem lastLoginDate e loginStreak
-      // vindos do Firestore através do AuthService.getOrCreateUserInFirestore
-      final DateTime? lastLoginDate = user.lastLoginDate;
-      int currentStreak = user.loginStreak ?? 0;
-      bool isFirstLoginToday = true;
-      if (lastLoginDate != null) {
-        final DateTime lastLoginDay = DateTime(
-          lastLoginDate.year,
-          lastLoginDate.month,
-          lastLoginDate.day,
-        );
-        if (lastLoginDay.isAtSameMomentAs(today)) {
-          isFirstLoginToday = false;
-          AppLogger.debug('Login diário já processado hoje para ${user.uid}.');
-        } else {
-          final DateTime yesterday = today.subtract(const Duration(days: 1));
-          if (lastLoginDay.isAtSameMomentAs(yesterday)) {
-            currentStreak++;
-            AppLogger.debug(
-              'Sequência de login incrementada para: $currentStreak dias para ${user.uid}.',
-            );
-          } else {
-            currentStreak = 1; // Quebrou a sequência
-            AppLogger.debug(
-              'Sequência de login quebrada. Reiniciada para 1 dia para ${user.uid}.',
-            );
-          }
-        }
-      } else {
-        currentStreak = 1; // Primeiro login
-        AppLogger.debug(
-          'Primeiro login registrado para ${user.uid}. Sequência: 1 dia.',
-        );
-      }
-      if (isFirstLoginToday) {
-        AppLogger.debug(
-          'Processando primeiro login do dia para ${user.uid}. Streak: $currentStreak',
-        );
-        // Conceder bônus de login diário (moedas)
-        final bonusCoins = _ref
-            .read(rewardsProvider.notifier)
-            .calculateDailyLoginBonus(currentStreak);
-        if (bonusCoins > 0) {
-          AppLogger.debug(
-            'Concedendo bônus de login diário: $bonusCoins moedas para $currentStreak dias de streak para ${user.uid}.',
-          );
-          // Aplica as moedas diretamente ao UserModel local e dispara atualização no Firestore
-          _ref
-              .read(authProvider.notifier)
-              .addRewardsToCurrentUser(0, bonusCoins, 0);
-          // Registrar a recompensa como já resgatada no histórico de recompensas
-          // Isso também pode atualizar 'totalEarned' no RewardsNotifier/Service.
-          await _ref
-              .read(rewardsProvider.notifier)
-              .recordDirectlyClaimedCoinReward(
-                userId: user.uid,
-                amount: bonusCoins,
-                source: RewardSource.dailyLogin,
-                description: 'Bônus de login diário ($currentStreak dias)',
-                metadata: {'streakDays': currentStreak},
-              );
-        }
-        // Atualizar lastLoginDate e loginStreak no Firestore
-        await FirebaseFirestore.instance
-            .collection('users')
-            .doc(user.uid)
-            .update({
-              'lastLoginDate': Timestamp.fromDate(now),
-              'loginStreak': currentStreak,
-              'lastLogin': FieldValue.serverTimestamp(),
-            });
-        AppLogger.debug(
-          'Dados de login (lastLoginDate, loginStreak) atualizados no Firestore para ${user.uid}.',
-        );
-        // Reportar evento para o sistema de missões
-        _ref.read(missionsProvider.notifier).reportMissionEvent('LOGIN_DAILY');
-        AppLogger.debug(
-          'Evento LOGIN_DAILY reportado para o sistema de missões para ${user.uid}.',
-        );
         await _trackAnalyticsEvent(
-          'daily_login_bonus_granted',
-          data: {
-            'user_id': user.uid,
-            'streak': currentStreak,
-            'bonus_coins': bonusCoins,
-          },
+          'user_logged_in',
+          data: {'uid': userModel.uid},
         );
+      } else if (!_disposed) {
+        AppLogger.auth('❌ Could not get or create user model in Firestore.');
+        await AuthService.signOut(); // Força logout se dados do usuário falharem
+        _handleError('Failed to load user data.', null);
       }
-      AppLogger.debug('✅ Trigger de login diário concluído para ${user.uid}.');
-    } catch (e) {
+    } catch (e, stackTrace) {
       AppLogger.error(
-        '⚠️ Trigger de login diário falhou (não crítico)',
+        '❌ Error in _handleUserLogin',
         error: e,
+        stackTrace: stackTrace,
       );
+      _handleError('Error processing login.', e);
     }
   }
 
@@ -608,38 +246,14 @@ class AuthNotifier extends StateNotifier<AuthState> {
       );
     }
 
-    // Limpar o cache de conexões no logout
-    _ref.read(connectionsServiceProvider).clearAllCache();
-
     AppLogger.auth('✅ Logout finalizado, estado atual: $state');
-  }
-
-  // ================================================================================================
-  // MÉTODOS PÚBLICOS EXISTENTES (mantidos inalterados)
-  // ================================================================================================
-
-  /// Método para adicionar recompensas ao usuário logado.
-  /// Será chamado pelo RewardsService.
-  void addRewardsToCurrentUser(int xp, int coins, int gems) {
-    if (state.user != null) {
-      // Cria uma nova instância de UserModel com as recompensas adicionadas
-      // O método `addRewards` no UserModel já lida com a atualização e recalculo de nível.
-      final updatedUser = state.user!.addRewards(xp, coins, gems);
-      // Atualiza o estado do AuthProvider com o novo UserModel imutável
-      state = state.copyWith(user: updatedUser);
-      print(
-        'DEBUG: UserModel atualizado com recompensas: XP=${updatedUser.xp}, Coins=${updatedUser.coins}, Gems=${updatedUser.gems}',
-      );
-      // Opcional: Persistir o usuário atualizado no backend aqui, se necessário.
-      // _userRepository.updateUser(updatedUser);
-    }
   }
 
   /// Login com Google
   Future<bool> signInWithGoogle() async {
     if (_disposed) return false;
     try {
-      _log('🔑 Iniciando login com Google...');
+      AppLogger.auth('🔑 Iniciando login com Google...');
       _updateState(
         isLoading: true,
         error: null,
@@ -647,11 +261,11 @@ class AuthNotifier extends StateNotifier<AuthState> {
       ); // Mantém isInitialized como está ou false
       final result = await AuthService.signInWithGoogle();
       if (result != null) {
-        _log('✅ Login com Google bem-sucedido');
+        AppLogger.auth('✅ Login com Google bem-sucedido');
         await _trackAnalyticsEvent('google_sign_in_success');
         return true;
       } else {
-        _log('❌ Login com Google falhou');
+        AppLogger.auth('❌ Login com Google falhou');
         await _trackAnalyticsEvent('google_sign_in_failed');
         _updateState(
           isLoading: false,
@@ -662,7 +276,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         return false;
       }
     } catch (error) {
-      _log('❌ Erro no login com Google: $error');
+      AppLogger.error('❌ Erro no login com Google', error: error);
       await _trackAnalyticsEvent(
         'google_sign_in_error',
         data: {'error': error.toString()},
@@ -676,13 +290,13 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> signOut() async {
     if (_disposed) return;
     try {
-      _log('🚪 Fazendo logout...');
+      AppLogger.auth('🚪 Fazendo logout...');
       _updateState(
         isLoading: true,
         status: state.status,
       ); // Mantém o status atual enquanto faz logout
       await AuthService.signOut();
-      _log('✅ Logout realizado com sucesso');
+      AppLogger.auth('✅ Logout realizado com sucesso');
       // Chamar _handleUserLogout explicitamente para garantir que o estado seja limpo
       // e o GoRouter seja notificado imediatamente.
       await _handleUserLogout(); // Isso já define isLoading: false e status corretos.
@@ -690,7 +304,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
         'user_sign_out',
       ); // Mover analytics para depois da atualização do estado
     } catch (error) {
-      _log('❌ Erro no logout: $error');
+      AppLogger.error('❌ Erro no logout', error: error);
       _handleError('Erro no logout', error);
       // Mesmo em erro, garantir que o estado de logout seja refletido se possível
       if (!_disposed && state.isAuthenticated) {
@@ -887,7 +501,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
   Future<void> recheckOnboardingStatus() async {
     if (!state.isAuthenticated || _disposed) return;
     try {
-      _log('🔄 Verificando status de onboarding...');
+      AppLogger.auth('🔄 Verificando status de onboarding...');
       await refreshUser();
     } catch (error) {
       _handleError('Erro ao verificar status de onboarding', error);
@@ -896,14 +510,15 @@ class AuthNotifier extends StateNotifier<AuthState> {
 
   /// Handler de erro de autenticação
   void _handleAuthError(error) {
-    _log('❌ Erro no stream de autenticação: $error');
+    AppLogger.error('❌ Erro no stream de autenticação', error: error);
     _handleError('Erro no stream de autenticação', error);
   }
 
   /// Handler genérico de erros
   void _handleError(String message, dynamic error) {
     if (_disposed) return;
-    _log('❌ $message: $error');
+    AppLogger.error('❌ $message: $error');
+    AppLogger.error(message, error: error);
     _updateState(
       isLoading: false,
       isInitialized: true,
@@ -943,13 +558,6 @@ class AuthNotifier extends StateNotifier<AuthState> {
       AppLogger.debug('📊 Analytics: $eventName', data: data);
     } catch (e) {
       AppLogger.warning('⚠️ Falha no analytics: $e');
-    }
-  }
-
-  /// Logging interno
-  void _log(String message) {
-    if (kDebugMode) {
-      AppLogger.auth(message);
     }
   }
 

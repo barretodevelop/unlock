@@ -1,6 +1,7 @@
 ﻿// lib/providers/theme_provider.dart - Com Analytics Integrado
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/services/analytics/analytics_integration.dart';
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
@@ -10,8 +11,6 @@ final themeProvider = StateNotifierProvider<ThemeNotifier, bool>(
 );
 
 class ThemeNotifier extends StateNotifier<bool> {
-  static const String _themeKey = 'isDark';
-
   DateTime? _initTime;
   DateTime? _lastThemeChange;
   int _themeChangeCount = 0;
@@ -60,7 +59,7 @@ class ThemeNotifier extends StateNotifier<bool> {
 
       // Salvar preferência
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_themeKey, newTheme);
+      await prefs.setBool(AppConstants.themeKey, newTheme);
 
       final changeDuration = DateTime.now().difference(changeStartTime);
 
@@ -147,7 +146,7 @@ class ThemeNotifier extends StateNotifier<bool> {
       _lastThemeChange = DateTime.now();
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(_themeKey, isDark);
+      await prefs.setBool(AppConstants.themeKey, isDark);
 
       final changeDuration = DateTime.now().difference(changeStartTime);
 
@@ -193,7 +192,7 @@ class ThemeNotifier extends StateNotifier<bool> {
       AppLogger.debug('📱 ThemeNotifier: Carregando tema das preferências...');
 
       final prefs = await SharedPreferences.getInstance();
-      final savedTheme = prefs.getBool(_themeKey);
+      final savedTheme = prefs.getBool(AppConstants.themeKey);
 
       final loadDuration = DateTime.now().difference(loadStartTime);
 
@@ -283,7 +282,7 @@ class ThemeNotifier extends StateNotifier<bool> {
       _lastThemeChange = null;
 
       final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(_themeKey);
+      await prefs.remove(AppConstants.themeKey);
 
       final resetDuration = DateTime.now().difference(resetStartTime);
 
