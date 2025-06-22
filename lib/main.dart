@@ -1,5 +1,6 @@
 // main.dart - ATUALIZADO PARA SISTEMA DE NAVEGAÇÃO ESCALÁVEL
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -9,11 +10,21 @@ import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/firebase_options.dart';
 import 'package:unlock/services/analytics/analytics_integration.dart';
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
+import 'package:unlock/services/notification_service.dart'; // Importar NotificationService
 import 'package:unlock/unlockApp.dart';
 
 /// Entry point da aplicação Unlock
 void main() async {
   await _initializeApp();
+}
+
+/// Handler de mensagens em background do Firebase Messaging
+/// Deve ser uma função de nível superior (fora de qualquer classe)
+@pragma('vm:entry-point')
+Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
+  AppLogger.info('📢 [Background Message] Received: ${message.messageId}');
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+  await NotificationService.handleBackgroundMessage(message);
 }
 
 /// Inicializar aplicação com configuração completa
@@ -43,12 +54,10 @@ Future<void> _initializeApp() async {
     );
     AppLogger.info('✅ Firebase inicializado');
 
-    // Adicionado log temporário para verificar a emissão inicial do stream
-    // FirebaseAuth.instance.authStateChanges().listen((User? user) {
-    //   AppLogger.info('[MAIN - AuthStream] User: ${user?.uid}');
-    // }).onError((error) {
-    //   AppLogger.error('[MAIN - AuthStream] Error: $error');
-    // });
+    // Configurar handler de mensagens em background do FCM
+    FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+    AppLogger.info('✅ FCM background handler configurado');
+
     // ========== INICIALIZAÇÃO DO ANALYTICS ==========
 
     // await AnalyticsIntegration.initialize();
@@ -86,6 +95,9 @@ Future<void> _initializeApp() async {
       },
     );
 
+    // Inicializar o NotificationService (que também configura o foreground handler)
+    // e verificar por navegação pendente.
+    // Isso será feito no UnlockApp para ter acesso ao ref.
     // ========== EXECUTAR APP ==========
 
     runApp(

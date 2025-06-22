@@ -20,16 +20,26 @@ class UserModel {
   final String? codinome; // Nome anônimo escolhido
   final String? avatarId; // ID do avatar selecionado
   final DateTime? birthDate; // Data de nascimento
+  final String? bio; // Bio do usuário (adicionado)
   final List<String> interesses; // Lista de interesses
   final String? relationshipGoal; // Objetivo: amizade, namoro, etc
   final int connectionLevel; // Nível de exigência 1-10
   final bool onboardingCompleted; // Se completou onboarding
   final DateTime? onboardingCompletedAt; // Quando completou
 
+  // ✅ CAMPOS REAIS QUE PODEM SER REVELADOS
+  final String? actualPhotoUrl;
+  final List<String> actualFavoriteBands;
+  final String? actualSocialMediaHandle;
+
+  // Campos para controle de Login Diário e Streak
+  final Map<String, dynamic> revealedProfile; // Recompensas reveladas
+
   // Campos para controle de Login Diário e Streak
   final DateTime? lastLoginDate;
   final int? loginStreak;
   final Map<String, bool> unlockedFeatures;
+  final List<String> connectedUsers; // Novos campo para usuários conectados
 
   const UserModel({
     required this.uid,
@@ -48,13 +58,20 @@ class UserModel {
     this.codinome,
     this.avatarId,
     this.birthDate,
+    this.bio,
     this.interesses = const [],
     this.relationshipGoal,
     this.connectionLevel = 5,
     this.onboardingCompleted = false, // ✅ DEFAULT FALSE
     this.onboardingCompletedAt,
+    // Campos reais que podem ser revelados
+    this.actualSocialMediaHandle,
+    this.actualPhotoUrl,
+    this.actualFavoriteBands = const [],
+    this.revealedProfile = const {},
     this.lastLoginDate,
     this.loginStreak,
+    this.connectedUsers = const [], // Inicializar como lista vazia
     this.unlockedFeatures = const {}, // Default to an empty map
   });
 
@@ -101,6 +118,7 @@ class UserModel {
           ? (json['lastLoginDate'] as Timestamp).toDate()
           : null,
       loginStreak: json['loginStreak'] as int?,
+      bio: json['bio'],
       birthDate: json['birthDate'] != null
           ? DateTime.tryParse(json['birthDate'])
           : null,
@@ -112,9 +130,15 @@ class UserModel {
       onboardingCompletedAt: json['onboardingCompletedAt'] != null
           ? DateTime.tryParse(json['onboardingCompletedAt'])
           : null,
+      // Campos reais que podem ser revelados
+      actualPhotoUrl: json['actualPhotoUrl'],
+      actualSocialMediaHandle: json['actualSocialMediaHandle'],
+      actualFavoriteBands: List<String>.from(json['actualFavoriteBands'] ?? []),
+      revealedProfile: Map<String, dynamic>.from(json['revealedProfile'] ?? {}),
       unlockedFeatures: Map<String, bool>.from(
         json['unlockedFeatures'] as Map? ?? {},
       ),
+      connectedUsers: List<String>.from(json['connectedUsers'] ?? []), // Desserializar connectedUsers
     );
   }
 
@@ -137,14 +161,21 @@ class UserModel {
       // ✅ NOVOS CAMPOS
       'codinome': codinome,
       'avatarId': avatarId,
+      'bio': bio,
       'birthDate': birthDate?.toIso8601String(),
       'interesses': interesses,
       'relationshipGoal': relationshipGoal,
       'connectionLevel': connectionLevel,
       'onboardingCompleted': onboardingCompleted,
       'onboardingCompletedAt': onboardingCompletedAt?.toIso8601String(),
+      // Campos reais que podem ser revelados
+      'actualPhotoUrl': actualPhotoUrl,
+      'actualSocialMediaHandle': actualSocialMediaHandle,
+      'actualFavoriteBands': actualFavoriteBands,
+      'revealedProfile': revealedProfile,
       'lastLoginDate': lastLoginDate?.toIso8601String(),
       'loginStreak': loginStreak,
+      'connectedUsers': connectedUsers, // Serializar connectedUsers
     };
     // unlockedFeatures will be handled by copyWith or direct update in Firestore
   }
@@ -165,14 +196,20 @@ class UserModel {
     Map<String, dynamic>? aiConfig,
     String? codinome,
     String? avatarId,
+    String? bio,
     DateTime? birthDate,
     List<String>? interesses,
     String? relationshipGoal,
     int? connectionLevel,
     bool? onboardingCompleted,
     DateTime? onboardingCompletedAt,
+    String? actualPhotoUrl,
+    List<String>? actualFavoriteBands,
+    String? actualSocialMediaHandle,
+    Map<String, dynamic>? revealedProfile,
     DateTime? lastLoginDate,
     int? loginStreak,
+    List<String>? connectedUsers,
     Map<String, bool>? unlockedFeatures,
   }) {
     return UserModel(
@@ -190,6 +227,7 @@ class UserModel {
       currentMood: currentMood != null ? currentMood() : this.currentMood,
       codinome: codinome ?? this.codinome,
       avatarId: avatarId ?? this.avatarId,
+      bio: bio ?? this.bio,
       birthDate: birthDate ?? this.birthDate,
       interesses: interesses ?? this.interesses,
       relationshipGoal: relationshipGoal ?? this.relationshipGoal,
@@ -197,8 +235,14 @@ class UserModel {
       onboardingCompleted: onboardingCompleted ?? this.onboardingCompleted,
       onboardingCompletedAt:
           onboardingCompletedAt ?? this.onboardingCompletedAt,
+      actualPhotoUrl: actualPhotoUrl ?? this.actualPhotoUrl,
+      actualFavoriteBands: actualFavoriteBands ?? this.actualFavoriteBands,
+      actualSocialMediaHandle:
+          actualSocialMediaHandle ?? this.actualSocialMediaHandle,
+      revealedProfile: revealedProfile ?? this.revealedProfile,
       lastLoginDate: lastLoginDate ?? this.lastLoginDate,
       loginStreak: loginStreak ?? this.loginStreak,
+      connectedUsers: connectedUsers ?? this.connectedUsers,
       unlockedFeatures:
           unlockedFeatures ?? Map<String, bool>.from(this.unlockedFeatures),
     );
@@ -228,14 +272,20 @@ class UserModel {
         other.currentMood == currentMood &&
         other.codinome == codinome &&
         other.avatarId == avatarId &&
+        other.bio == bio &&
         other.birthDate == birthDate &&
         listEquals(other.interesses, interesses) &&
         other.relationshipGoal == relationshipGoal &&
         other.connectionLevel == connectionLevel &&
         other.onboardingCompleted == onboardingCompleted &&
         other.onboardingCompletedAt == onboardingCompletedAt &&
+        other.actualPhotoUrl == actualPhotoUrl &&
+        listEquals(other.actualFavoriteBands, actualFavoriteBands) &&
+        other.actualSocialMediaHandle == actualSocialMediaHandle &&
+        mapEquals(other.revealedProfile, revealedProfile) &&
         other.lastLoginDate == lastLoginDate && // Already included, good.
         other.loginStreak == loginStreak && // Already included, good.
+        listEquals(other.connectedUsers, connectedUsers) &&
         mapEquals(other.unlockedFeatures, unlockedFeatures);
   }
 
@@ -256,14 +306,20 @@ class UserModel {
       currentMood,
       codinome,
       avatarId,
+      bio,
       birthDate,
       interesses,
       relationshipGoal,
       connectionLevel,
       onboardingCompleted,
       onboardingCompletedAt,
+      actualPhotoUrl,
+      actualFavoriteBands,
+      actualSocialMediaHandle,
+      revealedProfile,
       lastLoginDate,
       loginStreak,
+      connectedUsers,
       unlockedFeatures,
     ]);
   }
@@ -291,12 +347,22 @@ class UserModel {
       // Campos de onboarding vazios/padrão
       codinome: '',
       avatarId: '',
+      bio: '',
       birthDate: null,
       interesses: [],
       connectionLevel: 5,
       onboardingCompleted: false,
       onboardingCompletedAt: null,
       relationshipGoal: null,
+      actualPhotoUrl: photoURL, // Use provided photoURL
+      actualFavoriteBands: [], // Empty initially
+      actualSocialMediaHandle: null, // Null initially
+      revealedProfile: {
+        'photo_url': null,
+        'favorite_bands': [],
+        'social_media': null,
+      },
+      connectedUsers: [], // Inicializar como lista vazia
       lastLoginDate: null, // Provide initial null value
       loginStreak: 0, // Provide initial 0 value
       unlockedFeatures: {}, // Initialize with empty map

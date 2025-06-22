@@ -20,6 +20,7 @@ class OnboardingState {
   final DateTime? birthDate;
   final String? avatarId;
   final String? codinome;
+  final String? bio;
   final List<String> selectedInterests;
   final int currentStep;
   final bool isLoading;
@@ -29,6 +30,7 @@ class OnboardingState {
     this.birthDate,
     this.avatarId,
     this.codinome,
+    this.bio,
     this.selectedInterests = const [],
     this.currentStep = 0,
     this.isLoading = false,
@@ -43,7 +45,9 @@ class OnboardingState {
   bool get canCompleteStep2 {
     return avatarId != null &&
         codinome != null &&
-        OnboardingConstants.isValidCodinome(codinome!);
+        OnboardingConstants.isValidCodinome(codinome!) &&
+        bio != null &&
+        OnboardingConstants.isValidBio(bio!);
   }
 
   bool get canCompleteStep3 {
@@ -83,6 +87,7 @@ class OnboardingState {
     DateTime? birthDate,
     String? avatarId,
     String? codinome,
+    String? bio,
     List<String>? selectedInterests,
     int? currentStep,
     bool? isLoading,
@@ -92,6 +97,7 @@ class OnboardingState {
       birthDate: birthDate ?? this.birthDate,
       avatarId: avatarId ?? this.avatarId,
       codinome: codinome ?? this.codinome,
+      bio: bio ?? this.bio,
       selectedInterests: selectedInterests ?? this.selectedInterests,
       currentStep: currentStep ?? this.currentStep,
       isLoading: isLoading ?? this.isLoading,
@@ -101,7 +107,7 @@ class OnboardingState {
 
   @override
   String toString() {
-    return 'OnboardingState(step: $currentStep, canComplete: $canComplete, age: $age)';
+    return 'OnboardingState(step: $currentStep, canComplete: $canComplete, age: $age, bio: $bio)';
   }
 
   @override
@@ -111,6 +117,7 @@ class OnboardingState {
         other.birthDate == birthDate &&
         other.avatarId == avatarId &&
         other.codinome == codinome &&
+        other.bio == bio &&
         listEquals(other.selectedInterests, selectedInterests) &&
         other.currentStep == currentStep &&
         other.isLoading == isLoading &&
@@ -123,6 +130,7 @@ class OnboardingState {
       birthDate,
       avatarId,
       codinome,
+      bio,
       selectedInterests,
       currentStep,
       isLoading,
@@ -225,6 +233,21 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
     _trackAnalyticsEvent(
       'onboarding_codinome_set',
       data: {'codinome_length': codinome.trim().length},
+    );
+  }
+
+  // ✅ STEP 2: BIO
+  void setBio(String bio) {
+    AppLogger.info(
+      '📝 OnboardingNotifier: Definindo bio',
+      data: {'bio_length': bio.length},
+    );
+
+    state = state.copyWith(bio: bio, error: null);
+
+    _trackAnalyticsEvent(
+      'onboarding_bio_set',
+      data: {'bio_length': bio.length},
     );
   }
 
@@ -383,6 +406,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
       final onboardingData = {
         'codinome': state.codinome!,
         'avatarId': state.avatarId!,
+        'bio': state.bio!,
         'birthDate': state.birthDate!.toIso8601String(),
         'interesses': state.selectedInterests,
         'isMinor': state.isMinor,
@@ -403,6 +427,7 @@ class OnboardingNotifier extends StateNotifier<OnboardingState> {
         final updatedUser = baseUser.copyWith(
           codinome: state.codinome!,
           avatarId: state.avatarId!,
+          bio: state.bio!,
           birthDate: state.birthDate!,
           interesses: state.selectedInterests,
           // isMinor: state.isMinor,

@@ -541,6 +541,11 @@ class FirestoreService {
     return [];
   }
 
+  /// Gera um ID de documento único para o Firestore.
+  String generateDocId() {
+    return _db.collection('temp').doc().id;
+  }
+
   Future<void> batchWrite(List<BatchOperation> operations) async {
     // Implementação existente com analytics adicionado...
   }

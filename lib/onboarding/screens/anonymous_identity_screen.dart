@@ -26,7 +26,9 @@ class _AnonymousIdentityScreenState
   late Animation<Offset> _slideAnimation;
 
   final TextEditingController _codinomeController = TextEditingController();
+  final TextEditingController _bioController = TextEditingController();
   final FocusNode _codinomeFocus = FocusNode();
+  final FocusNode _bioFocus = FocusNode();
 
   @override
   void initState() {
@@ -36,7 +38,7 @@ class _AnonymousIdentityScreenState
 
     // Configurar animações
     _animationController = AnimationController(
-      duration: AppConstants.animationDuration,
+      duration: TimeConstants.animationDuration,
       vsync: this,
     );
 
@@ -62,6 +64,7 @@ class _AnonymousIdentityScreenState
 
     // Setup listeners
     _codinomeController.addListener(_onCodinomeChanged);
+    _bioController.addListener(_onBioChanged);
   }
 
   @override
@@ -69,12 +72,19 @@ class _AnonymousIdentityScreenState
     _animationController.dispose();
     _codinomeController.dispose();
     _codinomeFocus.dispose();
+    _bioController.dispose();
+    _bioFocus.dispose();
     super.dispose();
   }
 
   void _onCodinomeChanged() {
     final text = _codinomeController.text;
     ref.read(onboardingProvider.notifier).setCodinome(text);
+  }
+
+  void _onBioChanged() {
+    final text = _bioController.text;
+    ref.read(onboardingProvider.notifier).setBio(text);
   }
 
   void _onAvatarSelected(String avatarId) {
@@ -177,16 +187,6 @@ class _AnonymousIdentityScreenState
 
                               const SizedBox(height: 32),
 
-                              // Info Text
-                              Text(
-                                'Este será seu nome público no app. Você pode mudá-lo depois.',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurface
-                                      .withOpacity(0.6),
-                                  fontStyle: FontStyle.italic,
-                                ),
-                              ),
-
                               // Preview Card
                               if (onboardingState.avatarId != null &&
                                   onboardingState.codinome != null &&
@@ -276,6 +276,17 @@ class _AnonymousIdentityScreenState
 
                               const SizedBox(height: 24),
 
+                              // Info Text
+                              Text(
+                                'Seu codinome e bio serão seu cartão de visita inicial. Capriche!',
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: theme.colorScheme.onSurface
+                                      .withOpacity(0.6),
+                                  fontStyle: FontStyle.italic,
+                                ),
+                                textAlign: TextAlign.center,
+                              ),
+                              const SizedBox(height: 24),
                               // Name Input
                               Text(
                                 'Como quer ser chamado?',
@@ -340,6 +351,48 @@ class _AnonymousIdentityScreenState
                                 },
                               ),
 
+                              const SizedBox(height: 24),
+
+                              // Bio Input
+                              Text(
+                                'Sua bio misteriosa',
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+
+                              const SizedBox(height: 12),
+
+                              TextFormField(
+                                controller: _bioController,
+                                focusNode: _bioFocus,
+                                decoration: InputDecoration(
+                                  hintText:
+                                      'Uma frase que te define, um hobby, um sonho...',
+                                  counterText:
+                                      '${_bioController.text.length}/${OnboardingConstants.maxBioLength}',
+                                  prefixIcon: const Icon(
+                                    Icons.edit_note_rounded,
+                                  ),
+                                  suffixIcon: _bioController.text.isNotEmpty
+                                      ? IconButton(
+                                          icon: const Icon(Icons.clear),
+                                          onPressed: () {
+                                            _bioController.clear();
+                                            ref
+                                                .read(
+                                                  onboardingProvider.notifier,
+                                                )
+                                                .setBio('');
+                                          },
+                                        )
+                                      : null,
+                                ),
+                                maxLength: OnboardingConstants.maxBioLength,
+                                maxLines: 3,
+                                textCapitalization:
+                                    TextCapitalization.sentences,
+                              ),
                               const SizedBox(height: 12),
 
                               // Error Display

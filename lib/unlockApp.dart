@@ -2,19 +2,44 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/router/app_router.dart';
 import 'package:unlock/core/theme/app_theme.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/providers/theme_provider.dart';
+import 'package:unlock/services/notification_service.dart'; // Importar NotificationService
 
 /// ✅ Widget principal do app Unlock com navegação simplificada
-class UnlockApp extends ConsumerWidget {
+class UnlockApp extends ConsumerStatefulWidget {
   const UnlockApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UnlockApp> createState() => _UnlockAppState();
+}
+
+class _UnlockAppState extends ConsumerState<UnlockApp> {
+  @override
+  void initState() {
+    super.initState();
+    NotificationService.initialize(); // Inicializa o NotificationService
+    _handlePendingNavigation();
+  }
+
+  Future<void> _handlePendingNavigation() async {
+    final gameRoomId = await NotificationService.getPendingGameInvite();
+    if (gameRoomId != null) {
+      // Garante que a navegação ocorra após o build inicial
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        AppLogger.info('📢 Navegando para sala de jogo pendente: $gameRoomId');
+        AppRouter.context?.go('/game/$gameRoomId');
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final isDarkMode = ref.watch(themeProvider); // Observa o provedor de tema
 
     AppLogger.info(
@@ -28,7 +53,7 @@ class UnlockApp extends ConsumerWidget {
 
     return MaterialApp.router(
       // ========== CONFIGURAÇÕES BÁSICAS ==========
-      title: AppConstants.appName,
+      title: AppInfoConstants.appName,
       debugShowCheckedModeBanner: false,
 
       // ========== TEMA ==========
@@ -71,7 +96,7 @@ class _AppBuilder extends StatelessWidget {
           child ?? const _EmergencyScreen(),
           // ✅ Debug overlay apenas em desenvolvimento
           if (kDebugMode) ...[
-            const Positioned(top: 100, right: 10, child: _DebugOverlay()),
+            // const Positioned(top: 100, right: 10, child: _DebugOverlay()),
           ],
         ],
       ),

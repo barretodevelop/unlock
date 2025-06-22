@@ -35,7 +35,7 @@ class _InterestsSelectionScreenState
 
     // Configurar animações
     _animationController = AnimationController(
-      duration: AppConstants.animationDuration,
+      duration: TimeConstants.animationDuration,
       vsync: this,
     );
 

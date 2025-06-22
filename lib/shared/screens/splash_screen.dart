@@ -168,7 +168,7 @@ class _SplashScreenState extends ConsumerState<SplashScreen>
 
                   // Nome do app
                   Text(
-                    AppConstants.appName,
+                    AppInfoConstants.appName,
                     style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,

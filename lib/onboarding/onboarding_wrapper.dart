@@ -44,7 +44,7 @@ class _OnboardingWrapperState extends ConsumerState<OnboardingWrapper>
     // Configurar controllers
     _pageController = PageController(initialPage: 0);
     _transitionController = AnimationController(
-      duration: AppConstants.animationDuration,
+      duration: TimeConstants.animationDuration,
       vsync: this,
     );
 
@@ -138,7 +138,7 @@ class _OnboardingWrapperState extends ConsumerState<OnboardingWrapper>
 
     _pageController.animateToPage(
       step,
-      duration: AppConstants.animationDuration,
+      duration: TimeConstants.animationDuration,
       curve: Curves.easeInOut,
     );
   }
@@ -320,7 +320,7 @@ class _OnboardingWrapperState extends ConsumerState<OnboardingWrapper>
 
             // App name
             Text(
-              AppConstants.appName.toUpperCase(),
+              AppInfoConstants.appName.toUpperCase(),
               style: theme.textTheme.titleLarge?.copyWith(
                 color: theme.primaryColor,
                 fontWeight: FontWeight.bold,

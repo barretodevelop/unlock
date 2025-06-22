@@ -5,7 +5,10 @@ import 'dart:io';
 
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:go_router/go_router.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:unlock/core/router/app_router.dart'; // Importar AppRouter
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/services/analytics/analytics_integration.dart';
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
@@ -20,6 +23,7 @@ class NotificationService {
   static final FlutterLocalNotificationsPlugin _localNotifications =
       FlutterLocalNotificationsPlugin();
 
+  static const String _pendingGameInviteKey = 'pendingGameInviteId';
   static bool _isInitialized = false;
   static String? _fcmToken;
   static StreamSubscription<RemoteMessage>? _foregroundSubscription;
@@ -391,14 +395,10 @@ class NotificationService {
       'has_data': data.containsKey('data'),
     });
 
-    // TODO: Implementar navegação baseada nos dados
-    // Por exemplo:
-    // if (data['screen'] == 'profile') {
-    //   NavigationService.navigateToProfile(data['userId']);
-    // }
+    _handleNotificationData(data);
   }
 
-  /// Processar payload de notificação local
+  /// Processa o payload de notificação local
   static void _processLocalNotificationPayload(String payload) {
     try {
       final data = jsonDecode(payload) as Map<String, dynamic>;
@@ -410,13 +410,96 @@ class NotificationService {
         'payload_keys': data.keys.toList(),
       });
 
-      // TODO: Implementar lógica baseada no payload
+      _handleNotificationData(data);
     } catch (e) {
       AppLogger.error('❌ Erro ao processar payload: $e');
     }
   }
 
+  /// Lógica central para lidar com os dados da notificação e navegar
+  static void _handleNotificationData(Map<String, dynamic> data) {
+    final gameRoomId = data['gameRoomId'] as String?;
+    final notificationType = data['type'] as String?;
+
+    if (notificationType == 'game_invite' && gameRoomId != null) {
+      if (AppRouter.context != null) {
+        // App está em foreground ou já inicializado, navega diretamente
+        AppLogger.info('📢 Navegando para sala de jogo via notificação.');
+        AppRouter.context!.go('/game/$gameRoomId');
+      } else {
+        // App está em background/terminado, armazena para navegar na inicialização
+        AppLogger.info('📢 Armazenando convite de jogo pendente: $gameRoomId');
+        _storePendingGameInvite(gameRoomId);
+      }
+    }
+  }
+
+  /// Armazena o ID da sala de jogo para navegação futura
+  static Future<void> _storePendingGameInvite(String gameRoomId) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(_pendingGameInviteKey, gameRoomId);
+  }
+
+  /// Recupera e limpa o ID da sala de jogo pendente
+  static Future<String?> getPendingGameInvite() async {
+    final prefs = await SharedPreferences.getInstance();
+    final gameRoomId = prefs.getString(_pendingGameInviteKey);
+    if (gameRoomId != null) {
+      await prefs.remove(_pendingGameInviteKey); // Limpa após ler
+    }
+    return gameRoomId;
+  }
+
   // ========== MÉTODOS PÚBLICOS ==========
+
+  /// Lida com uma mensagem recebida em background.
+  /// Este método é chamado a partir do handler de background de nível superior.
+  /// Ele precisa ser autossuficiente, pois é executado em um isolate separado.
+  static Future<void> handleBackgroundMessage(RemoteMessage message) async {
+    AppLogger.info(
+      '📢 Processando mensagem em background: ${message.messageId}',
+      data: {'data': message.data},
+    );
+
+    final notification = message.notification;
+    if (notification != null) {
+      final localNotifications = FlutterLocalNotificationsPlugin();
+
+      // A inicialização é necessária para o handler de background.
+      await localNotifications.initialize(
+        const InitializationSettings(
+          android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+          iOS: DarwinInitializationSettings(),
+        ),
+      );
+
+      const androidDetails = AndroidNotificationDetails(
+        'default_channel',
+        'Notificações',
+        channelDescription: 'Canal principal de notificações',
+        importance: Importance.high,
+        priority: Priority.high,
+        showWhen: true,
+      );
+
+      const details = NotificationDetails(
+        android: androidDetails,
+        iOS: DarwinNotificationDetails(
+          presentSound: true,
+          presentBadge: true,
+          presentAlert: true,
+        ),
+      );
+
+      await localNotifications.show(
+        message.hashCode,
+        notification.title,
+        notification.body,
+        details,
+        payload: jsonEncode(message.data),
+      );
+    }
+  }
 
   /// Enviar notificação local
   static Future<void> sendLocalNotification({

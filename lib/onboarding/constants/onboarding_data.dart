@@ -89,6 +89,7 @@ class OnboardingConstants {
   static const int minInterests = 3;
   static const int maxInterests = 10;
   static const int maxCodinomeLength = 20;
+  static const int maxBioLength = 150;
   static const int minAge = 13;
   static const int adultAge = 18;
   static const int defaultConnectionLevel = 5;
@@ -107,6 +108,10 @@ class OnboardingConstants {
     return codinome.trim().isNotEmpty &&
         codinome.length <= maxCodinomeLength &&
         RegExp(r'^[a-zA-Z0-9\s]+$').hasMatch(codinome);
+  }
+
+  static bool isValidBio(String bio) {
+    return bio.trim().isNotEmpty && bio.length <= maxBioLength;
   }
 
   static bool isValidInterestSelection(List<String> interests) {

@@ -89,6 +89,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     // A navegação será tratada pelo GoRouter observando o AuthProvider.
   }
 
+  Future<void> _handleAppleSignIn() async {
+    // TODO: Implementar a lógica de login com a Apple
+    // final success = await ref.read(authProvider.notifier).signInWithApple();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Login com Apple ainda não implementado.'),
+        backgroundColor: Colors.amber,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(
@@ -338,6 +349,62 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                     ),
                                   ),
                                 ),
+                        ),
+
+                        const SizedBox(height: 16),
+
+                        // Botão de login com Apple
+                        SizedBox(
+                          width: double.infinity,
+                          height: 56,
+                          child: ElevatedButton.icon(
+                            onPressed: authState.isLoading
+                                ? null
+                                : _handleAppleSignIn,
+                            icon: Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.white
+                                    : Colors.black,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Icon(
+                                Icons.apple,
+                                color:
+                                    Theme.of(context).brightness ==
+                                        Brightness.dark
+                                    ? Colors.black
+                                    : Colors.white,
+                                size: 18,
+                              ),
+                            ),
+                            label: const Text(
+                              'Continuar com Apple',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.white
+                                  : Colors.black,
+                              foregroundColor:
+                                  Theme.of(context).brightness ==
+                                      Brightness.dark
+                                  ? Colors.black
+                                  : Colors.white,
+                              elevation: 0,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                            ),
+                          ),
                         ),
 
                         const SizedBox(height: 24),

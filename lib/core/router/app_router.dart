@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/auth/screens/login_screen.dart';
+import 'package:unlock/features/game/screens/game_room_screen.dart';
 import 'package:unlock/features/home/screens/home_screen.dart';
 import 'package:unlock/onboarding/onboarding_wrapper.dart';
 import 'package:unlock/providers/auth_provider.dart';
@@ -70,6 +71,16 @@ class AppRouter {
             return const OnboardingWrapper();
           },
         ),
+
+        // Game Room Screen
+        GoRoute(
+          path: '/game/:gameRoomId',
+          name: 'game_room',
+          builder: (context, state) {
+            final gameRoomId = state.pathParameters['gameRoomId']!;
+            return GameRoomScreen(gameRoomId: gameRoomId);
+          },
+        ),
       ],
 
       // ✅ ERROR HANDLER SIMPLES
@@ -89,66 +100,51 @@ class AppRouter {
       final location = state.uri.toString();
       final authState = ref.read(authProvider);
 
-      // Se o estado de autenticação estiver carregando, não redirecione para evitar
-      // telas piscando. O router será reavaliado quando o carregamento terminar.
-      if (authState.isLoading) {
+      // 1. Determinar a rota desejada com base no estado de autenticação
+      String? desiredLocation;
+      if (authState.isLoading || !authState.isInitialized) {
+        desiredLocation = AppRoutes.splash;
         AppLogger.navigation(
-          '⏳ Auth state is loading. No redirects will occur.',
+          '⏳ Auth state loading or not initialized. Desired: $desiredLocation',
         );
+      } else if (!authState.isAuthenticated) {
+        desiredLocation = AppRoutes.login;
+        AppLogger.navigation(
+          '🔑 User not authenticated. Desired: $desiredLocation',
+        );
+      } else if (authState.needsOnboarding) {
+        desiredLocation = AppRoutes.onboarding;
+        AppLogger.navigation(
+          '📝 User needs onboarding. Desired: $desiredLocation',
+        );
+      } else {
+        desiredLocation = AppRoutes.home;
+        AppLogger.navigation(
+          '🏠 User authenticated and onboarded. Desired: $desiredLocation',
+        );
+      }
+
+      // 2. Comparar a localização atual com a desejada
+      // Se a localização atual já é a desejada, não há necessidade de redirecionar.
+      // Isso evita loops de redirecionamento e navegações desnecessárias.
+      if (location == desiredLocation) {
+        AppLogger.navigation('✅ Already at desired location: $location');
         return null;
       }
-
-      // Se o provedor de autenticação ainda não foi inicializado,
-      // o usuário deve ser direcionado para a tela de splash.
-      if (!authState.isInitialized) {
-        AppLogger.navigation(
-          '🎯 Redirect: App not initialized. Forcing to splash.',
-        );
-        return location == AppRoutes.splash ? null : AppRoutes.splash;
-      }
-
-      final isLoggedIn = authState.isAuthenticated;
-      final needsOnboarding = authState.needsOnboarding;
-
-      // Se não autenticado, mostrar login
-      if (!isLoggedIn) {
-        // Permite que o usuário permaneça na tela de login.
-        // Redireciona de qualquer outra rota para o login.
-        if (location != AppRoutes.login) {
+      // Caso especial para rotas que começam com um prefixo (ex: /onboarding/step1)
+      if (desiredLocation != null && location.startsWith(desiredLocation)) {
+        if (desiredLocation == AppRoutes.onboarding) {
+          // Only for onboarding, allow sub-paths
           AppLogger.navigation(
-            '🔑 Redirect: User not authenticated. Forcing to login.',
+            '✅ Already in desired flow: $location (desired: $desiredLocation)',
           );
-          return AppRoutes.login;
+          return null;
         }
-        return null;
       }
 
-      // A partir daqui, o usuário está autenticado (isLoggedIn == true).
-
-      // Se precisa onboarding, mostrar onboarding
-      if (needsOnboarding) {
-        if (!location.startsWith(AppRoutes.onboarding)) {
-          AppLogger.navigation(
-            '📝 Redirect: User needs onboarding. Forcing to onboarding.',
-          );
-          return AppRoutes.onboarding;
-        }
-        return null;
-      }
-
-      // Se o usuário está autenticado e já completou o onboarding,
-      // ele não deve poder acessar as telas de login, splash ou onboarding.
-      if (location == AppRoutes.login ||
-          location.startsWith(AppRoutes.onboarding) ||
-          location == AppRoutes.splash) {
-        AppLogger.navigation(
-          '🏠 Redirect: User is authenticated and onboarded. Forcing to home.',
-        );
-        return AppRoutes.home;
-      }
-
-      // Caso padrão
-      return null;
+      // 3. Redirecionar se a localização atual não for a desejada
+      AppLogger.navigation('➡️ Redirecting from $location to $desiredLocation');
+      return desiredLocation;
     } catch (e, stackTrace) {
       AppLogger.error('❌ Redirect error', error: e, stackTrace: stackTrace);
       return '/';
@@ -167,6 +163,8 @@ class AppRoutes {
   static const String login = '/login';
   static const String onboarding = '/onboarding';
   static const String home = '/home';
+  static const String gameRoom =
+      '/game/:gameRoomId'; // Nova rota para sala de jogo
   static const String profile = '/profile';
   static const String accountSettings = '/account-settings';
   static const String connections = '/connections';

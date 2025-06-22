@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:unlock/core/constants/app_constants.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/services/analytics/analytics_integration.dart';
+import 'package:unlock/services/analytics/analytics_integration.dart'; // Importação adicionada para SharedPreferencesKeys
 import 'package:unlock/services/analytics/interfaces/analytics_interface.dart';
 
 final themeProvider = StateNotifierProvider<ThemeNotifier, bool>(
@@ -58,8 +58,9 @@ class ThemeNotifier extends StateNotifier<bool> {
       _lastThemeChange = DateTime.now();
 
       // Salvar preferência
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(AppConstants.themeKey, newTheme);
+      final prefs =
+          await SharedPreferences.getInstance(); // Correção: Usar SharedPreferencesKeys
+      await prefs.setBool(SharedPreferencesKeys.themeMode, newTheme);
 
       final changeDuration = DateTime.now().difference(changeStartTime);
 
@@ -145,8 +146,9 @@ class ThemeNotifier extends StateNotifier<bool> {
       _themeChangeCount++;
       _lastThemeChange = DateTime.now();
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool(AppConstants.themeKey, isDark);
+      final prefs =
+          await SharedPreferences.getInstance(); // Correção: Usar SharedPreferencesKeys
+      await prefs.setBool(SharedPreferencesKeys.themeMode, isDark);
 
       final changeDuration = DateTime.now().difference(changeStartTime);
 
@@ -192,7 +194,9 @@ class ThemeNotifier extends StateNotifier<bool> {
       AppLogger.debug('📱 ThemeNotifier: Carregando tema das preferências...');
 
       final prefs = await SharedPreferences.getInstance();
-      final savedTheme = prefs.getBool(AppConstants.themeKey);
+      final savedTheme = prefs.getBool(
+        SharedPreferencesKeys.themeMode,
+      ); // Correção: Usar SharedPreferencesKeys
 
       final loadDuration = DateTime.now().difference(loadStartTime);
 
@@ -281,8 +285,9 @@ class ThemeNotifier extends StateNotifier<bool> {
       _themeChangeCount = 0;
       _lastThemeChange = null;
 
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.remove(AppConstants.themeKey);
+      final prefs =
+          await SharedPreferences.getInstance(); // Correção: Usar SharedPreferencesKeys
+      await prefs.remove(SharedPreferencesKeys.themeMode);
 
       final resetDuration = DateTime.now().difference(resetStartTime);
 

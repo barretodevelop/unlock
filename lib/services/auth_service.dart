@@ -1,5 +1,6 @@
 // lib/services/auth_service.dart - ATUALIZADO para Onboarding
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:flutter/services.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/models/user_model.dart';
@@ -152,6 +153,39 @@ class AuthService {
       });
 
       AppLogger.auth('❌ Erro no Google Sign-In: $e');
+      return null;
+    }
+  }
+
+  /// Login com Apple (placeholder)
+  static Future<UserModel?> signInWithApple() async {
+    // NOTA: A implementação completa requer configuração nativa no Xcode
+    // e o pacote sign_in_with_apple.
+    final stopwatch = Stopwatch()..start();
+    try {
+      AppLogger.auth('🔄 Iniciando Apple Sign-In...');
+      await _trackAuthEvent('login_attempt', {'method': 'apple'});
+
+      // Lógica de placeholder
+      // Em um projeto real, aqui viria a chamada para o `sign_in_with_apple`
+      // e a criação da credencial OAuthProvider.
+      throw PlatformException(
+        code: 'UNIMPLEMENTED',
+        message: 'Apple Sign-In not implemented in this example.',
+      );
+
+      // Se a implementação fosse real, o fluxo seria similar ao do Google:
+      // 1. Obter credencial da Apple.
+      // 2. _auth.signInWithCredential(credential).
+      // 3. getOrCreateUserInFirestore(firebaseUser).
+    } catch (e) {
+      stopwatch.stop();
+      await _trackAuthEvent('login_error', {
+        'method': 'apple',
+        'duration_ms': stopwatch.elapsedMilliseconds,
+        'error_message': e.toString(),
+      });
+      AppLogger.auth('❌ Erro no Apple Sign-In: $e');
       return null;
     }
   }
