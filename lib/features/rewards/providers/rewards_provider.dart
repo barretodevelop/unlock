@@ -9,6 +9,7 @@ import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/missions/models/mission.dart'; // Correção: de MissionModel para Mission
 import 'package:unlock/features/rewards/models/reward_model.dart'; // Importado RewardModel
 import 'package:unlock/features/rewards/services/rewards_service.dart';
+import 'package:unlock/models/game_model.dart'; // Importar GameModel
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 
@@ -333,6 +334,111 @@ class RewardsNotifier extends StateNotifier<RewardsState> {
       AppLogger.error(
         '❌ Erro ao conceder recompensas de login diário',
         error: e,
+      );
+    }
+  }
+
+  /// Concede e aplica imediatamente as recompensas de um mini-game ao usuário.
+  ///
+  /// Este método é chamado quando um mini-game é CONCLUÍDO. Ele atualiza
+  /// diretamente os stats (XP, coins, gems) do usuário no Firestore e no estado
+  /// local do app, e então registra a transação como uma recompensa já resgatada
+  /// no histórico do usuário.
+  Future<void> grantGameRewards(
+    GameModel game,
+    UserModel user, {
+    int xpAmount = 0,
+    bool hasWon = false,
+    int coinsAmount = 0,
+    int gemsAmount = 0,
+  }) async {
+    try {
+      AppLogger.debug(
+        '🎮 Concedendo e aplicando recompensas do jogo: ${game.name}',
+      );
+
+      if (xpAmount <= 0 && coinsAmount <= 0 && gemsAmount <= 0) {
+        AppLogger.info(
+          '⚠️ Nenhuma recompensa a ser concedida para o jogo ${game.name}.',
+        );
+        return;
+      }
+
+      // 1. Atualizar os stats do usuário no Firestore de forma atômica
+      final userUpdates = <String, dynamic>{};
+      if (xpAmount > 0) userUpdates['xp'] = FieldValue.increment(xpAmount);
+      if (coinsAmount > 0)
+        userUpdates['coins'] = FieldValue.increment(coinsAmount);
+      if (gemsAmount > 0)
+        userUpdates['gems'] = FieldValue.increment(gemsAmount);
+
+      await _service.updateUserStats(user.uid, userUpdates);
+      AppLogger.info(
+        '✅ Stats do usuário atualizados no Firestore: $userUpdates',
+      );
+
+      // 2. Atualizar o estado local do usuário no AuthProvider para UI imediata
+      _ref
+          .read(authProvider.notifier)
+          .addRewardsToCurrentUser(xpAmount, coinsAmount, gemsAmount);
+      AppLogger.info('✅ UserModel local atualizado no AuthProvider.');
+
+      // 3. Registrar as recompensas como já resgatadas para o histórico
+      final now = DateTime.now();
+      final rewardsToRecord = <RewardModel>[];
+
+      if (xpAmount > 0) {
+        rewardsToRecord.add(
+          RewardModel.xp(
+            id: 'game_${game.id}_xp_${now.millisecondsSinceEpoch}',
+            amount: xpAmount,
+            source: RewardSource.minigame, // Usar RewardSource.minigame
+            description: '+$xpAmount XP de ${game.name}',
+            metadata: {'gameId': game.id},
+          ).claim(), // .claim() marca como resgatada
+        );
+      }
+      if (coinsAmount > 0) {
+        rewardsToRecord.add(
+          RewardModel.coins(
+            id: 'game_${game.id}_coins_${now.millisecondsSinceEpoch}',
+            amount: coinsAmount,
+            source: RewardSource.minigame,
+            description: '+$coinsAmount Coins de ${game.name}',
+            metadata: {'gameId': game.id},
+          ).claim(),
+        );
+      }
+      if (gemsAmount > 0) {
+        rewardsToRecord.add(
+          RewardModel.gems(
+            id: 'game_${game.id}_gems_${now.millisecondsSinceEpoch}',
+            amount: gemsAmount,
+            source: RewardSource.minigame,
+            description: '+$gemsAmount Gems de ${game.name}',
+            metadata: {'gameId': game.id},
+          ).claim(),
+        );
+      }
+
+      // O método grantRewards do service salva os rewards na subcollection.
+      // Como eles já estão marcados como 'claimed', eles irão para o histórico.
+      await _service.grantRewards(user.uid, rewardsToRecord);
+      AppLogger.info(
+        '✅ Recompensas do jogo registradas no histórico: ${rewardsToRecord.length} itens',
+      );
+
+      // Atualizar o estado local do RewardsProvider (opcional, mas bom para consistência)
+      final updatedClaimed = [...state.claimedRewards, ...rewardsToRecord];
+      state = state.copyWith(
+        claimedRewards: updatedClaimed,
+        lastUpdated: DateTime.now(),
+      );
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ Erro ao conceder e aplicar recompensas do jogo',
+        error: e,
+        stackTrace: stackTrace,
       );
     }
   }

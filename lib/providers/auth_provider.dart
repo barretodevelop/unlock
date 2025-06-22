@@ -2,6 +2,8 @@ import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/src/widgets/basic.dart';
+import 'package:flutter/src/widgets/framework.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/connections/services/connections_service.dart'; // Importar ConnectionsService
@@ -156,6 +158,12 @@ class AuthState {
   int get hashCode {
     return Object.hash(user?.uid, isLoading, isInitialized, error, status);
   }
+
+  when({
+    required Center Function() loading,
+    required Center Function(dynamic error, dynamic stack) error,
+    required Widget Function(dynamic user) data,
+  }) {}
 }
 
 // Estados possíveis da autenticação

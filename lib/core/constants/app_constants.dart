@@ -1,4 +1,6 @@
 // lib/core/constants/app_constants.dart - Constantes Centralizadas
+import 'package:flutter/material.dart';
+
 class AppConstants {
   // Espaçamentos Comuns
   static const double paddingSmall = 8.0;
@@ -215,18 +217,18 @@ class ValidationConstants {
   static const String ageTooYoungError = 'Idade mínima não atingida';
 }
 
-/// Constantes para animações
-class AnimationConstants {
-  // Durações
-  static const Duration fastAnimation = Duration(milliseconds: 150);
-  static const Duration normalAnimation = Duration(milliseconds: 300);
-  static const Duration slowAnimation = Duration(milliseconds: 500);
+// /// Constantes para animações
+// class AnimationConstants {
+//   // Durações
+//   static const Duration fastAnimation = Duration(milliseconds: 150);
+//   static const Duration normalAnimation = Duration(milliseconds: 300);
+//   static const Duration slowAnimation = Duration(milliseconds: 500);
 
-  // Curves
-  static const String defaultCurve = 'easeInOut';
-  static const String bounceCurve = 'bounceOut';
-  static const String elasticCurve = 'elasticOut';
-}
+//   // Curves
+//   static const String defaultCurve = 'easeInOut';
+//   static const String bounceCurve = 'bounceOut';
+//   static const String elasticCurve = 'elasticOut';
+// }
 
 /// Constantes para cores (complementa o tema)
 class ColorConstants {
@@ -271,4 +273,119 @@ class ConstantsUtils {
   static String generateId() {
     return DateTime.now().millisecondsSinceEpoch.toString();
   }
+
+  // Formatação de números para gamificação
+  static String formatGameNumber(int number) {
+    if (number >= 1000000) {
+      return '${(number / 1000000).toStringAsFixed(1)}M';
+    } else if (number >= 1000) {
+      return '${(number / 1000).toStringAsFixed(1)}K';
+    }
+    return number.toString();
+  }
+
+  // ========== ANIMAÇÕES ==========
+  static const Duration fastAnimation = Duration(milliseconds: 150);
+  static const Duration normalAnimation = Duration(milliseconds: 300);
+  static const Duration slowAnimation = Duration(milliseconds: 500);
+  static const Duration extraSlowAnimation = Duration(milliseconds: 800);
+
+  // ========== EMOJIS DOS HUMORES ==========
+  static const Map<String, Map<String, dynamic>> moodEmojis = {
+    'social': {
+      'emoji': '🤝',
+      'label': 'Social',
+      'description': 'Pronto para fazer conexões',
+    },
+    'creative': {
+      'emoji': '🎨',
+      'label': 'Criativo',
+      'description': 'Inspirado e artístico',
+    },
+    'chill': {
+      'emoji': '😌',
+      'label': 'Relaxar',
+      'description': 'Momento zen e tranquilo',
+    },
+    'adventure': {
+      'emoji': '🌟',
+      'label': 'Aventura',
+      'description': 'Buscando novas experiências',
+    },
+    'happy': {
+      'emoji': '😊',
+      'label': 'Feliz',
+      'description': 'Estado de alegria',
+    },
+    'focused': {
+      'emoji': '🎯',
+      'label': 'Focado',
+      'description': 'Concentrado em objetivos',
+    },
+  };
+
+  // ========== CORES DE STATUS ==========
+  static const int successColor = 0xFF4CAF50;
+  static const int warningColor = 0xFFFF9800;
+  static const int errorColor = 0xFFF44336;
+  static const int infoColor = 0xFF2196F3;
+
+  // ========== CORES DE GAMIFICAÇÃO ==========
+  static const int coinsColor = 0xFFFFD700;
+  static const int gemsColor = 0xFF9C27B0;
+  static const int xpColor = 0xFF4CAF50;
+  static const int levelColor = 0xFF2196F3;
+
+  // ========== CONFIGURAÇÕES DE MISSÕES ==========
+  static const int maxActiveMissions = 5;
+  static const int missionRefreshHours = 24;
+  static const int maxMissionProgress = 100;
+
+  // ========== CONFIGURAÇÕES DE CONEXÕES ==========
+  static const int maxConnectionsPerDay = 10;
+  static const int connectionRadius = 50; // km
+  static const int maxSuggestionsShown = 5;
+
+  // ========== CONFIGURAÇÕES DE PERFORMANCE ==========
+  static const int listItemCacheExtent = 500;
+  static const int imageMemoryCacheSize = 100;
+  static const Duration debounceDelay = Duration(milliseconds: 500);
+}
+
+/// Constantes específicas para animações
+class AnimationConstants {
+  // Durações padrão
+  static const Duration microDelay = Duration(milliseconds: 50);
+  static const Duration shortDelay = Duration(milliseconds: 150);
+  static const Duration mediumDelay = Duration(milliseconds: 300);
+  static const Duration longDelay = Duration(milliseconds: 500);
+  static const Duration extraLongDelay = Duration(milliseconds: 800);
+
+  // Durações específicas para elementos
+  static const Duration cardHover = Duration(milliseconds: 150);
+  static const Duration pageTransition = Duration(milliseconds: 300);
+  static const Duration modalSlide = Duration(milliseconds: 400);
+  static const Duration fabAnimation = Duration(milliseconds: 200);
+  static const Duration listItemAnimation = Duration(milliseconds: 250);
+
+  // Delays sequenciais
+  static const Duration staggerDelay = Duration(milliseconds: 100);
+  static const Duration cascadeDelay = Duration(milliseconds: 150);
+
+  // Curves específicas
+  static const Curve enterCurve = Curves.easeOut;
+  static const Curve exitCurve = Curves.easeIn;
+  static const Curve bounceCurve = Curves.bounceOut;
+  static const Curve elasticCurve = Curves.elasticOut;
+  static const Curve smoothCurve = Curves.easeInOut;
+
+  // Durações
+  static const Duration fastAnimation = Duration(milliseconds: 150);
+  static const Duration normalAnimation = Duration(milliseconds: 300);
+  static const Duration slowAnimation = Duration(milliseconds: 500);
+
+  // Curves
+  static const String defaultCurve = 'easeInOut';
+  // static const String bounceCurve = 'bounceOut';
+  // static const String elasticCurve = 'elasticOut';
 }

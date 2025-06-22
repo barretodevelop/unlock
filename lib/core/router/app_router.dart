@@ -5,13 +5,23 @@ import 'package:go_router/go_router.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/connections/screens/connections_screen.dart';
+import 'package:unlock/features/games/screens/color_match_game_screen.dart';
 import 'package:unlock/features/games/screens/games_screen.dart';
+import 'package:unlock/features/games/screens/match_game_screen.dart';
+import 'package:unlock/features/games/screens/memory_game_screen.dart';
+import 'package:unlock/features/games/screens/number_game_screen.dart';
+import 'package:unlock/features/games/screens/puzzle_game_screen.dart';
+import 'package:unlock/features/games/screens/quiz_game_screen.dart';
+import 'package:unlock/features/games/screens/reaction_game_screen.dart';
+import 'package:unlock/features/games/screens/snake_game_screen.dart';
+import 'package:unlock/features/games/screens/word_game_screen.dart';
 import 'package:unlock/features/home/screens/home_screen.dart';
 import 'package:unlock/features/missions/screens/missions_categorized_screen.dart';
 import 'package:unlock/features/onboarding/onboarding_wrapper.dart';
-import 'package:unlock/features/profile/screens/profile_screen.dart'; // Importar ProfileScreen
-import 'package:unlock/features/profile/screens/user_public_profile_screen.dart'; // Importar UserPublicProfileScreen
-import 'package:unlock/features/settings/screens/settings_screen.dart'; // Importar SettingsScreen
+import 'package:unlock/features/profile/screens/profile_screen.dart';
+import 'package:unlock/features/profile/screens/user_public_profile_screen.dart';
+import 'package:unlock/features/settings/screens/settings_screen.dart';
+import 'package:unlock/models/game_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/shared/screens/splash_screen.dart';
 
@@ -116,6 +126,7 @@ class AppRouter {
             return const MissionsCategorizedScreen();
           },
         ),
+
         // Settings Screen
         GoRoute(
           path: AppRoutes.settings, // Usar constante de AppRoutes
@@ -125,13 +136,162 @@ class AppRouter {
             return const SettingsScreen();
           },
         ),
+
         // Games Screen
         GoRoute(
           path: AppRoutes.games, // Usar constante de AppRoutes
           name: 'games',
           builder: (context, state) {
             AppLogger.navigation('🎮 Building GamesScreen');
-            return const GamesScreen();
+            return const GamesListScreen();
+          },
+        ),
+
+        // ===============================
+        // 🎮 MINI-GAMES ROUTES
+        // ===============================
+
+        // Memory Game
+        GoRoute(
+          path: AppRoutes.memoryGame,
+          name: 'memoryGame',
+          builder: (context, state) {
+            AppLogger.navigation('🧠 Building MemoryGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? MemoryGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Quiz Game
+        GoRoute(
+          path: AppRoutes.quizGame,
+          name: 'quizGame',
+          builder: (context, state) {
+            AppLogger.navigation('❓ Building QuizGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? QuizGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Puzzle Game
+        GoRoute(
+          path: AppRoutes.puzzleGame,
+          name: 'puzzleGame',
+          builder: (context, state) {
+            AppLogger.navigation('🧩 Building PuzzleGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? PuzzleGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Snake Game
+        GoRoute(
+          path: AppRoutes.snakeGame,
+          name: 'snakeGame',
+          builder: (context, state) {
+            AppLogger.navigation('🐍 Building SnakeGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? SnakeGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Word Game (Caça Palavras)
+        GoRoute(
+          path: AppRoutes.wordGame,
+          name: 'wordGame',
+          builder: (context, state) {
+            AppLogger.navigation('🔤 Building WordGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? WordGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Number Game (Sequência Numérica)
+        GoRoute(
+          path: AppRoutes.numberGame,
+          name: 'numberGame',
+          builder: (context, state) {
+            AppLogger.navigation('🔢 Building NumberGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? NumberGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Color Match Game
+        GoRoute(
+          path: AppRoutes.colorMatchGame,
+          name: 'colorMatchGame',
+          builder: (context, state) {
+            AppLogger.navigation('🎨 Building ColorMatchGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? ColorMatchGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Reaction Game (Teste de Reflexo)
+        GoRoute(
+          path: AppRoutes.reactionGame,
+          name: 'reactionGame',
+          builder: (context, state) {
+            AppLogger.navigation('⚡ Building ReactionGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? ReactionGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
+          },
+        ),
+
+        // Math Game (Desafio Matemático)
+        GoRoute(
+          path: AppRoutes.matchGame,
+          name: 'matchGame',
+          builder: (context, state) {
+            AppLogger.navigation('🧮 Building MathGameScreen');
+            final game = state.extra as GameModel?;
+            return game != null
+                ? MathGameScreen(game: game)
+                : const _PlaceholderScreen(
+                    title: 'Erro no Jogo',
+                    description: 'Jogo não encontrado.',
+                  );
           },
         ),
       ],
@@ -218,25 +378,48 @@ class AppRouter {
 
 /// ✅ CONSTANTES DE ROTAS SIMPLIFICADAS
 class AppRoutes {
+  // Rotas principais
   static const String splash = '/';
   static const String login = '/login';
   static const String onboarding = '/onboarding';
   static const String home = '/home';
   static const String profile = '/profile';
-  static const String accountSettings = '/account-settings'; // Nova rota
+  static const String accountSettings = '/account-settings';
   static const String connections = '/connections';
   static const String missions = '/missions';
-  static const String settings =
-      '/settings'; // Adicionar rota para configurações
-  static const String games = '/games'; // Adicionar rota para jogos
+  static const String settings = '/settings';
+  static const String games = '/games';
+
+  // Rotas dos mini-games
+  static const String memoryGame = '/games/memoryGame';
+  static const String quizGame = '/games/quizGame';
+  static const String puzzleGame = '/games/puzzleGame';
+  static const String snakeGame = '/games/snakeGame';
+  static const String wordGame = '/games/wordGame';
+  static const String numberGame = '/games/numberGame';
+  static const String colorMatchGame = '/games/colormatchGame';
+  static const String reactionGame = '/games/reactionGame';
+  static const String matchGame = '/games/matchGame';
 }
 
 /// ✅ UTILITÁRIOS SIMPLES DE NAVEGAÇÃO
 class NavigationUtils {
   /// Navegar para rota
-  static void navigateTo(BuildContext context, String path) {
+  static void navigateTo(BuildContext context, String path, {Object? extra}) {
     AppLogger.navigation('🧭 Navigating to: $path');
-    context.go(path);
+    context.go(path, extra: extra);
+  }
+
+  /// Push (manter no stack)
+  static void pushTo(BuildContext context, String path, {Object? extra}) {
+    AppLogger.navigation('📌 Pushing to: $path');
+    context.push(path, extra: extra);
+  }
+
+  /// Navegar para um jogo específico
+  static void navigateToGame(BuildContext context, GameModel game) {
+    AppLogger.navigation('🎮 Navigating to game: ${game.id}');
+    context.go(game.route, extra: game);
   }
 
   /// Voltar se possível, senão ir para home

@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import 'package:unlock/core/constants/app_constants.dart'; // Importe as constantes
 import 'package:unlock/core/router/app_router.dart';
 import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/features/home/widgets/animated_stats_card.dart';
 import 'package:unlock/features/missions/providers/missions_provider.dart';
 import 'package:unlock/features/missions/widgets/mission_card.dart';
 import 'package:unlock/models/user_model.dart'; // Importar UserModel
@@ -564,7 +565,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen>
         physics: const AlwaysScrollableScrollPhysics(),
         slivers: [
           // Header com estatísticas
-          SliverToBoxAdapter(child: _buildStatsCard(context, theme, user)),
+          SliverToBoxAdapter(
+            child: AnimatedStatsCard(user: user, onTap: () => ()),
+          ),
 
           // Ações rápidas
           SliverToBoxAdapter(child: _buildQuickActions(context, theme)),
