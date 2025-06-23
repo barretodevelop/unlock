@@ -97,54 +97,66 @@ class AppRouter {
   /// ✅ REDIRECT SIMPLES E CORRIGIDO - SEM LOOPS INFINITOS
   static String? _handleRedirect(WidgetRef ref, GoRouterState state) {
     try {
-      final location = state.uri.toString();
       final authState = ref.read(authProvider);
+      final isAuthenticated = authState.isAuthenticated;
+      final needsOnboarding = authState.needsOnboarding;
+      final isInitialized = authState.isInitialized;
+      final isLoading = authState.isLoading; // Usar isLoading diretamente
 
-      // 1. Determinar a rota desejada com base no estado de autenticação
-      String? desiredLocation;
-      if (authState.isLoading || !authState.isInitialized) {
-        desiredLocation = AppRoutes.splash;
+      final String currentPath = state.uri.path;
+
+      // 1. Lidar com o estado de carregamento/inicialização
+      if (isLoading || !isInitialized) {
+        // Se ainda estamos carregando ou não inicializados, sempre ir para a splash screen,
+        // a menos que já estejamos nela.
         AppLogger.navigation(
-          '⏳ Auth state loading or not initialized. Desired: $desiredLocation',
+          '⏳ Auth state loading or not initialized. Desired: ${AppRoutes.splash}',
         );
-      } else if (!authState.isAuthenticated) {
-        desiredLocation = AppRoutes.login;
-        AppLogger.navigation(
-          '🔑 User not authenticated. Desired: $desiredLocation',
-        );
-      } else if (authState.needsOnboarding) {
-        desiredLocation = AppRoutes.onboarding;
-        AppLogger.navigation(
-          '📝 User needs onboarding. Desired: $desiredLocation',
-        );
-      } else {
-        desiredLocation = AppRoutes.home;
-        AppLogger.navigation(
-          '🏠 User authenticated and onboarded. Desired: $desiredLocation',
-        );
+        return currentPath == AppRoutes.splash ? null : AppRoutes.splash;
       }
 
-      // 2. Comparar a localização atual com a desejada
-      // Se a localização atual já é a desejada, não há necessidade de redirecionar.
-      // Isso evita loops de redirecionamento e navegações desnecessárias.
-      if (location == desiredLocation) {
-        AppLogger.navigation('✅ Already at desired location: $location');
-        return null;
-      }
-      // Caso especial para rotas que começam com um prefixo (ex: /onboarding/step1)
-      if (desiredLocation != null && location.startsWith(desiredLocation)) {
-        if (desiredLocation == AppRoutes.onboarding) {
-          // Only for onboarding, allow sub-paths
-          AppLogger.navigation(
-            '✅ Already in desired flow: $location (desired: $desiredLocation)',
-          );
-          return null;
+      // 2. Lidar com o estado não autenticado
+      if (!isAuthenticated) {
+        // Se não autenticado, permitir apenas as telas de login e splash.
+        // Redirecionar para o login se tentar acessar qualquer outra rota.
+        AppLogger.navigation(
+          '🔑 User not authenticated. Desired: ${AppRoutes.login}',
+        );
+        if (currentPath == AppRoutes.login || currentPath == AppRoutes.splash) {
+          return null; // Permanecer na tela de login ou splash
+        } else {
+          return AppRoutes.login; // Redirecionar para o login
         }
       }
 
-      // 3. Redirecionar se a localização atual não for a desejada
-      AppLogger.navigation('➡️ Redirecting from $location to $desiredLocation');
-      return desiredLocation;
+      // 3. Lidar com o estado autenticado, mas com onboarding pendente
+      if (needsOnboarding) {
+        // Se autenticado, mas precisa de onboarding, permitir apenas rotas de onboarding.
+        // Redirecionar para o onboarding se tentar acessar qualquer outra rota (incluindo a home).
+        AppLogger.navigation(
+          '📝 User needs onboarding. Desired: ${AppRoutes.onboarding}',
+        );
+        if (currentPath.startsWith(AppRoutes.onboarding)) {
+          return null; // Permanecer no fluxo de onboarding
+        }
+        return AppRoutes.onboarding; // Redirecionar para o onboarding
+      }
+
+      // 4. Lidar com o estado totalmente autenticado e com onboarding concluído
+      // Se autenticado e com onboarding concluído, impedir o acesso a splash, login e onboarding.
+      // Permitir o acesso a todas as outras rotas.
+      if (currentPath == AppRoutes.splash ||
+          currentPath == AppRoutes.login ||
+          currentPath.startsWith(AppRoutes.onboarding)) {
+        AppLogger.navigation(
+          '🏠 User authenticated and onboarded. Redirecting from $currentPath to ${AppRoutes.home}',
+        );
+        return AppRoutes.home; // Redirecionar para a home
+      }
+
+      // Se nenhuma das condições acima acionou um redirecionamento, permitir o caminho atual.
+      AppLogger.navigation('✅ Allowing navigation to: $currentPath');
+      return null;
     } catch (e, stackTrace) {
       AppLogger.error('❌ Redirect error', error: e, stackTrace: stackTrace);
       return '/';

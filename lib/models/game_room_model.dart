@@ -12,10 +12,11 @@ enum GameStatus {
 
 class GameRoomModel {
   final String id;
-  final List<String> playerIds; // [convidado, convidante]
+  final List<String> playerIds; // [inviter, invitee]
   final GameStatus status;
   final String? currentTurnPlayerId;
-  final Map<String, double> progress; // { 'playerId': 0.35 }
+  // Info revelada para cada jogador: { 'playerId': { 'photo_url': '...' } }
+  final Map<String, Map<String, dynamic>> revealedInfo;
   final List<Map<String, dynamic>> questions;
   final Map<String, Map<String, dynamic>>
   answers; // { 'questionId': { 'playerId': 'answer' } }
@@ -27,7 +28,7 @@ class GameRoomModel {
     required this.playerIds,
     required this.status,
     this.currentTurnPlayerId,
-    required this.progress,
+    this.revealedInfo = const {},
     this.questions = const [],
     this.answers = const {},
     required this.createdAt,
@@ -43,7 +44,9 @@ class GameRoomModel {
         orElse: () => GameStatus.pending,
       ),
       currentTurnPlayerId: json['currentTurnPlayerId'],
-      progress: Map<String, double>.from(json['progress'] ?? {}),
+      revealedInfo: Map<String, Map<String, dynamic>>.from(
+        json['revealedInfo'] ?? {},
+      ),
       questions: List<Map<String, dynamic>>.from(json['questions'] ?? []),
       answers: Map<String, Map<String, dynamic>>.from(json['answers'] ?? {}),
       createdAt: (json['createdAt'] as Timestamp).toDate(),
@@ -56,7 +59,7 @@ class GameRoomModel {
       'playerIds': playerIds,
       'status': status.name,
       'currentTurnPlayerId': currentTurnPlayerId,
-      'progress': progress,
+      'revealedInfo': revealedInfo,
       'questions': questions,
       'answers': answers,
       'createdAt': FieldValue.serverTimestamp(),
@@ -69,7 +72,7 @@ class GameRoomModel {
     List<String>? playerIds,
     GameStatus? status,
     String? currentTurnPlayerId,
-    Map<String, double>? progress,
+    Map<String, Map<String, dynamic>>? revealedInfo,
     List<Map<String, dynamic>>? questions,
     Map<String, Map<String, dynamic>>? answers,
     DateTime? createdAt,
@@ -80,7 +83,7 @@ class GameRoomModel {
       playerIds: playerIds ?? this.playerIds,
       status: status ?? this.status,
       currentTurnPlayerId: currentTurnPlayerId ?? this.currentTurnPlayerId,
-      progress: progress ?? this.progress,
+      revealedInfo: revealedInfo ?? this.revealedInfo,
       questions: questions ?? this.questions,
       answers: answers ?? this.answers,
       createdAt: createdAt ?? this.createdAt,

@@ -3,15 +3,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/features/game/data/questions_data.dart';
 import 'package:unlock/features/game/models/question_model.dart';
+import 'package:unlock/features/matchmaking/providers/matchmaking_provider.dart';
 import 'package:unlock/models/game_room_model.dart';
 import 'package:unlock/models/message_model.dart';
 import 'package:unlock/models/user_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/services/firestore_service.dart';
 import 'package:unlock/services/game_service.dart';
-
-// Provedor para o GameService
-final gameServiceProvider = Provider((ref) => GameService());
 
 // Provedor para o FirestoreService
 final firestoreServiceProvider = Provider((ref) => FirestoreService());
@@ -79,21 +77,55 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
       _firestoreService = _ref.read(firestoreServiceProvider),
       super(initialGameRoom);
 
-  // Inicia o jogo (se ainda estiver pendente)
   // Lista de chaves de perfil que podem ser reveladas
   static const List<String> _revealableKeys = [
     'photo_url',
     'favorite_bands',
     'social_media',
   ];
-  Future<void> startGame() async {
-    if (state.status == GameStatus.pending) {
-      AppLogger.info('Iniciando jogo ${state.id}');
+
+  /// Aceita um convite para o jogo.
+  Future<void> acceptInvite() async {
+    final currentUser = _ref.read(authProvider).user;
+    if (currentUser == null) return;
+
+    // Apenas o convidado (segundo jogador na lista) pode aceitar.
+    if (state.status == GameStatus.pending &&
+        state.playerIds.last == currentUser.uid) {
+      AppLogger.info(
+        'Usuário ${currentUser.uid} aceitou o convite para ${state.id}',
+      );
       await _gameService.updateGameRoom(state.id, {
         'status': GameStatus.active.name,
       });
       // Selecionar a primeira pergunta
       await _selectNextQuestion();
+    }
+  }
+
+  /// Recusa um convite para o jogo.
+  Future<void> declineInvite() async {
+    final currentUser = _ref.read(authProvider).user;
+    if (currentUser == null) return;
+
+    if (state.status == GameStatus.pending &&
+        state.playerIds.contains(currentUser.uid)) {
+      AppLogger.info(
+        'Usuário ${currentUser.uid} recusou o convite para ${state.id}',
+      );
+      await _gameService.updateGameRoom(state.id, {
+        'status': GameStatus.declined.name,
+      });
+    }
+  }
+
+  /// Abandona um jogo em andamento.
+  Future<void> abandonGame() async {
+    if (state.status == GameStatus.active) {
+      AppLogger.info('Usuário abandonou o jogo ${state.id}');
+      await _gameService.updateGameRoom(state.id, {
+        'status': GameStatus.abandoned.name,
+      });
     }
   }
 
@@ -109,6 +141,10 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
         .toSet()
         .intersection(opponent.interesses.toSet())
         .toList();
+
+    AppLogger.info(
+      'Selecting next question. Common interests: $commonInterests',
+    );
 
     // Filtrar perguntas que ainda não foram feitas
     final askedQuestionIds = state.questions.map((q) => q['id']).toSet();
@@ -134,20 +170,23 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
     if (nextQuestion != null) {
       final updatedQuestions = List<Map<String, dynamic>>.from(state.questions)
         ..add(nextQuestion.toJson());
+      // await _gameService.updateGameRoom(state.id, {
+      //   'questions': updatedQuestions,
+      //   'currentTurnPlayerId':
+      //       currentUser.uid, // O jogador atual faz a pergunta
+      // });
+      // A vez do jogador já foi definida na criação da sala (o convidante começa).
+      // A vez só deve mudar DEPOIS que uma resposta for enviada.
       await _gameService.updateGameRoom(state.id, {
         'questions': updatedQuestions,
-        'currentTurnPlayerId':
-            currentUser.uid, // O jogador atual faz a pergunta
       });
+
       AppLogger.info('Nova pergunta selecionada: ${nextQuestion.text}');
     } else {
       AppLogger.info(
         'Todas as perguntas foram feitas ou não há mais perguntas relevantes.',
       );
-      // TODO: Lidar com o fim do quiz, talvez ir para a fase de chat
-      await _gameService.updateGameRoom(state.id, {
-        'status': GameStatus.finished.name,
-      });
+      // O jogo terminará quando o progresso de ambos chegar a 100%
     }
   }
 
@@ -173,24 +212,29 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
       currentUser.uid: answer,
     };
 
-    // Lógica de revelação progressiva
-    final currentProgress = Map<String, double>.from(state.progress);
-    final newProgressValue =
-        (currentProgress[currentUser.uid] ?? 0.0) + 0.25; // Aumenta 25%
-    currentProgress[currentUser.uid] = newProgressValue;
-
     // Determinar qual informação revelar ao oponente
     final opponent = (await _ref.read(
       gamePlayersProvider(state.id).future,
     )).values.firstWhere((p) => p.uid != currentUser.uid);
 
-    // Calcular o índice da próxima revelação com base no progresso
-    final revelationIndex = ((newProgressValue * _revealableKeys.length) - 1)
-        .toInt()
-        .clamp(0, _revealableKeys.length - 1);
+    // // Calcular o índice da próxima revelação com base no progresso
+    // final revelationIndex = ((newProgressValue * _revealableKeys.length) - 1);
+    // final revealedToOpponentCount =
+    //     state.revealedInfo[opponent.uid]?.keys.length ?? 0;
+    // final revelationIndex = revealedToOpponentCount.clamp(
+    //   0,
+    //   _revealableKeys.length - 1,
+    // );
+    // Contar quantas informações o usuário atual já revelou sobre o oponente.
+    // O índice da próxima revelação é simplesmente a contagem atual.
+    final revealedCount = state.revealedInfo[currentUser.uid]?.length ?? 0;
+    final revelationIndex = revealedCount;
 
-    final String keyToReveal = _revealableKeys[revelationIndex];
-
+    // Só revela se ainda houver itens a serem revelados
+    String? keyToReveal;
+    if (revelationIndex < _revealableKeys.length) {
+      keyToReveal = _revealableKeys[revelationIndex];
+    }
     // Obter o valor real a ser revelado do perfil do oponente
     dynamic valueToReveal;
     switch (keyToReveal) {
@@ -205,21 +249,23 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
         break;
     }
 
-    // Atualizar o perfil revelado do oponente no Firestore
-    final Map<String, dynamic> updatedOpponentRevealedProfile =
-        Map<String, dynamic>.from(opponent.revealedProfile);
-    if (valueToReveal != null &&
-        updatedOpponentRevealedProfile[keyToReveal] == null) {
-      updatedOpponentRevealedProfile[keyToReveal] = valueToReveal;
-      await _firestoreService.updateUser(opponent.uid, {
-        'revealedProfile': updatedOpponentRevealedProfile,
-      });
+    // Atualizar as informações reveladas na sala de jogo
+    final updatedRevealedInfo = Map<String, Map<String, dynamic>>.from(
+      state.revealedInfo,
+    );
+    if (keyToReveal != null && valueToReveal != null) {
+      final userRevealed = Map<String, dynamic>.from(
+        updatedRevealedInfo[currentUser.uid] ?? {},
+      );
+      userRevealed[keyToReveal] = valueToReveal;
+      updatedRevealedInfo[currentUser.uid] = userRevealed;
+
       AppLogger.info('Informação revelada para ${opponent.uid}: $keyToReveal');
     }
 
     await _gameService.updateGameRoom(state.id, {
       'answers': updatedAnswers,
-      'progress': currentProgress,
+      'revealedInfo': updatedRevealedInfo,
       'currentTurnPlayerId': state.playerIds.firstWhere(
         (id) => id != currentUser.uid,
       ), // Passa o turno
@@ -227,25 +273,21 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
 
     AppLogger.info('Resposta submetida e progresso atualizado.');
     // Verificar se o jogo terminou (ambos 100%)
-    final inviterProgress = currentProgress[state.playerIds[0]] ?? 0.0;
-    final inviteeProgress = currentProgress[state.playerIds[1]] ?? 0.0;
+    final inviterRevealedCount =
+        updatedRevealedInfo[state.playerIds[0]]?.length ?? 0;
+    final inviteeRevealedCount =
+        updatedRevealedInfo[state.playerIds[1]]?.length ?? 0;
 
-    if (inviterProgress >= 1.0 && inviteeProgress >= 1.0) {
-      AppLogger.info('Progresso de ${currentUser.uid} atingiu 100%.');
+    if (inviterRevealedCount >= _revealableKeys.length &&
+        inviteeRevealedCount >= _revealableKeys.length) {
+      AppLogger.info('Ambos os jogadores atingiram 100%. Jogo finalizado.');
       await _gameService.updateGameRoom(state.id, {
         'status': GameStatus.finished.name,
       });
       // Registrar conexão mútua nos perfis dos usuários
-      final players = await _ref.read(gamePlayersProvider(state.id).future);
-      final opponent = players.values.firstWhere(
-        (p) => p.uid != currentUser.uid,
-      );
-
-      // Adicionar o UID do oponente à lista de conectados do usuário atual
       await _firestoreService.updateUser(currentUser.uid, {
         'connectedUsers': FieldValue.arrayUnion([opponent.uid]),
       });
-      // Adicionar o UID do usuário atual à lista de conectados do oponente
       await _firestoreService.updateUser(opponent.uid, {
         'connectedUsers': FieldValue.arrayUnion([currentUser.uid]),
       });
@@ -267,7 +309,6 @@ class GameLogicNotifier extends StateNotifier<GameRoomModel> {
           .generateDocId(), // Gerar um ID único para a mensagem
       senderId: currentUser.uid,
       content: content,
-      // timestamp: DateTime.now(),
     );
     await _gameService.sendMessage(gameRoomId: state.id, message: message);
   }

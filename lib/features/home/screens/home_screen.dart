@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:unlock/features/connections/screens/connections_screen.dart';
 import 'package:unlock/features/home/widgets/custom_app_bar.dart';
+import 'package:unlock/features/invites/providers/pending_invites_provider.dart';
+import 'package:unlock/features/invites/screens/invites_screen.dart';
 import 'package:unlock/features/matchmaking/providers/matchmaking_provider.dart';
 import 'package:unlock/features/matchmaking/widgets/mystery_card_widget.dart';
 
@@ -17,18 +20,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // Widgets de placeholder para cada aba
   static const List<Widget> _widgetOptions = <Widget>[
     MatchmakingView(), // Substituído o placeholder
-    Center(
-      child: Text(
-        'Página Explorar',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
-    Center(
-      child: Text(
-        'Página Chat',
-        style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-      ),
-    ),
+    InvitesScreen(), // ✅ Substituído o placeholder de Explorar
+    ConnectionsScreen(), // Substituído o placeholder
     Center(
       child: Text(
         'Página Perfil',
@@ -54,11 +47,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ? colorScheme.primary
         : colorScheme.onSurfaceVariant;
 
-    return IconButton(
-      icon: Icon(icon, color: color),
-      tooltip: label,
-      onPressed: () => _onItemTapped(index),
-    );
+    // Se for o ícone de convites, adiciona o badge
+    if (index == 1) {
+      final pendingInvitesAsync = ref.watch(pendingInvitesProvider);
+      return Badge(
+        isLabelVisible: pendingInvitesAsync.maybeWhen(
+          data: (invites) => invites.isNotEmpty,
+          orElse: () => false,
+        ),
+        child: IconButton(
+          icon: Icon(icon, color: color),
+          tooltip: label,
+          onPressed: () => _onItemTapped(index),
+        ),
+      );
+    } else {
+      return IconButton(
+        icon: Icon(icon, color: color),
+        tooltip: label,
+        onPressed: () => _onItemTapped(index),
+      );
+    }
   }
 
   @override
@@ -89,9 +98,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           children: <Widget>[
             _buildNavItem(icon: Icons.home_rounded, index: 0, label: 'Início'),
             _buildNavItem(
-              icon: Icons.explore_rounded,
-              index: 1,
-              label: 'Explorar',
+              icon: Icons.mail_outline_rounded, // ✅ Ícone de convites
+              index: 1, // ✅ CORREÇÃO: Removido o padding desnecessário aqui
+              label: 'Convites',
             ),
             const SizedBox(width: 40), // Espaço para o FAB
             _buildNavItem(icon: Icons.chat_rounded, index: 2, label: 'Chat'),

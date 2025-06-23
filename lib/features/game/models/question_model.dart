@@ -2,7 +2,8 @@ class QuestionModel {
   final String id;
   final String text;
   final List<String> options; // Para múltipla escolha
-  final String? correctAnswer; // Para validação (opcional, se houver resposta "certa")
+  final String?
+  correctAnswer; // Para validação (opcional, se houver resposta "certa")
   final String type; // 'text_input', 'multiple_choice', 'emoji_choice'
   final List<String> relatedInterests; // Para selecionar perguntas relevantes
 

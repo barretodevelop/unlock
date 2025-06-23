@@ -33,9 +33,6 @@ class UserModel {
   final String? actualSocialMediaHandle;
 
   // Campos para controle de Login Diário e Streak
-  final Map<String, dynamic> revealedProfile; // Recompensas reveladas
-
-  // Campos para controle de Login Diário e Streak
   final DateTime? lastLoginDate;
   final int? loginStreak;
   final Map<String, bool> unlockedFeatures;
@@ -68,7 +65,6 @@ class UserModel {
     this.actualSocialMediaHandle,
     this.actualPhotoUrl,
     this.actualFavoriteBands = const [],
-    this.revealedProfile = const {},
     this.lastLoginDate,
     this.loginStreak,
     this.connectedUsers = const [], // Inicializar como lista vazia
@@ -78,7 +74,7 @@ class UserModel {
   // ✅ GETTER PARA VERIFICAR SE PRECISA DE ONBOARDING
   bool get needsOnboarding {
     // A propriedade `onboardingCompleted` é a única fonte de verdade para determinar
-    // se o fluxo de onboarding foi finalizado.
+    // se o fluxo de navegação foi finalizado.
     return !onboardingCompleted;
   }
 
@@ -134,11 +130,12 @@ class UserModel {
       actualPhotoUrl: json['actualPhotoUrl'],
       actualSocialMediaHandle: json['actualSocialMediaHandle'],
       actualFavoriteBands: List<String>.from(json['actualFavoriteBands'] ?? []),
-      revealedProfile: Map<String, dynamic>.from(json['revealedProfile'] ?? {}),
       unlockedFeatures: Map<String, bool>.from(
         json['unlockedFeatures'] as Map? ?? {},
       ),
-      connectedUsers: List<String>.from(json['connectedUsers'] ?? []), // Desserializar connectedUsers
+      connectedUsers: List<String>.from(
+        json['connectedUsers'] ?? [],
+      ), // Desserializar connectedUsers
     );
   }
 
@@ -172,7 +169,6 @@ class UserModel {
       'actualPhotoUrl': actualPhotoUrl,
       'actualSocialMediaHandle': actualSocialMediaHandle,
       'actualFavoriteBands': actualFavoriteBands,
-      'revealedProfile': revealedProfile,
       'lastLoginDate': lastLoginDate?.toIso8601String(),
       'loginStreak': loginStreak,
       'connectedUsers': connectedUsers, // Serializar connectedUsers
@@ -206,7 +202,6 @@ class UserModel {
     String? actualPhotoUrl,
     List<String>? actualFavoriteBands,
     String? actualSocialMediaHandle,
-    Map<String, dynamic>? revealedProfile,
     DateTime? lastLoginDate,
     int? loginStreak,
     List<String>? connectedUsers,
@@ -239,7 +234,6 @@ class UserModel {
       actualFavoriteBands: actualFavoriteBands ?? this.actualFavoriteBands,
       actualSocialMediaHandle:
           actualSocialMediaHandle ?? this.actualSocialMediaHandle,
-      revealedProfile: revealedProfile ?? this.revealedProfile,
       lastLoginDate: lastLoginDate ?? this.lastLoginDate,
       loginStreak: loginStreak ?? this.loginStreak,
       connectedUsers: connectedUsers ?? this.connectedUsers,
@@ -282,7 +276,6 @@ class UserModel {
         other.actualPhotoUrl == actualPhotoUrl &&
         listEquals(other.actualFavoriteBands, actualFavoriteBands) &&
         other.actualSocialMediaHandle == actualSocialMediaHandle &&
-        mapEquals(other.revealedProfile, revealedProfile) &&
         other.lastLoginDate == lastLoginDate && // Already included, good.
         other.loginStreak == loginStreak && // Already included, good.
         listEquals(other.connectedUsers, connectedUsers) &&
@@ -316,7 +309,6 @@ class UserModel {
       actualPhotoUrl,
       actualFavoriteBands,
       actualSocialMediaHandle,
-      revealedProfile,
       lastLoginDate,
       loginStreak,
       connectedUsers,
@@ -357,11 +349,6 @@ class UserModel {
       actualPhotoUrl: photoURL, // Use provided photoURL
       actualFavoriteBands: [], // Empty initially
       actualSocialMediaHandle: null, // Null initially
-      revealedProfile: {
-        'photo_url': null,
-        'favorite_bands': [],
-        'social_media': null,
-      },
       connectedUsers: [], // Inicializar como lista vazia
       lastLoginDate: null, // Provide initial null value
       loginStreak: 0, // Provide initial 0 value

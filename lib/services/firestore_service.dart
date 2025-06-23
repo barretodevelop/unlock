@@ -536,9 +536,34 @@ class FirestoreService {
   }
 
   // Manter outros métodos existentes...
-  Future<List<UserModel>> getUsers(List<String> userIds) async {
-    // Implementação existente com analytics adicionado...
-    return [];
+  /// Busca uma lista de usuários a partir de uma lista de UIDs.
+  Future<List<UserModel>> getUsers(List<String> uids) async {
+    if (uids.isEmpty) {
+      return [];
+    }
+    try {
+      AppLogger.firestore('📥 Buscando ${uids.length} usuários por UID.');
+      final querySnapshot = await _db
+          .collection('users')
+          .where(FieldPath.documentId, whereIn: uids)
+          .get();
+
+      final users = querySnapshot.docs
+          .map(
+            (doc) => UserModel.fromJson(doc.data()!),
+          ) // ✅ CORREÇÃO: Garante que doc.data() não é nulo.
+          .toList();
+
+      AppLogger.firestore('✅ ${users.length} usuários encontrados.');
+      return users;
+    } catch (e, stackTrace) {
+      AppLogger.error(
+        '❌ Erro ao buscar múltiplos usuários',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return [];
+    }
   }
 
   /// Gera um ID de documento único para o Firestore.

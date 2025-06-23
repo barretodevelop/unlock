@@ -51,6 +51,8 @@ class _MysteryCardWidgetState extends ConsumerState<MysteryCardWidget> {
       inviteeId: widget.potentialMatch.uid,
     );
 
+    // ✅ LOGGING APRIMORADO: Confirma se o gameRoomId foi recebido e a navegação será tentada.
+    AppLogger.info('GameRoomId received from service: $gameRoomId');
     if (mounted) {
       setState(() => _isInviting = false);
       if (gameRoomId != null) {
