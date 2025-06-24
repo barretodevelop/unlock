@@ -1,4 +1,4 @@
-// lib/core/router/app_router.dart - ATUALIZADO COM GRUPOS
+// lib/core/router/app_router.dart - ATUALIZADO PARA NOVA HOME
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,29 +7,29 @@ import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/groups/screens/create_group_screen.dart';
 import 'package:unlock/features/groups/screens/group_detail_screen.dart';
 import 'package:unlock/features/groups/screens/groups_list_screen.dart';
-import 'package:unlock/features/home/screens/home_screen.dart';
+import 'package:unlock/features/home/screens/new_home_screen.dart'; // ✅ NOVA HOME
 import 'package:unlock/onboarding/onboarding_wrapper.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/shared/screens/splash_screen.dart';
 
-/// ✅ SISTEMA DE NAVEGAÇÃO COM GRUPOS INTEGRADOS
+/// ✅ SISTEMA DE NAVEGAÇÃO COM NOVA HOME INTEGRADA
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  /// Criar router com rotas dos grupos
+  /// Criar router com nova home como padrão
   static GoRouter createRouter(WidgetRef ref) {
     return GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: '/',
       debugLogDiagnostics: false,
 
-      // ✅ REDIRECT SIMPLIFICADO - com verificação de grupos
+      // ✅ REDIRECT OTIMIZADO
       redirect: (context, state) => _handleRedirect(ref, state),
 
-      // ✅ REFRESH LISTENER SIMPLES
+      // ✅ REFRESH LISTENER
       refreshListenable: _AuthChangeNotifier(ref),
 
-      // ✅ ROTAS COMPLETAS COM GRUPOS
+      // ✅ ROTAS COMPLETAS
       routes: [
         // ========== ROTAS PRINCIPAIS ==========
 
@@ -63,15 +63,15 @@ class AppRouter {
           },
         ),
 
-        // ========== ROTAS AUTENTICADAS ==========
+        // ========== NOVA HOME PRINCIPAL ==========
 
-        // Home Screen (Dashboard)
+        // ✅ NOVA HOME COM NAVEGAÇÃO REFINADA
         GoRoute(
           path: '/home',
           name: 'home',
           builder: (context, state) {
-            AppLogger.navigation('🏠 Building HomeScreen');
-            return const HomeScreen();
+            AppLogger.navigation('🏠 Building NewHomeScreen');
+            return const NewHomeScreen();
           },
         ),
 
@@ -87,7 +87,7 @@ class AppRouter {
           },
         ),
 
-        // Criar Grupo - ✅ CORRIGIDO: Rota independente
+        // Criar Grupo
         GoRoute(
           path: '/groups/create',
           name: 'create-group',
@@ -120,7 +120,7 @@ class AppRouter {
           },
         ),
 
-        // Criar Desafio - ✅ CORRIGIDO: Rota independente
+        // Criar Desafio
         GoRoute(
           path: '/challenges/create',
           name: 'create-challenge',
@@ -143,7 +143,9 @@ class AppRouter {
           },
         ),
 
-        // ========== ROTAS DE PERFIL (PLACEHOLDER) ==========
+        // ========== ROTAS REFINADAS ==========
+
+        // Perfil (com nova navegação)
         GoRoute(
           path: '/profile',
           name: 'profile',
@@ -153,17 +155,7 @@ class AppRouter {
           },
         ),
 
-        // ========== ROTAS DE CONFIGURAÇÕES (PLACEHOLDER) ==========
-        GoRoute(
-          path: '/settings',
-          name: 'settings',
-          builder: (context, state) {
-            AppLogger.navigation('⚙️ Building SettingsScreen');
-            return _buildComingSoonScreen(context, 'Configurações');
-          },
-        ),
-
-        // ========== ROTAS DE RANKINGS (PLACEHOLDER) ==========
+        // Rankings (nova funcionalidade)
         GoRoute(
           path: '/rankings',
           name: 'rankings',
@@ -173,7 +165,17 @@ class AppRouter {
           },
         ),
 
-        // ========== ROTAS DE JOGOS (PLACEHOLDER) ==========
+        // Configurações
+        GoRoute(
+          path: '/settings',
+          name: 'settings',
+          builder: (context, state) {
+            AppLogger.navigation('⚙️ Building SettingsScreen');
+            return _buildComingSoonScreen(context, 'Configurações');
+          },
+        ),
+
+        // Mini-Games
         GoRoute(
           path: '/games',
           name: 'games',
@@ -184,7 +186,7 @@ class AppRouter {
         ),
       ],
 
-      // ✅ ERROR HANDLER MELHORADO
+      // ✅ ERROR HANDLER REFINADO
       errorBuilder: (context, state) {
         AppLogger.error('❌ Route error: ${state.error}');
         return _ErrorScreen(
@@ -195,14 +197,14 @@ class AppRouter {
     );
   }
 
-  /// ✅ LÓGICA DE REDIRECT OTIMIZADA
+  /// ✅ LÓGICA DE REDIRECT OTIMIZADA PARA NOVA HOME
   static String? _handleRedirect(WidgetRef ref, GoRouterState state) {
     try {
       final location = state.uri.toString();
       final authState = ref.read(authProvider);
 
       AppLogger.navigation(
-        '🧭 Avaliando redirect',
+        '🧭 Avaliando redirect para nova home',
         data: {
           'location': location,
           'isAuth': authState.isAuthenticated,
@@ -247,11 +249,11 @@ class AppRouter {
         return null;
       }
 
-      // Se autenticado e onboard completo, não pode acessar rotas públicas
+      // ✅ REDIRECIONAMENTO PARA NOVA HOME
       if (location == AppRoutes.login ||
           location.startsWith(AppRoutes.onboarding) ||
           location == AppRoutes.splash) {
-        AppLogger.navigation('🏠 Autenticado, indo para home');
+        AppLogger.navigation('🏠 Autenticado, indo para nova home');
         return AppRoutes.home;
       }
 
@@ -263,12 +265,13 @@ class AppRouter {
     }
   }
 
-  /// Tela "Em Breve" para funcionalidades não implementadas
+  /// Tela "Em Breve" refinada
   static Widget _buildComingSoonScreen(BuildContext context, String feature) {
     return Scaffold(
       appBar: AppBar(
         title: Text(feature),
         backgroundColor: Theme.of(context).colorScheme.surface,
+        elevation: 1,
       ),
       body: Center(
         child: Padding(
@@ -276,42 +279,82 @@ class AppRouter {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: 120,
-                height: 120,
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.construction,
-                  size: 60,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
+              // Ícone animado
+              TweenAnimationBuilder<double>(
+                tween: Tween(begin: 0.8, end: 1.2),
+                duration: const Duration(seconds: 2),
+                builder: (context, scale, child) {
+                  return Transform.scale(
+                    scale: scale,
+                    child: Container(
+                      width: 120,
+                      height: 120,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            Theme.of(context).colorScheme.primary,
+                            Theme.of(context).colorScheme.secondary,
+                          ],
+                        ),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.construction,
+                        size: 60,
+                        color: Colors.white,
+                      ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 24),
+
+              const SizedBox(height: 32),
+
               Text(
                 '$feature em Desenvolvimento',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+
+              const SizedBox(height: 16),
+
               Text(
                 'Esta funcionalidade estará disponível em breve. Estamos trabalhando para trazer a melhor experiência!',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.7),
-                ),
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.7),
+                    ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
-              ElevatedButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.arrow_back),
-                label: const Text('Voltar'),
+
+              const SizedBox(height: 40),
+
+              // Botões de ação
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  ElevatedButton.icon(
+                    onPressed: () => Navigator.of(context).pop(),
+                    icon: const Icon(Icons.arrow_back),
+                    label: const Text('Voltar'),
+                  ),
+                  const SizedBox(width: 16),
+                  OutlinedButton.icon(
+                    onPressed: () {
+                      // TODO: Navegar para home
+                      Navigator.of(context).pushNamedAndRemoveUntil(
+                        '/home',
+                        (route) => false,
+                      );
+                    },
+                    icon: const Icon(Icons.home),
+                    label: const Text('Home'),
+                  ),
+                ],
               ),
             ],
           ),
@@ -320,92 +363,37 @@ class AppRouter {
     );
   }
 
-  // ✅ GETTERS DE COMPATIBILIDADE
+  // ✅ GETTERS ATUALIZADOS
   static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
   static BuildContext? get context => _rootNavigatorKey.currentContext;
 }
 
-/// ✅ CONSTANTES DE ROTAS CORRIGIDAS
+/// ✅ CONSTANTES DE ROTAS ATUALIZADAS
 class AppRoutes {
   // Rotas principais
   static const String splash = '/';
   static const String login = '/login';
   static const String onboarding = '/onboarding';
-  static const String home = '/home';
+  static const String home = '/home'; // ✅ Nova Home
 
-  // Grupos - ✅ CORRIGIDO: Rotas independentes
+  // Grupos
   static const String groups = '/groups';
   static const String createGroup = '/groups/create';
   static String groupDetail(String id) => '/groups/$id';
 
-  // Desafios - ✅ CORRIGIDO: Rotas independentes
+  // Desafios
   static const String challenges = '/challenges';
   static const String createChallenge = '/challenges/create';
   static String challengeDetail(String id) => '/challenges/$id';
 
-  // Outras rotas
+  // Navegação Bottom
   static const String profile = '/profile';
-  static const String settings = '/settings';
   static const String rankings = '/rankings';
+  static const String settings = '/settings';
   static const String games = '/games';
 }
 
-/// ✅ UTILITÁRIOS DE NAVEGAÇÃO MELHORADOS
-class NavigationUtils {
-  /// Navegar para rota
-  static void navigateTo(BuildContext context, String path, {Object? extra}) {
-    AppLogger.navigation('🧭 Navegando para: $path');
-    context.go(path, extra: extra);
-  }
-
-  /// Push (manter no stack)
-  static void pushTo(BuildContext context, String path, {Object? extra}) {
-    AppLogger.navigation('📌 Pushing para: $path');
-    context.push(path, extra: extra);
-  }
-
-  /// Voltar ou ir para home
-  static void popOrHome(BuildContext context) {
-    if (GoRouter.of(context).canPop()) {
-      AppLogger.navigation('⬅️ Pop');
-      context.pop();
-    } else {
-      AppLogger.navigation('🏠 Não pode pop, indo para home');
-      context.go(AppRoutes.home);
-    }
-  }
-
-  /// Ir para home e limpar stack
-  static void goHome(BuildContext context) {
-    AppLogger.navigation('🏠 Indo para home');
-    context.go(AppRoutes.home);
-  }
-
-  /// Navegar para grupo
-  static void goToGroup(BuildContext context, String groupId) {
-    AppLogger.navigation('👥 Indo para grupo: $groupId');
-    context.go(AppRoutes.groupDetail(groupId));
-  }
-
-  /// Navegar para criar grupo
-  static void goToCreateGroup(BuildContext context) {
-    AppLogger.navigation('➕ Indo para criar grupo');
-    context.go(AppRoutes.createGroup);
-  }
-
-  /// Navegar para desafio
-  static void goToChallenge(BuildContext context, String challengeId) {
-    AppLogger.navigation('🏆 Indo para desafio: $challengeId');
-    context.go(AppRoutes.challengeDetail(challengeId));
-  }
-
-  /// Verificar se pode voltar
-  static bool canPop(BuildContext context) {
-    return GoRouter.of(context).canPop();
-  }
-}
-
-/// ✅ LISTENER DE MUDANÇAS DE AUTH
+/// ✅ LISTENER DE MUDANÇAS DE AUTH OTIMIZADO
 class _AuthChangeNotifier extends ChangeNotifier {
   final WidgetRef _ref;
   bool _isDisposed = false;
@@ -418,7 +406,7 @@ class _AuthChangeNotifier extends ChangeNotifier {
 
       if (shouldNotify) {
         AppLogger.navigation(
-          '🔄 Auth mudou, notificando router',
+          '🔄 Auth mudou, notificando router para nova home',
           data: {
             'wasAuth': previous?.isAuthenticated,
             'isAuth': current.isAuthenticated,
@@ -434,16 +422,10 @@ class _AuthChangeNotifier extends ChangeNotifier {
   bool _shouldNotifyChange(AuthState? previous, AuthState current) {
     if (previous == null) return true;
 
-    // Mudança no status de autenticação
-    if (previous.isAuthenticated != current.isAuthenticated) return true;
-
-    // Mudança no status de carregamento
-    if (previous.isLoading != current.isLoading) return true;
-
-    // Mudança no onboarding
-    if (previous.needsOnboarding != current.needsOnboarding) return true;
-
-    return false;
+    return previous.isAuthenticated != current.isAuthenticated ||
+        previous.isLoading != current.isLoading ||
+        previous.isInitialized != current.isInitialized ||
+        previous.needsOnboarding != current.needsOnboarding;
   }
 
   @override
@@ -453,24 +435,26 @@ class _AuthChangeNotifier extends ChangeNotifier {
   }
 }
 
-/// ✅ TELA DE ERRO MELHORADA
+/// ✅ TELA DE ERRO REFINADA
 class _ErrorScreen extends StatelessWidget {
   final String error;
   final String location;
 
-  const _ErrorScreen({required this.error, required this.location});
+  const _ErrorScreen({
+    required this.error,
+    required this.location,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Oops!'),
-        backgroundColor: Theme.of(context).colorScheme.error,
-        foregroundColor: Colors.white,
+        title: const Text('Erro'),
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -481,44 +465,70 @@ class _ErrorScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               Text(
-                'Página Não Encontrada',
+                'Oops! Algo deu errado',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.error,
-                  fontWeight: FontWeight.bold,
-                ),
+                      fontWeight: FontWeight.bold,
+                    ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Text(
-                'A página "$location" não existe ou foi movida.',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.7),
-                ),
+                error,
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Rota: $location',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context)
+                          .colorScheme
+                          .onSurface
+                          .withOpacity(0.6),
+                    ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => NavigationUtils.goHome(context),
-                    icon: const Icon(Icons.home),
-                    label: const Text('Ir para Home'),
-                  ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () => NavigationUtils.popOrHome(context),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Voltar'),
-                  ),
-                ],
+              ElevatedButton.icon(
+                onPressed: () => GoRouter.of(context).go(AppRoutes.home),
+                icon: const Icon(Icons.home),
+                label: const Text('Ir para Home'),
               ),
             ],
           ),
         ),
       ),
     );
+  }
+}
+
+/// ✅ UTILITÁRIOS DE NAVEGAÇÃO ATUALIZADOS
+class NavigationUtils {
+  /// Navegar para nova home
+  static void goToNewHome(BuildContext context) {
+    AppLogger.navigation('🏠 Navegando para nova home');
+    GoRouter.of(context).go(AppRoutes.home);
+  }
+
+  /// Navegar mantendo stack
+  static void pushTo(BuildContext context, String path, {Object? extra}) {
+    AppLogger.navigation('📌 Pushing para: $path');
+    GoRouter.of(context).push(path, extra: extra);
+  }
+
+  /// Voltar ou ir para home
+  static void popOrHome(BuildContext context) {
+    if (GoRouter.of(context).canPop()) {
+      AppLogger.navigation('⬅️ Pop');
+      GoRouter.of(context).pop();
+    } else {
+      AppLogger.navigation('🏠 Não pode pop, indo para nova home');
+      GoRouter.of(context).go(AppRoutes.home);
+    }
+  }
+
+  /// Verificar se pode voltar
+  static bool canPop(BuildContext context) {
+    return GoRouter.of(context).canPop();
   }
 }

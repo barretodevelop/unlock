@@ -128,11 +128,42 @@ class AuthState {
     return Object.hash(user?.uid, isLoading, isInitialized, error, status);
   }
 
-  when({
-    required Center Function() loading,
-    required Center Function(dynamic error, dynamic stack) error,
-    required Widget Function(dynamic user) data,
-  }) {}
+  // Widget whenState({
+  //   required Widget Function() loading,
+  //   required Widget Function(dynamic error, dynamic stack) error,
+  //   required Widget Function(UserModel user) data,
+  // }) {
+  //   if (!isInitialized || isLoading) {
+  //     return loading();
+  //   }
+
+  //   if (this.error != null) {
+  //     return error(this.error!, StackTrace.current);
+  //   }
+
+  //   if (isAuthenticated && user != null) {
+  //     return data(user!);
+  //   }
+
+  //   // 🔴 SE VOCÊ NÃO RETORNAR NADA AQUI, O ERRO OCORRE
+  //   return error("Estado inválido", StackTrace.current);
+  // }
+}
+
+extension AuthStateX on AuthState {
+  Widget whenState({
+    required Widget Function() loading,
+    required Widget Function(dynamic error, dynamic stack) error,
+    required Widget Function(AuthState state) data,
+  }) {
+    if (!isInitialized || isLoading) {
+      return loading();
+    } else if (this.error != null) {
+      return error(this.error!, StackTrace.current);
+    } else {
+      return data(this);
+    }
+  }
 }
 
 // Estados possíveis da autenticação

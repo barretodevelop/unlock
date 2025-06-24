@@ -1,6 +1,7 @@
 // lib/features/groups/widgets/group_card.dart - VERSÃO CORRIGIDA
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/models/group_model.dart';
 import 'package:unlock/providers/auth_provider.dart';
@@ -484,7 +485,7 @@ class GroupCard extends ConsumerWidget {
         content: const Text('Funcionalidade de convite em desenvolvimento.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(),
+            onPressed: () =>  context.go('/home') ,
             child: const Text('OK'),
           ),
         ],
