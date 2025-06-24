@@ -7,7 +7,9 @@ enum GameStatus {
   finished, // Jogo finalizado, conexão formada
   declined, // Convite recusado
   expired, // Convite expirado
-  abandoned, // Um dos jogadores abandonou
+  abandoned,
+  completed,
+  archived, // Um dos jogadores abandonou
 }
 
 class GameRoomModel {
