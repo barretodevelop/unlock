@@ -423,7 +423,45 @@ class AuthService {
       return false;
     }
   }
+  
 
+  
+  // ========== ANALYTICS HELPERS ==========
+
+  // /// Track eventos de autenticação
+  // static Future<void> _trackAuthEvent(
+  //   String eventName,
+  //   Map<String, dynamic> parameters,
+  // ) async {
+  //   try {
+  //     await AnalyticsIntegration.logEvent(eventName, parameters);
+  //   } catch (e) {
+  //     AppLogger.warning('⚠️ Erro ao enviar analytics de auth', data: {
+  //       'event': eventName,
+  //       'error': e.toString(),
+  //     });
+  //   }
+  // }
+
+  // /// Track performance de autenticação
+  // static Future<void> _trackAuthPerformance(
+  //   String metricName,
+  //   int durationMs,
+  //   Map<String, dynamic> metadata,
+  // ) async {
+  //   try {
+  //     await AnalyticsIntegration.logEvent('auth_performance', {
+  //       'metric_name': metricName,
+  //       'duration_ms': durationMs,
+  //       ...metadata,
+  //     });
+  //   } catch (e) {
+  //     AppLogger.warning('⚠️ Erro ao enviar performance analytics', data: {
+  //       'metric': metricName,
+  //       'error': e.toString(),
+  //     });
+  //   }
+  // }
   // ========== MÉTODOS DE ANALYTICS INTERNOS ==========
 
   /// Rastrear evento de autenticação

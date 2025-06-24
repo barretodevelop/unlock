@@ -99,7 +99,7 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
   }
 
   // Submeter entrada
-  Future<bool> submitEntry(
+  Future<Object?> submitEntry(
     String challengeId,
     String userId,
     String username,
@@ -111,15 +111,15 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
 
     try {
       final success = await ChallengeService.submitEntry(
-        challengeId,
-        userId,
-        username,
-        userAvatar,
-        type,
-        content,
+        challengeId: challengeId,
+        userId: userId,
+        username: username,
+        userAvatar: userAvatar,
+        type: type,
+        content: content,
       );
 
-      if (success) {
+      if (success != null) {
         state = state.copyWith(
           isLoading: false,
           successMessage: 'Submissão enviada com sucesso!',
@@ -150,8 +150,9 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
 
     try {
       final success = await ChallengeService.voteSubmission(
-        submissionId,
-        userId,
+        submissionId: submissionId,
+        userId: userId,
+        isUpvote: true,
       );
 
       if (success) {
@@ -181,7 +182,15 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final challengeId = await ChallengeService.createChallenge(challenge);
+      final challengeId = await ChallengeService.createChallenge(
+        title: challenge.title,
+        description: challenge.description,
+        type: challenge.type,
+        arena: challenge.arena,
+        creatorId: challenge.creatorId,
+        startsAt: challenge.startsAt,
+        endsAt: challenge.endsAt,
+      );
 
       if (challengeId != null) {
         state = state.copyWith(

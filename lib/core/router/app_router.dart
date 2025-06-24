@@ -7,7 +7,7 @@ import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/groups/screens/create_group_screen.dart';
 import 'package:unlock/features/groups/screens/group_detail_screen.dart';
 import 'package:unlock/features/groups/screens/groups_list_screen.dart';
-import 'package:unlock/features/home/screens/new_home_screen.dart';
+import 'package:unlock/features/home/screens/home_screen_with_mini_games.dart';
 import 'package:unlock/features/rankings/screens/rankings_screen.dart'; // ✅ NOVA TELA DE RANKINGS
 import 'package:unlock/onboarding/onboarding_wrapper.dart';
 import 'package:unlock/providers/auth_provider.dart';
@@ -72,7 +72,7 @@ class AppRouter {
           name: 'home',
           builder: (context, state) {
             AppLogger.navigation('🏠 Building NewHomeScreen');
-            return const NewHomeScreen();
+            return const HomeScreenWithMiniGames();
           },
         ),
 
