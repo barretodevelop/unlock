@@ -1,7 +1,6 @@
 // lib/core/theme/app_theme.dart - Sistema de Tema do Unlock
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:unlock/core/constants/app_constants.dart';
 
 /// Sistema de tema centralizado para o app Unlock
 class AppTheme {
@@ -11,17 +10,17 @@ class AppTheme {
   static const Color secondaryColor = Color(0xFF10B981); // Verde esmeralda
   static const Color accentColor = Color(0xFFF59E0B); // Âmbar
 
-  // Cores de gamificação
-  static const Color coinsColor = Color(ColorConstants.coinsColor);
-  static const Color gemsColor = Color(ColorConstants.gemsColor);
-  static const Color xpColor = Color(ColorConstants.xpColor);
-  static const Color levelColor = Color(ColorConstants.levelColor);
+  // // Cores de gamificação
+  // static const Color coinsColor = Color(ColorConstants.coinsColor);
+  // static const Color gemsColor = Color(ColorConstants.gemsColor);
+  // static const Color xpColor = Color(ColorConstants.xpColor);
+  // static const Color levelColor = Color(ColorConstants.levelColor);
 
-  // Cores de status
-  static const Color successColor = Color(ColorConstants.successColor);
-  static const Color warningColor = Color(ColorConstants.warningColor);
-  static const Color errorColor = Color(ColorConstants.errorColor);
-  static const Color infoColor = Color(ColorConstants.infoColor);
+  // // Cores de status
+  // static const Color successColor = Color(ColorConstants.successColor);
+  // static const Color warningColor = Color(ColorConstants.warningColor);
+  // static const Color errorColor = Color(ColorConstants.errorColor);
+  // static const Color infoColor = Color(ColorConstants.infoColor);
 
   // Cores neutras
   static const Color backgroundLight = Color(0xFFFAFAFA);
@@ -47,7 +46,7 @@ class AppTheme {
         tertiary: accentColor,
         surface: surfaceLight,
         background: backgroundLight,
-        error: errorColor,
+        // error: errorColor,
       ),
 
       // Tipografia
@@ -89,7 +88,7 @@ class AppTheme {
         tertiary: accentColor,
         surface: surfaceDark,
         background: backgroundDark,
-        error: errorColor,
+        // error: errorColor,
       ),
 
       // Tipografia
@@ -302,7 +301,7 @@ class AppTheme {
       ),
       errorBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(8),
-        borderSide: const BorderSide(color: errorColor, width: 2),
+        // borderSide: const BorderSide(color: errorColor, width: 2),
       ),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
     );
@@ -346,20 +345,20 @@ class AppTheme {
   }
 }
 
-/// Extensões para cores de gamificação
-extension GameColors on ColorScheme {
-  Color get coins => AppTheme.coinsColor;
-  Color get gems => AppTheme.gemsColor;
-  Color get xp => AppTheme.xpColor;
-  Color get level => AppTheme.levelColor;
-}
+// /// Extensões para cores de gamificação
+// extension GameColors on ColorScheme {
+//   Color get coins => AppTheme.coinsColor;
+//   Color get gems => AppTheme.gemsColor;
+//   Color get xp => AppTheme.xpColor;
+//   Color get level => AppTheme.levelColor;
+// }
 
-/// Extensões para cores de status
-extension StatusColors on ColorScheme {
-  Color get success => AppTheme.successColor;
-  Color get warning => AppTheme.warningColor;
-  Color get info => AppTheme.infoColor;
-}
+// /// Extensões para cores de status
+// extension StatusColors on ColorScheme {
+//   Color get success => AppTheme.successColor;
+//   Color get warning => AppTheme.warningColor;
+//   Color get info => AppTheme.infoColor;
+// }
 
 /// Utilitários de tema
 class ThemeUtils {

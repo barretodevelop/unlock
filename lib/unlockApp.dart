@@ -71,7 +71,7 @@ class _AppBuilder extends StatelessWidget {
           child ?? const _EmergencyScreen(),
           // ✅ Debug overlay apenas em desenvolvimento
           if (kDebugMode) ...[
-            const Positioned(top: 100, right: 10, child: _DebugOverlay()),
+            // const Positioned(top: 100, right: 10, child: _DebugOverlay()),
           ],
         ],
       ),

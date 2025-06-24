@@ -1,7 +1,12 @@
-// screens/create_challenge_screen.dart
+// lib/features/challenges/screens/create_challenge_screen.dart - CORRIGIDO
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:unlock/core/constants/app_constants.dart';
+import 'package:unlock/core/utils/logger.dart';
+import 'package:unlock/models/challenge_model.dart'; // ✅ USAR VERSÃO CORRIGIDA
 
+/// Tela para criação de novos desafios
 class CreateChallengeScreen extends ConsumerStatefulWidget {
   const CreateChallengeScreen({super.key});
 
@@ -10,491 +15,710 @@ class CreateChallengeScreen extends ConsumerStatefulWidget {
       _CreateChallengeScreenState();
 }
 
-class _CreateChallengeScreenState extends ConsumerState<CreateChallengeScreen> {
+class _CreateChallengeScreenState extends ConsumerState<CreateChallengeScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _animationController;
+  late Animation<double> _fadeAnimation;
+
+  // Controllers
   final _formKey = GlobalKey<FormState>();
   final _titleController = TextEditingController();
   final _descriptionController = TextEditingController();
 
+  // Form state
   ChallengeType _selectedType = ChallengeType.creative;
-  ChallengeArena _selectedArena = ChallengeArena.public;
-  DateTime _endDate = DateTime.now().add(const Duration(days: 7));
-  int _maxParticipants = 0; // 0 = ilimitado
-  int _rewardFaiscas = 50;
-  bool _isLoading = false;
-
-  final List<ChallengeType> _challengeTypes = [
-    ChallengeType.creative,
-    ChallengeType.game,
-    ChallengeType.quiz,
-    ChallengeType.realWorld,
-  ];
+  ArenaType _selectedArena = ArenaType.tournament; // ✅ CORRIGIDO: ArenaType
+  DateTime _startsAt = DateTime.now().add(const Duration(hours: 1));
+  DateTime _endsAt = DateTime.now().add(const Duration(days: 7));
+  int _maxParticipants = 100;
+  int _entryFee = 0;
+  bool _isCreating = false;
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Criar Desafio'),
-        actions: [
-          TextButton(
-            onPressed: _isLoading ? null : _createChallenge,
-            child: _isLoading
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Text('CRIAR'),
-          ),
-        ],
-      ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            _buildTypeSelector(),
-            const SizedBox(height: 24),
-            _buildBasicInfo(),
-            const SizedBox(height: 24),
-            _buildArenaSelector(),
-            const SizedBox(height: 24),
-            _buildSettings(),
-            const SizedBox(height: 32),
-            _buildPreview(),
-          ],
-        ),
-      ),
+  void initState() {
+    super.initState();
+
+    AppLogger.info('➕ CreateChallengeScreen: Iniciado');
+
+    // Configurar animações
+    _animationController = AnimationController(
+      duration: AppConstants.animationDuration,
+      vsync: this,
     );
-  }
 
-  Widget _buildTypeSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Tipo de Desafio',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              children: _challengeTypes.map((type) {
-                final isSelected = _selectedType == type;
-                return FilterChip(
-                  label: Text(_getTypeLabel(type)),
-                  avatar: Icon(
-                    _getTypeIcon(type),
-                    size: 18,
-                    color: isSelected
-                        ? Theme.of(context).colorScheme.onPrimary
-                        : Theme.of(context).colorScheme.primary,
-                  ),
-                  selected: isSelected,
-                  onSelected: (selected) {
-                    setState(() {
-                      _selectedType = type;
-                    });
-                  },
-                );
-              }).toList(),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              _getTypeDescription(_selectedType),
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeIn),
     );
-  }
 
-  Widget _buildBasicInfo() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Informações Básicas',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _titleController,
-              decoration: const InputDecoration(
-                labelText: 'Título do Desafio',
-                hintText: 'Ex: Melhor foto do pôr do sol',
-                border: OutlineInputBorder(),
-              ),
-              validator: (value) {
-                if (value?.isEmpty ?? true) {
-                  return 'Digite um título para o desafio';
-                }
-                if (value!.length < 5) {
-                  return 'Título muito curto (mínimo 5 caracteres)';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _descriptionController,
-              decoration: const InputDecoration(
-                labelText: 'Descrição',
-                hintText: 'Descreva as regras e critérios...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-              validator: (value) {
-                if (value?.isEmpty ?? true) {
-                  return 'Digite uma descrição para o desafio';
-                }
-                return null;
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildArenaSelector() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text('Arena', style: Theme.of(context).textTheme.titleMedium),
-            const SizedBox(height: 12),
-            ...ChallengeArena.values.map((arena) {
-              return RadioListTile<ChallengeArena>(
-                title: Text(_getArenaLabel(arena)),
-                subtitle: Text(_getArenaDescription(arena)),
-                value: arena,
-                groupValue: _selectedArena,
-                onChanged: (value) {
-                  setState(() {
-                    _selectedArena = value!;
-                  });
-                },
-              );
-            }),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildSettings() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Configurações',
-              style: Theme.of(context).textTheme.titleMedium,
-            ),
-            const SizedBox(height: 16),
-            ListTile(
-              leading: const Icon(Icons.calendar_today),
-              title: const Text('Data de Encerramento'),
-              subtitle: Text(
-                '${_endDate.day}/${_endDate.month}/${_endDate.year}',
-              ),
-              onTap: _selectEndDate,
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.people),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Máximo de Participantes'),
-                      Slider(
-                        value: _maxParticipants.toDouble(),
-                        min: 0,
-                        max: 100,
-                        divisions: 20,
-                        label: _maxParticipants == 0
-                            ? 'Ilimitado'
-                            : '$_maxParticipants',
-                        onChanged: (value) {
-                          setState(() {
-                            _maxParticipants = value.toInt();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.flash_on),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Recompensa (Faíscas)'),
-                      Slider(
-                        value: _rewardFaiscas.toDouble(),
-                        min: 10,
-                        max: 500,
-                        divisions: 49,
-                        label: '$_rewardFaiscas ⚡',
-                        onChanged: (value) {
-                          setState(() {
-                            _rewardFaiscas = value.toInt();
-                          });
-                        },
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPreview() {
-    return Card(
-      color: Theme.of(context).colorScheme.primaryContainer,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  Icons.preview,
-                  color: Theme.of(context).colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  'Prévia do Desafio',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onPrimaryContainer,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Icon(_getTypeIcon(_selectedType)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          _titleController.text.isEmpty
-                              ? 'Título do desafio'
-                              : _titleController.text,
-                          style: Theme.of(context).textTheme.titleMedium,
-                        ),
-                      ),
-                      Chip(
-                        label: Text('$_rewardFaiscas ⚡'),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    _descriptionController.text.isEmpty
-                        ? 'Descrição do desafio aparecerá aqui'
-                        : _descriptionController.text,
-                    style: Theme.of(context).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      Icon(
-                        Icons.access_time,
-                        size: 16,
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        'Termina em ${_endDate.day}/${_endDate.month}',
-                        style: Theme.of(context).textTheme.bodySmall,
-                      ),
-                      const Spacer(),
-                      Text(
-                        _getArenaLabel(_selectedArena),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _selectEndDate() async {
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: _endDate,
-      firstDate: DateTime.now().add(const Duration(hours: 1)),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() {
-        _endDate = picked;
-      });
-    }
-  }
-
-  Future<void> _createChallenge() async {
-    if (!_formKey.currentState!.validate()) return;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final challenge = ChallengeModel(
-        id: '',
-        title: _titleController.text.trim(),
-        description: _descriptionController.text.trim(),
-        type: _selectedType,
-        arena: _selectedArena,
-        creatorId: 'current_user_id', // TODO: Get from auth provider
-        createdAt: DateTime.now(),
-        endDate: _endDate,
-        maxParticipants: _maxParticipants == 0 ? null : _maxParticipants,
-        rewardFaiscas: _rewardFaiscas,
-        status: ChallengeStatus.active,
-        participants: [],
-      );
-
-      await ref.read(challengeProvider.notifier).createChallenge(challenge);
-
-      if (mounted) {
-        Navigator.pop(context);
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Desafio criado com sucesso! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erro ao criar desafio: $e'),
-            backgroundColor: Colors.red,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
-    }
-  }
-
-  String _getTypeLabel(ChallengeType type) {
-    switch (type) {
-      case ChallengeType.creative:
-        return 'Criativo';
-      case ChallengeType.game:
-        return 'Game';
-      case ChallengeType.quiz:
-        return 'Quiz';
-      case ChallengeType.realWorld:
-        return 'Mundo Real';
-    }
-  }
-
-  IconData _getTypeIcon(ChallengeType type) {
-    switch (type) {
-      case ChallengeType.creative:
-        return Icons.palette;
-      case ChallengeType.game:
-        return Icons.videogame_asset;
-      case ChallengeType.quiz:
-        return Icons.quiz;
-      case ChallengeType.realWorld:
-        return Icons.public;
-    }
-  }
-
-  String _getTypeDescription(ChallengeType type) {
-    switch (type) {
-      case ChallengeType.creative:
-        return 'Fotos, vídeos, desenhos e outras criações artísticas';
-      case ChallengeType.game:
-        return 'Mini-jogos e desafios de habilidade';
-      case ChallengeType.quiz:
-        return 'Perguntas e respostas sobre diversos temas';
-      case ChallengeType.realWorld:
-        return 'Atividades físicas e do mundo real';
-    }
-  }
-
-  String _getArenaLabel(ChallengeArena arena) {
-    switch (arena) {
-      case ChallengeArena.oneVsOne:
-        return '1v1 - Duelo';
-      case ChallengeArena.group:
-        return 'Grupo Fechado';
-      case ChallengeArena.public:
-        return 'Público';
-    }
-  }
-
-  String _getArenaDescription(ChallengeArena arena) {
-    switch (arena) {
-      case ChallengeArena.oneVsOne:
-        return 'Desafie um amigo diretamente';
-      case ChallengeArena.group:
-        return 'Apenas para seu grupo de amigos';
-      case ChallengeArena.public:
-        return 'Aberto para todos na plataforma';
-    }
+    // Iniciar animação
+    _animationController.forward();
   }
 
   @override
   void dispose() {
+    _animationController.dispose();
     _titleController.dispose();
     _descriptionController.dispose();
+    AppLogger.info('🧹 CreateChallengeScreen: Disposed');
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      appBar: _buildAppBar(context),
+      body: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          return FadeTransition(
+            opacity: _fadeAnimation,
+            child: _buildContent(context),
+          );
+        },
+      ),
+    );
+  }
+
+  /// App bar
+  PreferredSizeWidget _buildAppBar(BuildContext context) {
+    return AppBar(
+      title: const Text('Criar Desafio'),
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      foregroundColor: Theme.of(context).colorScheme.onSurface,
+      elevation: 0,
+      leading: IconButton(
+        icon: const Icon(Icons.close),
+        onPressed: () => context.pop(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: _isCreating ? null : _createChallenge,
+          child: _isCreating
+              ? const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Text('Criar'),
+        ),
+      ],
+    );
+  }
+
+  /// Conteúdo principal
+  Widget _buildContent(BuildContext context) {
+    return Form(
+      key: _formKey,
+      child: ListView(
+        padding: const EdgeInsets.all(16),
+        children: [
+          _buildHeaderSection(context),
+          const SizedBox(height: 24),
+          _buildBasicInfoSection(context),
+          const SizedBox(height: 24),
+          _buildTypeSection(context),
+          const SizedBox(height: 24),
+          _buildArenaSection(context), // ✅ CORRIGIDO
+          const SizedBox(height: 24),
+          _buildTimingSection(context),
+          const SizedBox(height: 24),
+          _buildParticipantsSection(context),
+          const SizedBox(height: 32),
+          _buildCreateButton(context),
+          const SizedBox(height: 16),
+        ],
+      ),
+    );
+  }
+
+  /// Seção de cabeçalho
+  Widget _buildHeaderSection(BuildContext context) {
+    return Column(
+      children: [
+        Container(
+          width: 80,
+          height: 80,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+            shape: BoxShape.circle,
+          ),
+          child: Icon(
+            Icons.emoji_events,
+            size: 40,
+            color: Theme.of(context).colorScheme.primary,
+          ),
+        ),
+        const SizedBox(height: 16),
+        Text(
+          'Novo Desafio',
+          style: Theme.of(
+            context,
+          ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 8),
+        Text(
+          'Crie um desafio emocionante para a comunidade',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+          ),
+          textAlign: TextAlign.center,
+        ),
+      ],
+    );
+  }
+
+  /// Seção de informações básicas
+  Widget _buildBasicInfoSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Informações Básicas',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        // Título
+        TextFormField(
+          controller: _titleController,
+          decoration: InputDecoration(
+            labelText: 'Título do Desafio',
+            hintText: 'Ex: Melhor Foto do Pôr do Sol',
+            prefixIcon: const Icon(Icons.title),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            counter: Text(
+              '${_titleController.text.length}/${AppConstants.maxChallengeNameLength}',
+            ),
+          ),
+          maxLength: AppConstants.maxChallengeNameLength,
+          textCapitalization: TextCapitalization.words,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return ValidationConstants.requiredFieldError;
+            }
+            if (value.trim().length < 5) {
+              return 'Título deve ter pelo menos 5 caracteres';
+            }
+            if (value.trim().length > AppConstants.maxChallengeNameLength) {
+              return 'Título muito longo (máximo ${AppConstants.maxChallengeNameLength} caracteres)';
+            }
+            return null;
+          },
+          onChanged: (value) => setState(() {}),
+        ),
+
+        const SizedBox(height: 16),
+
+        // Descrição
+        TextFormField(
+          controller: _descriptionController,
+          decoration: InputDecoration(
+            labelText: 'Descrição',
+            hintText: 'Descreva as regras e objetivos do desafio...',
+            prefixIcon: const Icon(Icons.description),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            counter: Text(
+              '${_descriptionController.text.length}/${AppConstants.maxChallengeDescriptionLength}',
+            ),
+          ),
+          maxLength: AppConstants.maxChallengeDescriptionLength,
+          maxLines: 4,
+          textCapitalization: TextCapitalization.sentences,
+          validator: (value) {
+            if (value == null || value.trim().isEmpty) {
+              return ValidationConstants.requiredFieldError;
+            }
+            if (value.trim().length < 10) {
+              return 'Descrição deve ter pelo menos 10 caracteres';
+            }
+            if (value.trim().length >
+                AppConstants.maxChallengeDescriptionLength) {
+              return 'Descrição muito longa (máximo ${AppConstants.maxChallengeDescriptionLength} caracteres)';
+            }
+            return null;
+          },
+          onChanged: (value) => setState(() {}),
+        ),
+      ],
+    );
+  }
+
+  /// Seção de tipo do desafio
+  Widget _buildTypeSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Tipo do Desafio',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        ...ChallengeType.values.map((type) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: RadioListTile<ChallengeType>(
+              value: type,
+              groupValue: _selectedType,
+              onChanged: (value) => setState(() => _selectedType = value!),
+              title: Row(
+                children: [
+                  Text(type.icon, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 12),
+                  Text(type.label),
+                ],
+              ),
+              subtitle: Text(type.description),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              tileColor: _selectedType == type
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  : null,
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  /// Seção de arena (corrigida)
+  Widget _buildArenaSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Arena de Competição',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        ...ArenaType.values.map((arena) {
+          // ✅ CORRIGIDO: ArenaType
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 8),
+            child: RadioListTile<ArenaType>(
+              value: arena,
+              groupValue: _selectedArena,
+              onChanged: (value) => setState(() => _selectedArena = value!),
+              title: Row(
+                children: [
+                  Text(arena.icon, style: const TextStyle(fontSize: 20)),
+                  const SizedBox(width: 12),
+                  Text(arena.label),
+                ],
+              ),
+              subtitle: Text(arena.description),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              tileColor: _selectedArena == arena
+                  ? Theme.of(context).colorScheme.primary.withOpacity(0.1)
+                  : null,
+            ),
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  /// Seção de timing
+  Widget _buildTimingSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Duração do Desafio',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceVariant.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Data de início
+              Row(
+                children: [
+                  Icon(
+                    Icons.play_arrow,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Início',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        Text(
+                          '${_startsAt.day}/${_startsAt.month}/${_startsAt.year} às ${_startsAt.hour}:${_startsAt.minute.toString().padLeft(2, '0')}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _selectDateTime(isStart: true),
+                    child: const Text('Alterar'),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Data de fim
+              Row(
+                children: [
+                  Icon(Icons.stop, color: Theme.of(context).colorScheme.error),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Fim',
+                          style: Theme.of(context).textTheme.titleSmall,
+                        ),
+                        Text(
+                          '${_endsAt.day}/${_endsAt.month}/${_endsAt.year} às ${_endsAt.hour}:${_endsAt.minute.toString().padLeft(2, '0')}',
+                          style: Theme.of(context).textTheme.bodyMedium
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurface.withOpacity(0.7),
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  TextButton(
+                    onPressed: () => _selectDateTime(isStart: false),
+                    child: const Text('Alterar'),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 12),
+
+              // Duração calculada
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.schedule,
+                      color: Theme.of(context).colorScheme.primary,
+                      size: 16,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Duração: ${_calculateDuration()}',
+                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Seção de participantes
+  Widget _buildParticipantsSection(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Configurações de Participação',
+          style: Theme.of(
+            context,
+          ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+        ),
+        const SizedBox(height: 16),
+
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Theme.of(
+              context,
+            ).colorScheme.surfaceVariant.withOpacity(0.3),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+            ),
+          ),
+          child: Column(
+            children: [
+              // Máximo de participantes
+              Row(
+                children: [
+                  Icon(
+                    Icons.people,
+                    color: Theme.of(context).colorScheme.primary,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Máximo de Participantes',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  Text(
+                    '$_maxParticipants',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              Slider(
+                value: _maxParticipants.toDouble(),
+                min: 10,
+                max: AppConstants.maxChallengeParticipants.toDouble(),
+                divisions: 99,
+                label: '$_maxParticipants participantes',
+                onChanged: (value) =>
+                    setState(() => _maxParticipants = value.round()),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Taxa de entrada
+              Row(
+                children: [
+                  Icon(Icons.bolt, color: ColorConstants.coinsColor),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Text(
+                      'Taxa de Entrada (Faíscas)',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  Text(
+                    '$_entryFee',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: ColorConstants.coinsColor,
+                    ),
+                  ),
+                ],
+              ),
+
+              const SizedBox(height: 16),
+
+              Slider(
+                value: _entryFee.toDouble(),
+                min: 0,
+                max: AppConstants.maxEntryFee.toDouble(),
+                divisions: 20,
+                label: '$_entryFee Faíscas',
+                onChanged: (value) => setState(() => _entryFee = value.round()),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Botão de criar
+  Widget _buildCreateButton(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton.icon(
+        onPressed: _isCreating ? null : _createChallenge,
+        icon: _isCreating
+            ? const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.emoji_events),
+        label: Text(_isCreating ? 'Criando Desafio...' : 'Criar Desafio'),
+        style: ElevatedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 16),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ========== MÉTODOS ==========
+
+  /// Selecionar data e hora
+  void _selectDateTime({required bool isStart}) async {
+    final currentDate = isStart ? _startsAt : _endsAt;
+
+    final date = await showDatePicker(
+      context: context,
+      initialDate: currentDate,
+      firstDate: DateTime.now(),
+      lastDate: DateTime.now().add(const Duration(days: 365)),
+    );
+
+    if (date == null) return;
+
+    final time = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay.fromDateTime(currentDate),
+    );
+
+    if (time == null) return;
+
+    final selectedDateTime = DateTime(
+      date.year,
+      date.month,
+      date.day,
+      time.hour,
+      time.minute,
+    );
+
+    setState(() {
+      if (isStart) {
+        _startsAt = selectedDateTime;
+        // Garantir que fim seja após início
+        if (_endsAt.isBefore(_startsAt)) {
+          _endsAt = _startsAt.add(const Duration(days: 7));
+        }
+      } else {
+        _endsAt = selectedDateTime;
+        // Garantir que fim seja após início
+        if (_endsAt.isBefore(_startsAt)) {
+          _startsAt = _endsAt.subtract(const Duration(hours: 1));
+        }
+      }
+    });
+  }
+
+  /// Calcular duração
+  String _calculateDuration() {
+    final duration = _endsAt.difference(_startsAt);
+
+    if (duration.inDays > 0) {
+      return '${duration.inDays} dias e ${duration.inHours % 24} horas';
+    } else if (duration.inHours > 0) {
+      return '${duration.inHours} horas e ${duration.inMinutes % 60} minutos';
+    } else {
+      return '${duration.inMinutes} minutos';
+    }
+  }
+
+  /// Criar desafio
+  void _createChallenge() async {
+    if (!_formKey.currentState!.validate()) {
+      AppLogger.warning('⚠️ Formulário inválido');
+      return;
+    }
+
+    // Validações adicionais
+    if (_endsAt.isBefore(_startsAt)) {
+      _showSnackBar('Data de fim deve ser após data de início', isError: true);
+      return;
+    }
+
+    if (_startsAt.difference(DateTime.now()).inMinutes < 10) {
+      _showSnackBar(
+        'Desafio deve começar em pelo menos 10 minutos',
+        isError: true,
+      );
+      return;
+    }
+
+    setState(() => _isCreating = true);
+
+    try {
+      AppLogger.info('➕ Criando desafio: ${_titleController.text.trim()}');
+
+      // TODO: Implementar criação via provider quando estiver disponível
+      /*
+      final challengeId = await ref.read(challengeActionProvider.notifier).createChallenge(
+        title: _titleController.text.trim(),
+        description: _descriptionController.text.trim(),
+        type: _selectedType,
+        arena: _selectedArena,
+        startsAt: _startsAt,
+        endsAt: _endsAt,
+        maxParticipants: _maxParticipants,
+        entryFee: _entryFee,
+      );
+
+      if (challengeId != null && mounted) {
+        AppLogger.info('✅ Desafio criado com sucesso: $challengeId');
+        context.go('/challenges/$challengeId');
+      }
+      */
+
+      // Por enquanto, simular sucesso
+      await Future.delayed(const Duration(seconds: 2));
+
+      if (mounted) {
+        _showSnackBar('Desafio criado com sucesso! 🎉');
+        context.pop();
+      }
+    } catch (e) {
+      AppLogger.error('❌ Erro ao criar desafio', error: e);
+      _showSnackBar('Erro ao criar desafio: ${e.toString()}', isError: true);
+    } finally {
+      if (mounted) {
+        setState(() => _isCreating = false);
+      }
+    }
+  }
+
+  /// Mostrar SnackBar
+  void _showSnackBar(String message, {bool isError = false}) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError
+            ? Theme.of(context).colorScheme.error
+            : Theme.of(context).colorScheme.primary,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+    );
   }
 }
