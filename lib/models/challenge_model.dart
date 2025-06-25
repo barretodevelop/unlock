@@ -1,11 +1,11 @@
-// lib/models/challenge_model.dart - ATUALIZADO COM MINI-GAMES
+// lib/models/challenge_model.dart - ATUALIZADO COM SISTEMA DE VOTAÇÃO
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:unlock/models/mini_game_model.dart';
+import 'package:unlock/models/vote_model.dart';
 
 /// Tipos de desafio disponíveis no ClashUp
 enum ChallengeType {
   creative('creative', '🎨', 'Criativo'),
-  performance('performance', '🎮', 'Performance'), // ✅ INTEGRADO COM MINI-GAMES
+  performance('performance', '🎮', 'Performance'),
   knowledge('knowledge', '🧠', 'Conhecimento'),
   realWorld('real_world', '🏃', 'Mundo Real');
 
@@ -14,13 +14,27 @@ enum ChallengeType {
   final String icon;
   final String label;
 
+  /// Verifica se o tipo suporta votação
+  bool get supportsVoting {
+    switch (this) {
+      case ChallengeType.creative:
+        return true; // Fotos, vídeos, desenhos - precisam de votação
+      case ChallengeType.knowledge:
+        return true; // Quizzes podem ter votação para criatividade
+      case ChallengeType.performance:
+        return false; // Mini-games têm score automático
+      case ChallengeType.realWorld:
+        return true; // Atividades podem ser votadas por criatividade
+    }
+  }
+
   /// Descrição do tipo de desafio
   String get description {
     switch (this) {
       case ChallengeType.creative:
         return 'Fotos, vídeos, desenhos e outras criações artísticas';
       case ChallengeType.performance:
-        return 'Mini-jogos e desafios de habilidade'; // ✅ ATUALIZADO
+        return 'Mini-jogos e desafios de habilidade';
       case ChallengeType.knowledge:
         return 'Perguntas e respostas sobre diversos temas';
       case ChallengeType.realWorld:
@@ -57,7 +71,7 @@ enum ArenaType {
 enum ChallengeStatus {
   draft('draft', 'Rascunho'),
   active('active', 'Ativo'),
-  voting('voting', 'Votação'),
+  voting('voting', 'Votação'), // ✅ NOVO STATUS
   completed('completed', 'Concluído'),
   cancelled('cancelled', 'Cancelado');
 
@@ -66,58 +80,7 @@ enum ChallengeStatus {
   final String label;
 }
 
-/// ✅ NOVO: Configuração de mini-game para desafios de performance
-class MiniGameChallengeConfig {
-  final GameType gameType;
-  final GameDifficulty difficulty;
-  final int targetScore; // Score mínimo para participar
-  final Duration? timeLimit; // Limite de tempo para completar
-  final int maxAttempts; // Número máximo de tentativas
-  final Map<String, dynamic> customRules;
-
-  const MiniGameChallengeConfig({
-    required this.gameType,
-    required this.difficulty,
-    required this.targetScore,
-    this.timeLimit,
-    this.maxAttempts = 3,
-    this.customRules = const {},
-  });
-
-  /// Converter de JSON
-  factory MiniGameChallengeConfig.fromJson(Map<String, dynamic> json) {
-    return MiniGameChallengeConfig(
-      gameType: GameType.values.firstWhere(
-        (t) => t.id == json['gameType'],
-        orElse: () => GameType.memory,
-      ),
-      difficulty: GameDifficulty.values.firstWhere(
-        (d) => d.id == json['difficulty'],
-        orElse: () => GameDifficulty.normal,
-      ),
-      targetScore: json['targetScore'] ?? 0,
-      timeLimit: json['timeLimitMs'] != null 
-          ? Duration(milliseconds: json['timeLimitMs'])
-          : null,
-      maxAttempts: json['maxAttempts'] ?? 3,
-      customRules: Map<String, dynamic>.from(json['customRules'] ?? {}),
-    );
-  }
-
-  /// Converter para JSON
-  Map<String, dynamic> toJson() {
-    return {
-      'gameType': gameType.id,
-      'difficulty': difficulty.id,
-      'targetScore': targetScore,
-      'timeLimitMs': timeLimit?.inMilliseconds,
-      'maxAttempts': maxAttempts,
-      'customRules': customRules,
-    };
-  }
-}
-
-/// Modelo principal do desafio
+/// Modelo principal do desafio - ATUALIZADO COM VOTAÇÃO
 class Challenge {
   final String id;
   final String title;
@@ -128,19 +91,17 @@ class Challenge {
   final DateTime createdAt;
   final DateTime startsAt;
   final DateTime endsAt;
-  final DateTime? votingEndsAt;
+  final DateTime? submissionEndsAt; // ✅ NOVO: Fim das submissões
+  final VotingConfig? votingConfig; // ✅ NOVO: Configuração de votação
   final ChallengeStatus status;
   final List<String> participants;
   final Map<String, dynamic> rules;
   final int maxParticipants;
-  final int entryFee; // Custo em Faíscas para participar
-  final Map<String, int> rewards; // Recompensas por posição
+  final int entryFee;
+  final Map<String, int> rewards;
   final List<String> tags;
-  final String? groupId; // Se for desafio de grupo específico
+  final String? groupId;
   final Map<String, dynamic> metadata;
-  
-  // ✅ NOVO: Configuração específica para mini-games
-  final MiniGameChallengeConfig? miniGameConfig;
 
   const Challenge({
     required this.id,
@@ -152,7 +113,8 @@ class Challenge {
     required this.createdAt,
     required this.startsAt,
     required this.endsAt,
-    this.votingEndsAt,
+    this.submissionEndsAt, // ✅ NOVO
+    this.votingConfig, // ✅ NOVO
     required this.status,
     this.participants = const [],
     this.rules = const {},
@@ -162,10 +124,25 @@ class Challenge {
     this.tags = const [],
     this.groupId,
     this.metadata = const {},
-    this.miniGameConfig, // ✅ NOVO CAMPO
   });
 
-  /// Getters úteis
+  /// ✅ NOVO: Getters para sistema de votação
+  bool get hasVoting => votingConfig?.isVotingEnabled == true;
+
+  bool get isInVotingPeriod =>
+      hasVoting &&
+      votingConfig!.isVotingActive &&
+      status == ChallengeStatus.voting;
+
+  bool get isSubmissionPeriod =>
+      status == ChallengeStatus.active &&
+      DateTime.now().isBefore(submissionEndsAt ?? endsAt);
+
+  DateTime get effectiveSubmissionEnd => submissionEndsAt ?? endsAt;
+
+  Duration? get timeUntilVotingEnds => votingConfig?.timeUntilVotingEnds;
+
+  /// Getters existentes (mantidos)
   bool get isActive =>
       status == ChallengeStatus.active &&
       DateTime.now().isAfter(startsAt) &&
@@ -188,10 +165,6 @@ class Challenge {
 
   bool get isPublicChallenge => groupId == null;
 
-  // ✅ NOVO: Verificar se é desafio de mini-game
-  bool get isMiniGameChallenge => 
-      type == ChallengeType.performance && miniGameConfig != null;
-
   /// Verificar se usuário pode participar
   bool canUserJoin(String userId) {
     return canJoin && !participants.contains(userId);
@@ -202,45 +175,18 @@ class Challenge {
     return participants.contains(userId);
   }
 
-  /// ✅ NOVO: Factory para criar desafio de mini-game
-  factory Challenge.createMiniGame({
-    required String title,
-    required String description,
-    required String creatorId,
-    required DateTime startsAt,
-    required DateTime endsAt,
-    required ArenaType arena,
-    required MiniGameChallengeConfig miniGameConfig,
-    int? maxParticipants,
-    int? entryFee,
-    Map<String, int>? rewards,
-    List<String>? tags,
-    String? groupId,
-  }) {
-    return Challenge(
-      id: '', // Será preenchido pelo Firestore
-      title: title,
-      description: description,
-      type: ChallengeType.performance,
-      arena: arena,
-      creatorId: creatorId,
-      createdAt: DateTime.now(),
-      startsAt: startsAt,
-      endsAt: endsAt,
-      status: ChallengeStatus.active,
-      maxParticipants: maxParticipants ?? 100,
-      entryFee: entryFee ?? 0,
-      rewards: rewards ?? _getDefaultRewards(arena),
-      tags: tags ?? [],
-      groupId: groupId,
-      miniGameConfig: miniGameConfig,
-      rules: {
-        'gameType': miniGameConfig.gameType.id,
-        'difficulty': miniGameConfig.difficulty.id,
-        'targetScore': miniGameConfig.targetScore,
-        'maxAttempts': miniGameConfig.maxAttempts,
-      },
-    );
+  /// ✅ NOVO: Verificar se pode votar
+  bool canUserVote(String userId, {String? submissionUserId}) {
+    if (!hasVoting || !isInVotingPeriod) return false;
+
+    // Verificar auto-voto
+    if (submissionUserId != null &&
+        submissionUserId == userId &&
+        votingConfig?.allowSelfVoting == false) {
+      return false;
+    }
+
+    return true;
   }
 
   /// Factory para criar desafio
@@ -252,14 +198,14 @@ class Challenge {
     required String creatorId,
     required DateTime startsAt,
     required DateTime endsAt,
-    DateTime? votingEndsAt,
+    DateTime? submissionEndsAt, // ✅ NOVO
+    VotingConfig? votingConfig, // ✅ NOVO
     int? maxParticipants,
     int? entryFee,
     Map<String, int>? rewards,
     List<String>? tags,
     String? groupId,
     Map<String, dynamic>? rules,
-    MiniGameChallengeConfig? miniGameConfig, // ✅ NOVO PARÂMETRO
   }) {
     return Challenge(
       id: '', // Será preenchido pelo Firestore
@@ -271,31 +217,77 @@ class Challenge {
       createdAt: DateTime.now(),
       startsAt: startsAt,
       endsAt: endsAt,
-      votingEndsAt: votingEndsAt,
+      submissionEndsAt: submissionEndsAt, // ✅ NOVO
+      votingConfig: votingConfig, // ✅ NOVO
       status: ChallengeStatus.active,
       maxParticipants: maxParticipants ?? 100,
       entryFee: entryFee ?? 0,
-      rewards: rewards ?? _getDefaultRewards(arena),
+      rewards: rewards ?? {},
       tags: tags ?? [],
       groupId: groupId,
       rules: rules ?? {},
-      miniGameConfig: miniGameConfig, // ✅ NOVO CAMPO
     );
   }
 
-  /// Recompensas padrão baseadas na arena
-  static Map<String, int> _getDefaultRewards(ArenaType arena) {
-    switch (arena) {
-      case ArenaType.duel:
-        return {'1': 100, '2': 50}; // 1º e 2º lugar
-      case ArenaType.group:
-        return {'1': 200, '2': 150, '3': 100};
-      case ArenaType.tournament:
-        return {'1': 500, '2': 300, '3': 200, '4': 100, '5': 50};
-    }
+  /// ✅ NOVO: Factory para desafio criativo com votação
+  factory Challenge.createWithVoting({
+    required String title,
+    required String description,
+    required ChallengeType type,
+    required ArenaType arena,
+    required String creatorId,
+    required DateTime startsAt,
+    required DateTime submissionEndsAt,
+    required DateTime votingEndsAt,
+    bool allowSelfVoting = false,
+    int maxVotesPerUser = 100,
+    List<VoteType> allowedVoteTypes = VoteType.values,
+    Map<String, dynamic>? antiManipulation,
+    int? maxParticipants,
+    int? entryFee,
+    Map<String, int>? rewards,
+    List<String>? tags,
+    String? groupId,
+    Map<String, dynamic>? rules,
+  }) {
+    final votingConfig = VotingConfig(
+      isVotingEnabled: true,
+      votingStartsAt: submissionEndsAt,
+      votingEndsAt: votingEndsAt,
+      allowMultipleVotes: true,
+      allowSelfVoting: allowSelfVoting,
+      maxVotesPerUser: maxVotesPerUser,
+      allowedVoteTypes: allowedVoteTypes,
+      antiManipulation:
+          antiManipulation ??
+          {
+            'checkIP': true,
+            'maxVotesPerIP': 5,
+            'checkDevice': true,
+            'maxVotesPerDevice': 3,
+          },
+    );
+
+    return Challenge.create(
+      title: title,
+      description: description,
+      type: type,
+      arena: arena,
+      creatorId: creatorId,
+      startsAt: startsAt,
+      endsAt: votingEndsAt, // O desafio termina quando a votação termina
+      submissionEndsAt: submissionEndsAt,
+      votingConfig: votingConfig,
+      maxParticipants: maxParticipants,
+      entryFee: entryFee,
+      rewards: rewards,
+      tags: tags,
+      groupId: groupId,
+      rules: rules,
+    );
   }
 
-  /// Criar a partir de JSON/Firestore
+  /// Criar a partir de JSON/Firestore - ATUALIZADO
   factory Challenge.fromJson(Map<String, dynamic> json) {
     return Challenge(
       id: json['id'] ?? '',
@@ -312,8 +304,16 @@ class Challenge {
       creatorId: json['creatorId'] ?? '',
       createdAt: (json['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
       startsAt: (json['startsAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      endsAt: (json['endsAt'] as Timestamp?)?.toDate() ?? DateTime.now().add(const Duration(days: 1)),
-      votingEndsAt: (json['votingEndsAt'] as Timestamp?)?.toDate(),
+      endsAt:
+          (json['endsAt'] as Timestamp?)?.toDate() ??
+          DateTime.now().add(const Duration(days: 1)),
+      submissionEndsAt: (json['submissionEndsAt'] as Timestamp?)
+          ?.toDate(), // ✅ NOVO
+      votingConfig: json['votingConfig'] != null
+          ? VotingConfig.fromJson(
+              Map<String, dynamic>.from(json['votingConfig']),
+            )
+          : null, // ✅ NOVO
       status: ChallengeStatus.values.firstWhere(
         (s) => s.id == json['status'],
         orElse: () => ChallengeStatus.active,
@@ -326,15 +326,10 @@ class Challenge {
       tags: List<String>.from(json['tags'] ?? []),
       groupId: json['groupId'],
       metadata: Map<String, dynamic>.from(json['metadata'] ?? {}),
-      // ✅ NOVO: Parse da configuração de mini-game
-      miniGameConfig: json['miniGameConfig'] != null
-          ? MiniGameChallengeConfig.fromJson(
-              Map<String, dynamic>.from(json['miniGameConfig']))
-          : null,
     );
   }
 
-  /// Converter para JSON/Firestore
+  /// Converter para JSON/Firestore - ATUALIZADO
   Map<String, dynamic> toJson() {
     return {
       'id': id,
@@ -346,9 +341,12 @@ class Challenge {
       'createdAt': Timestamp.fromDate(createdAt),
       'startsAt': Timestamp.fromDate(startsAt),
       'endsAt': Timestamp.fromDate(endsAt),
-      'votingEndsAt': votingEndsAt != null
-          ? Timestamp.fromDate(votingEndsAt!)
+      'submissionEndsAt':
+          submissionEndsAt !=
+              null // ✅ NOVO
+          ? Timestamp.fromDate(submissionEndsAt!)
           : null,
+      'votingConfig': votingConfig?.toJson(), // ✅ NOVO
       'status': status.id,
       'participants': participants,
       'rules': rules,
@@ -358,12 +356,10 @@ class Challenge {
       'tags': tags,
       'groupId': groupId,
       'metadata': metadata,
-      // ✅ NOVO: Serializar configuração de mini-game
-      'miniGameConfig': miniGameConfig?.toJson(),
     };
   }
 
-  /// Método copyWith para atualizações
+  /// Método copyWith - ATUALIZADO
   Challenge copyWith({
     String? title,
     String? description,
@@ -371,7 +367,8 @@ class Challenge {
     ArenaType? arena,
     DateTime? startsAt,
     DateTime? endsAt,
-    DateTime? votingEndsAt,
+    DateTime? submissionEndsAt, // ✅ NOVO
+    VotingConfig? votingConfig, // ✅ NOVO
     ChallengeStatus? status,
     List<String>? participants,
     Map<String, dynamic>? rules,
@@ -381,7 +378,6 @@ class Challenge {
     List<String>? tags,
     String? groupId,
     Map<String, dynamic>? metadata,
-    MiniGameChallengeConfig? miniGameConfig, // ✅ NOVO PARÂMETRO
   }) {
     return Challenge(
       id: id,
@@ -393,7 +389,8 @@ class Challenge {
       createdAt: createdAt,
       startsAt: startsAt ?? this.startsAt,
       endsAt: endsAt ?? this.endsAt,
-      votingEndsAt: votingEndsAt ?? this.votingEndsAt,
+      submissionEndsAt: submissionEndsAt ?? this.submissionEndsAt, // ✅ NOVO
+      votingConfig: votingConfig ?? this.votingConfig, // ✅ NOVO
       status: status ?? this.status,
       participants: participants ?? this.participants,
       rules: rules ?? this.rules,
@@ -403,29 +400,23 @@ class Challenge {
       tags: tags ?? this.tags,
       groupId: groupId ?? this.groupId,
       metadata: metadata ?? this.metadata,
-      miniGameConfig: miniGameConfig ?? this.miniGameConfig, // ✅ NOVO CAMPO
     );
   }
 
   @override
   bool operator ==(Object other) {
     if (identical(this, other)) return true;
-
     return other is Challenge &&
         other.id == id &&
         other.title == title &&
-        other.type == type &&
-        other.arena == arena &&
         other.creatorId == creatorId;
   }
 
   @override
-  int get hashCode {
-    return Object.hash(id, title, type, arena, creatorId);
-  }
+  int get hashCode => Object.hash(id, title, creatorId);
 
   @override
   String toString() {
-    return 'Challenge(id: $id, title: $title, type: ${type.label}, arena: ${arena.label})';
+    return 'Challenge(id: $id, title: $title, type: ${type.label}, status: ${status.label})';
   }
 }

@@ -1,19 +1,17 @@
-// lib/services/challenge_service.dart - ATUALIZADO COM MINI-GAMES
+// lib/services/challenge_service.dart - ATUALIZADO COM SISTEMA DE VOTAÇÃO
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:unlock/core/utils/logger.dart';
 import 'package:unlock/models/challenge_model.dart';
-import 'package:unlock/models/mini_game_model.dart';
 import 'package:unlock/models/submission_model.dart';
-import 'package:unlock/services/mini_game_service.dart';
+import 'package:unlock/models/vote_model.dart';
+import 'package:unlock/services/voting_service.dart';
 
 class ChallengeService {
   static final _db = FirebaseFirestore.instance;
   static const _challengesCollection = 'challenges';
   static const _submissionsCollection = 'submissions';
-  static const _challengeParticipantsCollection =
-      'challenge_participants'; // ✅ NOVO
 
-  // ========== BUSCAR DESAFIOS ==========
+  // ========== MÉTODOS EXISTENTES (MANTIDOS) ==========
 
   /// Buscar desafios ativos
   static Stream<List<Challenge>> getActiveChallenges() {
@@ -27,7 +25,7 @@ class ChallengeService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => Challenge.fromJson({...doc.data()!, 'id': doc.id}))
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
               .toList(),
         );
   }
@@ -43,45 +41,7 @@ class ChallengeService {
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => Challenge.fromJson({...doc.data()!, 'id': doc.id}))
-              .toList(),
-        );
-  }
-
-  /// ✅ NOVO: Buscar desafios de mini-games
-  static Stream<List<Challenge>> getMiniGameChallenges({
-    GameType? gameType,
-    GameDifficulty? difficulty,
-  }) {
-    Query query = _db
-        .collection(_challengesCollection)
-        .where('type', isEqualTo: 'performance')
-        .where('status', isEqualTo: 'active')
-        .where('miniGameConfig', isNotEqualTo: null);
-
-    if (gameType != null) {
-      query = query.where('miniGameConfig.gameType', isEqualTo: gameType.id);
-    }
-
-    if (difficulty != null) {
-      query = query.where(
-        'miniGameConfig.difficulty',
-        isEqualTo: difficulty.id,
-      );
-    }
-
-    return query
-        .orderBy('createdAt', descending: true)
-        .limit(20)
-        .snapshots()
-        .map(
-          (snapshot) => snapshot.docs
-              .map((doc) {
-                final data = doc.data();
-                if (data == null || data is! Map<String, dynamic>) return null;
-                return Challenge.fromJson({...data, 'id': doc.id});
-              })
-              .whereType<Challenge>()
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
               .toList(),
         );
   }
@@ -90,23 +50,15 @@ class ChallengeService {
   static Stream<List<Challenge>> getMyChallenges(String userId) {
     return _db
         .collection(_challengesCollection)
-        .where('participants', arrayContains: userId)
+        .where('creatorId', isEqualTo: userId)
         .orderBy('createdAt', descending: true)
-        .limit(20)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map(
-                (doc) => doc.data() != null
-                    ? Challenge.fromJson({...doc.data(), 'id': doc.id})
-                    : null,
-              )
-              .whereType<Challenge>()
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
               .toList(),
         );
   }
-
-  // ========== PARTICIPAÇÃO EM DESAFIOS ==========
 
   /// Participar de um desafio
   static Future<bool> joinChallenge(String challengeId, String userId) async {
@@ -117,240 +69,35 @@ class ChallengeService {
 
       await _db.runTransaction((transaction) async {
         final challengeDoc = await transaction.get(challengeRef);
+
         if (!challengeDoc.exists) {
           throw Exception('Desafio não encontrado');
         }
 
-        final challenge = Challenge.fromJson({
-          ...challengeDoc.data()!,
-          'id': challengeDoc.id,
-        });
-
-        if (!challenge.canUserJoin(userId)) {
-          throw Exception('Não é possível participar do desafio');
-        }
-
-        // Atualizar lista de participantes
-        final updatedParticipants = List<String>.from(challenge.participants);
-        if (!updatedParticipants.contains(userId)) {
-          updatedParticipants.add(userId);
-        }
-
-        transaction.update(challengeRef, {'participants': updatedParticipants});
-
-        // ✅ NOVO: Para desafios de mini-game, criar registro de participação
-        if (challenge.isMiniGameChallenge) {
-          await _createMiniGameParticipation(
-            transaction,
-            challengeId,
-            userId,
-            challenge.miniGameConfig!,
-          );
-        }
-      });
-
-      AppLogger.info(
-        '✅ Usuário entrou no desafio',
-        data: {'challengeId': challengeId, 'userId': userId},
-      );
-
-      return true;
-    } catch (e) {
-      AppLogger.error('❌ Erro ao entrar no desafio', error: e);
-      return false;
-    }
-  }
-
-  /// ✅ NOVO: Criar participação em mini-game
-  static Future<void> _createMiniGameParticipation(
-    Transaction transaction,
-    String challengeId,
-    String userId,
-    MiniGameChallengeConfig config,
-  ) async {
-    final participationRef = _db
-        .collection(_challengeParticipantsCollection)
-        .doc('${challengeId}_$userId');
-
-    transaction.set(participationRef, {
-      'challengeId': challengeId,
-      'userId': userId,
-      'gameType': config.gameType.id,
-      'difficulty': config.difficulty.id,
-      'targetScore': config.targetScore,
-      'maxAttempts': config.maxAttempts,
-      'attemptsUsed': 0,
-      'bestScore': 0,
-      'bestResult': null,
-      'joinedAt': Timestamp.now(),
-      'lastAttemptAt': null,
-      'status': 'active',
-    });
-  }
-
-  /// ✅ NOVO: Submeter resultado de mini-game para desafio
-  static Future<bool> submitMiniGameResult(
-    String challengeId,
-    String userId,
-    GameResult gameResult,
-  ) async {
-    try {
-      AppLogger.info(
-        '🎮 Submetendo resultado de mini-game',
-        data: {
-          'challengeId': challengeId,
-          'userId': userId,
-          'score': gameResult.finalScore,
-        },
-      );
-
-      final participationRef = _db
-          .collection(_challengeParticipantsCollection)
-          .doc('${challengeId}_$userId');
-
-      await _db.runTransaction((transaction) async {
-        final participationDoc = await transaction.get(participationRef);
-
-        if (!participationDoc.exists) {
-          throw Exception('Participação não encontrada');
-        }
-
-        final participationData = participationDoc.data()!;
-        final attemptsUsed = participationData['attemptsUsed'] as int;
-        final maxAttempts = participationData['maxAttempts'] as int;
-        final currentBest = participationData['bestScore'] as int;
-
-        // Verificar se ainda tem tentativas
-        if (attemptsUsed >= maxAttempts) {
-          throw Exception('Máximo de tentativas excedido');
-        }
-
-        // Atualizar se é melhor score
-        final isNewBest = gameResult.finalScore > currentBest;
-
-        final updatedData = {
-          'attemptsUsed': attemptsUsed + 1,
-          'lastAttemptAt': Timestamp.now(),
-        };
-
-        if (isNewBest) {
-          updatedData['bestScore'] = gameResult.finalScore;
-          updatedData['bestResult'] = gameResult.toJson();
-        }
-
-        transaction.update(participationRef, updatedData);
-
-        // Salvar resultado individual também
-        await MiniGameService.saveGameResult(gameResult);
-
-        // Criar submissão para o desafio
-        await _createChallengeSubmission(
-          transaction,
-          challengeId,
-          userId,
-          gameResult,
-          isNewBest,
+        final challengeData = challengeDoc.data()!;
+        final participants = List<String>.from(
+          challengeData['participants'] ?? [],
         );
+
+        if (!participants.contains(userId)) {
+          participants.add(userId);
+          transaction.update(challengeRef, {'participants': participants});
+        }
       });
 
-      AppLogger.info('✅ Resultado de mini-game submetido com sucesso');
+      AppLogger.info('✅ Usuário $userId entrou no desafio $challengeId');
       return true;
     } catch (e) {
-      AppLogger.error('❌ Erro ao submeter resultado de mini-game', error: e);
+      AppLogger.error('❌ Erro ao entrar no desafio: $e');
       return false;
     }
   }
-
-  /// ✅ NOVO: Criar submissão de desafio
-  static Future<void> _createChallengeSubmission(
-    Transaction transaction,
-    String challengeId,
-    String userId,
-    GameResult gameResult,
-    bool isNewBest,
-  ) async {
-    final submissionRef = _db.collection(_submissionsCollection).doc();
-
-    final submission = Submission(
-      id: submissionRef.id,
-      challengeId: challengeId,
-      userId: userId,
-      username: '', // Será preenchido depois
-      userAvatar: '🎮',
-      type:
-          SubmissionType.score, // ✅ CORRIGIDO: Adicionado parâmetro obrigatório
-      content: {
-        'gameType': gameResult.type.id,
-        'difficulty': gameResult.difficulty.id,
-        'score': gameResult.finalScore,
-        'duration': gameResult.duration.inMilliseconds,
-        'rank': gameResult.rank,
-        'stats': gameResult.stats,
-        'isNewBest': isNewBest,
-      },
-      submittedAt: DateTime.now(),
-      score: gameResult.finalScore.toDouble(),
-      metadata: {
-        'gameResultId': gameResult.gameId,
-        'isPersonalBest': gameResult.isPersonalBest,
-      },
-    );
-
-    transaction.set(submissionRef, submission.toJson());
-  }
-
-  /// ✅ NOVO: Buscar participação do usuário em desafio de mini-game
-  static Future<Map<String, dynamic>?> getMiniGameParticipation(
-    String challengeId,
-    String userId,
-  ) async {
-    try {
-      final participationDoc = await _db
-          .collection(_challengeParticipantsCollection)
-          .doc('${challengeId}_$userId')
-          .get();
-
-      if (participationDoc.exists) {
-        return participationDoc.data();
-      }
-
-      return null;
-    } catch (e) {
-      AppLogger.error('❌ Erro ao buscar participação', error: e);
-      return null;
-    }
-  }
-
-  /// ✅ NOVO: Buscar ranking de desafio de mini-game
-  static Stream<List<Map<String, dynamic>>> getMiniGameChallengeRanking(
-    String challengeId,
-  ) {
-    return _db
-        .collection(_challengeParticipantsCollection)
-        .where('challengeId', isEqualTo: challengeId)
-        .where('bestScore', isGreaterThan: 0)
-        .orderBy('bestScore', descending: true)
-        .limit(50)
-        .snapshots()
-        .map((snapshot) {
-          return snapshot.docs.asMap().entries.map((entry) {
-            final index = entry.key;
-            final doc = entry.value;
-            final data = doc.data();
-
-            return {...data, 'position': index + 1, 'id': doc.id};
-          }).toList();
-        });
-  }
-
-  // ========== SUBMISSÕES ==========
 
   /// Buscar submissões de um desafio
   static Stream<List<Submission>> getChallengeSubmissions(String challengeId) {
     return _db
         .collection(_submissionsCollection)
         .where('challengeId', isEqualTo: challengeId)
-        .orderBy('score', descending: true)
         .orderBy('submittedAt', descending: true)
         .snapshots()
         .map(
@@ -360,105 +107,123 @@ class ChallengeService {
         );
   }
 
-  /// ✅ NOVO: Buscar submissões de mini-game de um desafio
-  static Stream<List<Submission>> getMiniGameChallengeSubmissions(
-    String challengeId,
-  ) {
+  // ========== NOVOS MÉTODOS PARA VOTAÇÃO ==========
+
+  /// Buscar desafios em votação
+  static Stream<List<Challenge>> getVotingChallenges() {
     return _db
-        .collection(_submissionsCollection)
-        .where('challengeId', isEqualTo: challengeId)
-        .where('type', isEqualTo: 'score')
-        .orderBy('score', descending: true)
-        .orderBy('submittedAt', descending: true)
+        .collection(_challengesCollection)
+        .where('status', isEqualTo: 'voting')
+        .orderBy('createdAt', descending: true)
         .snapshots()
         .map(
           (snapshot) => snapshot.docs
-              .map((doc) => Submission.fromJson({...doc.data(), 'id': doc.id}))
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
               .toList(),
         );
   }
 
-  // ========== CRIAR DESAFIOS ==========
-
-  /// ✅ NOVO: Criar desafio de mini-game
-  static Future<String?> createMiniGameChallenge({
-    required String title,
-    required String description,
-    required String creatorId,
-    required DateTime startsAt,
-    required DateTime endsAt,
-    required ArenaType arena,
-    required GameType gameType,
-    required GameDifficulty difficulty,
-    required int targetScore,
-    Duration? timeLimit,
-    int? maxAttempts,
-    int? maxParticipants,
-    int? entryFee,
-    Map<String, int>? rewards,
-    List<String>? tags,
-    String? groupId,
-  }) async {
+  /// Verificar se desafio precisa mudar para período de votação
+  static Future<void> checkAndUpdateVotingStatus(String challengeId) async {
     try {
-      AppLogger.info(
-        '🎮 Criando desafio de mini-game',
-        data: {
-          'title': title,
-          'gameType': gameType.name,
-          'difficulty': difficulty.label,
-          'arena': arena.label,
-        },
-      );
-
-      final miniGameConfig = MiniGameChallengeConfig(
-        gameType: gameType,
-        difficulty: difficulty,
-        targetScore: targetScore,
-        timeLimit: timeLimit,
-        maxAttempts: maxAttempts ?? 3,
-      );
-
-      final challenge = Challenge.createMiniGame(
-        title: title,
-        description: description,
-        creatorId: creatorId,
-        startsAt: startsAt,
-        endsAt: endsAt,
-        arena: arena,
-        miniGameConfig: miniGameConfig,
-        maxParticipants: maxParticipants,
-        entryFee: entryFee,
-        rewards: rewards,
-        tags: tags,
-        groupId: groupId,
-      );
-
-      final docRef = await _db
+      final challengeRef = _db
           .collection(_challengesCollection)
-          .add(challenge.toJson());
+          .doc(challengeId);
 
-      AppLogger.info(
-        '✅ Desafio de mini-game criado',
-        data: {'challengeId': docRef.id},
-      );
+      await _db.runTransaction((transaction) async {
+        final challengeDoc = await transaction.get(challengeRef);
 
-      return docRef.id;
+        if (!challengeDoc.exists) return;
+
+        final challenge = Challenge.fromJson({
+          ...challengeDoc.data()!,
+          'id': challengeId,
+        });
+
+        final now = DateTime.now();
+
+        // Verificar se deve iniciar votação
+        if (challenge.status == ChallengeStatus.active &&
+            challenge.submissionEndsAt != null &&
+            now.isAfter(challenge.submissionEndsAt!) &&
+            challenge.hasVoting) {
+          AppLogger.info('🗳️ Iniciando período de votação: $challengeId');
+          transaction.update(challengeRef, {'status': 'voting'});
+        }
+        // Verificar se votação deve terminar
+        else if (challenge.status == ChallengeStatus.voting &&
+            challenge.votingConfig?.votingEndsAt != null &&
+            now.isAfter(challenge.votingConfig!.votingEndsAt!)) {
+          AppLogger.info('🏁 Finalizando votação: $challengeId');
+          await _finalizeVoting(challengeId, transaction);
+        }
+      });
     } catch (e) {
-      AppLogger.error('❌ Erro ao criar desafio de mini-game', error: e);
-      return null;
+      AppLogger.error('❌ Erro ao verificar status de votação: $e');
     }
   }
 
-  /// Criar desafio tradicional
-  static Future<String?> createChallenge({
+  /// Finalizar votação e determinar vencedores
+  static Future<void> _finalizeVoting(
+    String challengeId,
+    Transaction transaction,
+  ) async {
+    try {
+      // Buscar ranking final de votação
+      final rankingStats = await VotingService.getVotingRanking(
+        challengeId: challengeId,
+        limit: 100,
+      ).first;
+
+      if (rankingStats.isNotEmpty) {
+        // Determinar vencedores (top 3)
+        final winners = rankingStats.take(3).toList();
+
+        for (int i = 0; i < winners.length; i++) {
+          final stats = winners[i];
+          final submissionRef = _db
+              .collection(_submissionsCollection)
+              .doc(stats.submissionId);
+
+          // Marcar submissão como vencedora se for o primeiro lugar
+          transaction.update(submissionRef, {
+            'isWinner': i == 0,
+            'finalRanking': i + 1,
+            'finalScore': stats.score,
+          });
+        }
+
+        AppLogger.info('🏆 Vencedores determinados para $challengeId');
+      }
+
+      // Atualizar status do desafio
+      final challengeRef = _db
+          .collection(_challengesCollection)
+          .doc(challengeId);
+      transaction.update(challengeRef, {
+        'status': 'completed',
+        'completedAt': Timestamp.fromDate(DateTime.now()),
+      });
+    } catch (e) {
+      AppLogger.error('❌ Erro ao finalizar votação: $e');
+      rethrow;
+    }
+  }
+
+  /// Criar desafio com votação
+  static Future<String?> createChallengeWithVoting({
     required String title,
     required String description,
     required ChallengeType type,
     required ArenaType arena,
     required String creatorId,
     required DateTime startsAt,
-    required DateTime endsAt,
-    DateTime? votingEndsAt,
+    required DateTime submissionEndsAt,
+    required DateTime votingEndsAt,
+    bool allowSelfVoting = false,
+    int maxVotesPerUser = 100,
+    List<VoteType> allowedVoteTypes = VoteType.values,
+    Map<String, dynamic>? antiManipulation,
     int? maxParticipants,
     int? entryFee,
     Map<String, int>? rewards,
@@ -467,20 +232,21 @@ class ChallengeService {
     Map<String, dynamic>? rules,
   }) async {
     try {
-      AppLogger.info(
-        '📝 Criando desafio',
-        data: {'title': title, 'type': type.label, 'arena': arena.label},
-      );
+      AppLogger.info('🎯 Criando desafio com votação: $title');
 
-      final challenge = Challenge.create(
+      final challenge = Challenge.createWithVoting(
         title: title,
         description: description,
         type: type,
         arena: arena,
         creatorId: creatorId,
         startsAt: startsAt,
-        endsAt: endsAt,
+        submissionEndsAt: submissionEndsAt,
         votingEndsAt: votingEndsAt,
+        allowSelfVoting: allowSelfVoting,
+        maxVotesPerUser: maxVotesPerUser,
+        allowedVoteTypes: allowedVoteTypes,
+        antiManipulation: antiManipulation,
         maxParticipants: maxParticipants,
         entryFee: entryFee,
         rewards: rewards,
@@ -493,19 +259,19 @@ class ChallengeService {
           .collection(_challengesCollection)
           .add(challenge.toJson());
 
-      AppLogger.info('✅ Desafio criado', data: {'challengeId': docRef.id});
+      // Atualizar com ID gerado
+      await docRef.update({'id': docRef.id});
 
+      AppLogger.info('✅ Desafio criado com sucesso: ${docRef.id}');
       return docRef.id;
     } catch (e) {
-      AppLogger.error('❌ Erro ao criar desafio', error: e);
+      AppLogger.error('❌ Erro ao criar desafio: $e');
       return null;
     }
   }
 
-  // ========== SUBMISSÕES TRADICIONAIS ==========
-
-  /// ✅ NOVO: Submeter entrada tradicional (não mini-game)
-  static Future<String?> submitEntry({
+  /// Enviar submissão para desafio
+  static Future<String?> submitToChallenge({
     required String challengeId,
     required String userId,
     required String username,
@@ -515,155 +281,240 @@ class ChallengeService {
     Map<String, dynamic>? metadata,
   }) async {
     try {
-      AppLogger.info(
-        '📝 Submetendo entrada tradicional',
-        data: {'challengeId': challengeId, 'userId': userId, 'type': type.name},
+      AppLogger.info('📤 Enviando submissão para desafio: $challengeId');
+
+      // Verificar se ainda está no período de submissão
+      final challengeDoc = await _db
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .get();
+
+      if (!challengeDoc.exists) {
+        AppLogger.warning('❌ Desafio não encontrado: $challengeId');
+        return null;
+      }
+
+      final challenge = Challenge.fromJson({
+        ...challengeDoc.data()!,
+        'id': challengeId,
+      });
+
+      if (!challenge.isSubmissionPeriod) {
+        AppLogger.warning('❌ Período de submissão encerrado: $challengeId');
+        return null;
+      }
+
+      // Verificar se usuário já tem submissão
+      final existingSubmission = await _getUserSubmissionInChallenge(
+        challengeId,
+        userId,
       );
+      if (existingSubmission != null) {
+        AppLogger.warning('❌ Usuário já tem submissão neste desafio');
+        return null;
+      }
 
-      final submissionRef = _db.collection(_submissionsCollection).doc();
-
-      final submission = Submission(
-        id: submissionRef.id,
+      final submission = Submission.create(
         challengeId: challengeId,
         userId: userId,
         username: username,
         userAvatar: userAvatar,
         type: type,
         content: content,
-        submittedAt: DateTime.now(),
-        metadata: metadata ?? {},
+        metadata: metadata,
       );
 
-      await submissionRef.set(submission.toJson());
+      final docRef = await _db
+          .collection(_submissionsCollection)
+          .add(submission.toJson());
 
-      AppLogger.info('✅ Entrada submetida com sucesso');
-      return submissionRef.id;
+      // Atualizar com ID gerado
+      await docRef.update({'id': docRef.id});
+
+      AppLogger.info('✅ Submissão criada com sucesso: ${docRef.id}');
+      return docRef.id;
     } catch (e) {
-      AppLogger.error('❌ Erro ao submeter entrada', error: e);
+      AppLogger.error('❌ Erro ao enviar submissão: $e');
       return null;
     }
   }
 
-  /// ✅ NOVO: Votar em submissão
-  static Future<bool> voteSubmission({
-    required String submissionId,
-    required String userId,
-    required bool isUpvote,
-  }) async {
+  /// Buscar submissão do usuário em um desafio
+  static Future<Submission?> _getUserSubmissionInChallenge(
+    String challengeId,
+    String userId,
+  ) async {
     try {
-      AppLogger.info(
-        '🗳️ Votando em submissão',
-        data: {
-          'submissionId': submissionId,
-          'userId': userId,
-          'isUpvote': isUpvote,
-        },
-      );
-
-      final submissionRef = _db
+      final querySnapshot = await _db
           .collection(_submissionsCollection)
-          .doc(submissionId);
-
-      await _db.runTransaction((transaction) async {
-        final submissionDoc = await transaction.get(submissionRef);
-
-        if (!submissionDoc.exists) {
-          throw Exception('Submissão não encontrada');
-        }
-
-        final submission = Submission.fromJson({
-          ...submissionDoc.data()!,
-          'id': submissionDoc.id,
-        });
-
-        final newVotes = isUpvote ? submission.votes + 1 : submission.votes - 1;
-
-        transaction.update(submissionRef, {
-          'votes': newVotes.clamp(0, double.infinity).toInt(),
-        });
-      });
-
-      AppLogger.info('✅ Voto registrado com sucesso');
-      return true;
-    } catch (e) {
-      AppLogger.error('❌ Erro ao votar', error: e);
-      return false;
-    }
-  }
-
-  // ========== UTILIDADES ==========
-
-  /// ✅ NOVO: Verificar se usuário pode tentar novamente
-  static Future<bool> canUserRetryMiniGame(
-    String challengeId,
-    String userId,
-  ) async {
-    try {
-      final participation = await getMiniGameParticipation(challengeId, userId);
-
-      if (participation == null) return false;
-
-      final attemptsUsed = participation['attemptsUsed'] as int;
-      final maxAttempts = participation['maxAttempts'] as int;
-
-      return attemptsUsed < maxAttempts;
-    } catch (e) {
-      AppLogger.error('❌ Erro ao verificar tentativas', error: e);
-      return false;
-    }
-  }
-
-  /// ✅ NOVO: Obter tentativas restantes
-  static Future<int> getRemainingAttempts(
-    String challengeId,
-    String userId,
-  ) async {
-    try {
-      final participation = await getMiniGameParticipation(challengeId, userId);
-
-      if (participation == null) return 0;
-
-      final attemptsUsed = participation['attemptsUsed'] as int;
-      final maxAttempts = participation['maxAttempts'] as int;
-
-      return maxAttempts - attemptsUsed;
-    } catch (e) {
-      AppLogger.error('❌ Erro ao obter tentativas restantes', error: e);
-      return 0;
-    }
-  }
-
-  /// Buscar desafio por ID
-  static Future<Challenge?> getChallengeById(String challengeId) async {
-    try {
-      final doc = await _db
-          .collection(_challengesCollection)
-          .doc(challengeId)
+          .where('challengeId', isEqualTo: challengeId)
+          .where('userId', isEqualTo: userId)
+          .limit(1)
           .get();
 
-      if (doc.exists) {
-        return Challenge.fromJson({...doc.data()!, 'id': doc.id});
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        return Submission.fromJson({...doc.data(), 'id': doc.id});
       }
 
       return null;
     } catch (e) {
-      AppLogger.error('❌ Erro ao buscar desafio', error: e);
+      AppLogger.error('❌ Erro ao buscar submissão do usuário: $e');
       return null;
     }
   }
 
-  /// Cancelar desafio
-  static Future<bool> cancelChallenge(String challengeId) async {
+  /// Buscar submissões do usuário em desafios
+  static Stream<List<Submission>> getUserSubmissions(String userId) {
+    return _db
+        .collection(_submissionsCollection)
+        .where('userId', isEqualTo: userId)
+        .orderBy('submittedAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Submission.fromJson({...doc.data(), 'id': doc.id}))
+              .toList(),
+        );
+  }
+
+  /// Buscar desafios que estão prestes a entrar em votação (próximas 24h)
+  static Stream<List<Challenge>> getUpcomingVotingChallenges() {
+    final now = DateTime.now();
+    final tomorrow = now.add(const Duration(days: 1));
+
+    return _db
+        .collection(_challengesCollection)
+        .where('status', isEqualTo: 'active')
+        .where('submissionEndsAt', isGreaterThan: now)
+        .where('submissionEndsAt', isLessThanOrEqualTo: tomorrow)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
+              .where((challenge) => challenge.hasVoting)
+              .toList(),
+        );
+  }
+
+  /// Buscar estatísticas gerais de votação
+  static Future<Map<String, dynamic>> getVotingStatistics(
+    String challengeId,
+  ) async {
     try {
-      await _db.collection(_challengesCollection).doc(challengeId).update({
-        'status': 'cancelled',
+      final submissionsSnapshot = await _db
+          .collection(_submissionsCollection)
+          .where('challengeId', isEqualTo: challengeId)
+          .get();
+
+      final votesSnapshot = await _db
+          .collection('votes')
+          .where('challengeId', isEqualTo: challengeId)
+          .get();
+
+      final totalSubmissions = submissionsSnapshot.docs.length;
+      final totalVotes = votesSnapshot.docs.length;
+      final uniqueVoters = votesSnapshot.docs
+          .map((doc) => doc.data()['voterId'])
+          .toSet()
+          .length;
+
+      // Calcular média de votos por submissão
+      final avgVotesPerSubmission = totalSubmissions > 0
+          ? (totalVotes / totalSubmissions).toStringAsFixed(1)
+          : '0';
+
+      return {
+        'totalSubmissions': totalSubmissions,
+        'totalVotes': totalVotes,
+        'uniqueVoters': uniqueVoters,
+        'avgVotesPerSubmission': avgVotesPerSubmission,
+        'participationRate': totalSubmissions > 0
+            ? ((uniqueVoters / totalSubmissions) * 100).toStringAsFixed(1)
+            : '0',
+      };
+    } catch (e) {
+      AppLogger.error('❌ Erro ao buscar estatísticas: $e');
+      return {};
+    }
+  }
+
+  /// Agendar verificações automáticas de status
+  static Future<void> scheduleVotingStatusChecks() async {
+    try {
+      // Buscar desafios que podem precisar de atualização de status
+      final challenges = await _db
+          .collection(_challengesCollection)
+          .where('status', whereIn: ['active', 'voting'])
+          .get();
+
+      for (final doc in challenges.docs) {
+        final challengeId = doc.id;
+        await checkAndUpdateVotingStatus(challengeId);
+
+        // Pequeno delay para não sobrecarregar o Firestore
+        await Future.delayed(const Duration(milliseconds: 100));
+      }
+
+      AppLogger.info('✅ Verificação automática de status concluída');
+    } catch (e) {
+      AppLogger.error('❌ Erro na verificação automática: $e');
+    }
+  }
+
+  /// Obter detalhes completos de um desafio com estatísticas
+  static Future<Map<String, dynamic>?> getChallengeWithDetails(
+    String challengeId,
+  ) async {
+    try {
+      final challengeDoc = await _db
+          .collection(_challengesCollection)
+          .doc(challengeId)
+          .get();
+
+      if (!challengeDoc.exists) return null;
+
+      final challenge = Challenge.fromJson({
+        ...challengeDoc.data()!,
+        'id': challengeId,
       });
 
-      AppLogger.info('✅ Desafio cancelado', data: {'challengeId': challengeId});
-      return true;
+      final stats = await getVotingStatistics(challengeId);
+
+      return {'challenge': challenge, 'statistics': stats};
     } catch (e) {
-      AppLogger.error('❌ Erro ao cancelar desafio', error: e);
-      return false;
+      AppLogger.error('❌ Erro ao buscar detalhes do desafio: $e');
+      return null;
     }
+  }
+
+  /// Buscar top submissões por votos em todos os desafios
+  static Stream<List<Submission>> getTopVotedSubmissions({int limit = 10}) {
+    return _db
+        .collection(_submissionsCollection)
+        .where('votes', isGreaterThan: 0)
+        .orderBy('votes', descending: true)
+        .orderBy('score', descending: true)
+        .limit(limit)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Submission.fromJson({...doc.data(), 'id': doc.id}))
+              .toList(),
+        );
+  }
+
+  /// Buscar desafios por status
+  static Stream<List<Challenge>> getChallengesByStatus(ChallengeStatus status) {
+    return _db
+        .collection(_challengesCollection)
+        .where('status', isEqualTo: status.id)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map(
+          (snapshot) => snapshot.docs
+              .map((doc) => Challenge.fromJson({...doc.data(), 'id': doc.id}))
+              .toList(),
+        );
   }
 }

@@ -4,7 +4,9 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/models/challenge_model.dart';
 import 'package:unlock/models/submission_model.dart';
+import 'package:unlock/models/vote_model.dart';
 import 'package:unlock/services/challenge_service.dart';
+import 'package:unlock/services/voting_service.dart';
 
 // Provider para desafios ativos
 final activeChallengesProvider = StreamProvider<List<Challenge>>((ref) {
@@ -110,7 +112,7 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final success = await ChallengeService.submitEntry(
+      final success = await ChallengeService.submitToChallenge(
         challengeId: challengeId,
         userId: userId,
         username: username,
@@ -145,14 +147,21 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
   }
 
   // Votar em submissão
-  Future<bool> voteSubmission(String submissionId, String userId) async {
+  Future<bool> voteSubmission({
+    required String submissionId,
+    required String userId,
+    required String challengeId,
+    required String voterUsername,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final success = await ChallengeService.voteSubmission(
+      final success = await VotingService.voteOnSubmission(
         submissionId: submissionId,
-        userId: userId,
-        isUpvote: true,
+        voterId: userId,
+        challengeId: challengeId,
+        voterUsername: voterUsername,
+        voteType: VoteType.like,
       );
 
       if (success) {
@@ -178,18 +187,42 @@ class ChallengeActionNotifier extends StateNotifier<ChallengeActionState> {
   }
 
   // Criar desafio
-  Future<String?> createChallenge(Challenge challenge) async {
+  Future<String?> createChallenge({
+    required String creatorId,
+    required String title,
+    required String description,
+    required ChallengeType type,
+    required ArenaType arena,
+    required DateTime startsAt,
+    required DateTime submissionEndsAt,
+    required DateTime votingEndsAt,
+    required bool allowSelfVoting,
+    required int maxVotesPerUser,
+    required List<VoteType> allowedVoteTypes,
+    required Map<String, dynamic> antiManipulation,
+    required int maxParticipants,
+    required int entryFee,
+    required List<String> tags,
+  }) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
-      final challengeId = await ChallengeService.createChallenge(
-        title: challenge.title,
-        description: challenge.description,
-        type: challenge.type,
-        arena: challenge.arena,
-        creatorId: challenge.creatorId,
-        startsAt: challenge.startsAt,
-        endsAt: challenge.endsAt,
+      final challengeId = await ChallengeService.createChallengeWithVoting(
+        title: title,
+        description: description,
+        type: type,
+        arena: arena,
+        creatorId: creatorId,
+        startsAt: startsAt,
+        submissionEndsAt: submissionEndsAt,
+        votingEndsAt: votingEndsAt,
+        allowSelfVoting: allowSelfVoting,
+        maxVotesPerUser: maxVotesPerUser,
+        allowedVoteTypes: allowedVoteTypes,
+        antiManipulation: antiManipulation,
+        maxParticipants: maxParticipants,
+        entryFee: entryFee,
+        tags: tags,
       );
 
       if (challengeId != null) {
