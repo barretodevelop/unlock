@@ -60,10 +60,10 @@ class FeaturedGroupsWidget extends ConsumerWidget {
           children: [
             AvatarCircle(
               imageUrl: group.avatar.startsWith('http') ? group.avatar : null,
-              fallbackText: group.avatar.startsWith('http')
-                  ? null
-                  : group.avatar,
-              radius: 24,
+              // fallbackText: group.avatar.startsWith('http')
+              //     ? null
+              //     : group.avatar,
+              // radius: 24,
             ),
             const SizedBox(width: 16),
             Expanded(

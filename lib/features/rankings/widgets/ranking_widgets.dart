@@ -145,10 +145,10 @@ class _RankingPodiumState extends State<RankingPodium>
                     imageUrl: entry.avatar.startsWith('http')
                         ? entry.avatar
                         : null,
-                    fallbackText: entry.avatar.startsWith('http')
-                        ? null
-                        : entry.avatar,
-                    radius: position == 1 ? 40 : 32,
+                    // fallbackText: entry.avatar.startsWith('http')
+                    //     ? null
+                    //     : entry.avatar,
+                    // radius: position == 1 ? 40 : 32,
                   ),
 
                   // Badge de posição
@@ -386,10 +386,10 @@ class _RankingListItemState extends State<_RankingListItem>
                       imageUrl: widget.entry.avatar.startsWith('http')
                           ? widget.entry.avatar
                           : null,
-                      fallbackText: widget.entry.avatar.startsWith('http')
-                          ? null
-                          : widget.entry.avatar,
-                      radius: 20,
+                      // fallbackText: widget.entry.avatar.startsWith('http')
+                      //     ? null
+                      //     : widget.entry.avatar,
+                      // radius: 20,
                     ),
                     const SizedBox(width: 12),
                     Expanded(
@@ -684,8 +684,8 @@ class UserRankCard extends ConsumerWidget {
           // Avatar do usuário
           AvatarCircle(
             imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
-            fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
-            radius: 24,
+            // fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
+            // radius: 24,
           ),
 
           const SizedBox(width: 12),

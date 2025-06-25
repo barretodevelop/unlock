@@ -1,301 +1,332 @@
 // lib/features/home/widgets/modern_app_bar.dart
 import 'package:flutter/material.dart';
-import 'package:unlock/core/constants/app_constants.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:unlock/features/home/widgets/settings_bottom_sheet.dart';
 import 'package:unlock/models/user_model.dart';
+import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/shared/widgets/avatar_circle.dart';
 
-/// AppBar moderna com elevação dinâmica e animações suaves
-class ModernAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final UserModel user;
-  final bool showElevated;
-  final VoidCallback? onNotificationsTap;
-  final VoidCallback? onProfileTap;
+/// 🎯 AppBar Moderna e Reutilizável com Animações
+class ModernAppBar extends ConsumerWidget implements PreferredSizeWidget {
+  final String? title;
+  final String? subtitle;
+  final bool showAvatar;
+  final bool showNotifications;
+  final bool showSettings;
+  final bool isElevated;
+  final List<Widget>? actions;
+  final VoidCallback? onAvatarTap;
+  final VoidCallback? onNotificationTap;
+  final VoidCallback? onSettingsTap;
 
   const ModernAppBar({
     super.key,
-    required this.user,
-    required this.showElevated,
-    this.onNotificationsTap,
-    this.onProfileTap,
+    this.title,
+    this.subtitle,
+    this.showAvatar = true,
+    this.showNotifications = true,
+    this.showSettings = true,
+    this.isElevated = false,
+    this.actions,
+    this.onAvatarTap,
+    this.onNotificationTap,
+    this.onSettingsTap,
   });
 
   @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+  Widget build(BuildContext context, WidgetRef ref) {
+    final user = ref.watch(authProvider.select((state) => state.user));
 
-  @override
-  Widget build(BuildContext context) {
     return AnimatedContainer(
-      duration: AppConstants.animationDuration,
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       child: AppBar(
-        // Título animado
-        title: AnimatedOpacity(
-          opacity: showElevated ? 1.0 : 0.0,
-          duration: AppConstants.animationDuration,
-          child: Row(
-            children: [
-              // Logo/ícone do app
-              Container(
-                width: 32,
-                height: 32,
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Theme.of(context).colorScheme.primary,
-                      Theme.of(context).colorScheme.secondary,
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: const Icon(
-                  Icons.flash_on,
-                  color: Colors.white,
-                  size: 20,
-                ),
-              ),
-              const SizedBox(width: 12),
-
-              // Título
-              Text(
-                'ClashUp',
-                style: Theme.of(
-                  context,
-                ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-        ),
-
-        // Configurações de estilo
-        backgroundColor: showElevated
-            ? Theme.of(context).colorScheme.surface
+        automaticallyImplyLeading: false,
+        backgroundColor: isElevated
+            ? Theme.of(context).colorScheme.surface.withOpacity(0.95)
             : Colors.transparent,
-        elevation: showElevated ? 2 : 0,
-        scrolledUnderElevation: 2,
-        shadowColor: Theme.of(context).shadowColor.withOpacity(0.1),
+        elevation: isElevated ? 8 : 0,
+        scrolledUnderElevation: 0,
+        flexibleSpace: isElevated ? _buildGlassEffect(context) : null,
 
-        // Leading personalizado (opcional)
-        leading: showElevated
-            ? Padding(
-                padding: const EdgeInsets.only(left: 16),
-                child: Center(
-                  child: AvatarCircle(
-                    imageUrl: user.avatar.startsWith('http')
-                        ? user.avatar
-                        : null,
-                    fallbackText: user.avatar.startsWith('http')
-                        ? null
-                        : user.avatar,
-                    radius: 16,
-                  ),
-                ),
-              )
+        // 👤 Leading com avatar do usuário
+        leading: showAvatar && user != null
+            ? _buildAvatarButton(context, user)
             : null,
 
-        // Actions na AppBar
-        actions: [
-          // Botão de notificações
-          _buildNotificationButton(context),
+        // 🏆 Título central
+        title: _buildTitle(context, user),
+        centerTitle: false,
 
-          // Botão de perfil (quando não elevated)
-          if (!showElevated) _buildProfileButton(context),
-
-          const SizedBox(width: 8),
-        ],
-
-        // Configurações de sistema
-        systemOverlayStyle: showElevated
-            ? Theme.of(context).appBarTheme.systemOverlayStyle
-            : null,
+        // ⚙️ Actions customizáveis
+        actions: _buildActions(context),
       ),
     );
   }
 
-  /// Botão de notificações com badge
-  Widget _buildNotificationButton(BuildContext context) {
-    return Stack(
-      children: [
-        IconButton(
-          onPressed: onNotificationsTap,
-          icon: Icon(
-            Icons.notifications_outlined,
-            color: showElevated
-                ? Theme.of(context).colorScheme.onSurface
-                : Colors.white.withOpacity(0.9),
+  /// 👤 Botão do avatar
+  Widget _buildAvatarButton(BuildContext context, UserModel user) {
+    return Padding(
+      padding: const EdgeInsets.all(8.0),
+      child: Hero(
+        tag: 'user_avatar_${user.uid}',
+        child: GestureDetector(
+          onTap: onAvatarTap ?? () => context.push('/profile'),
+          child: Container(
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: Theme.of(context).colorScheme.primary.withOpacity(0.2),
+                  blurRadius: 8,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            child: AvatarCircle(imageUrl: user.avatar),
           ),
-          tooltip: 'Notificações',
         ),
+      ),
+    );
+  }
 
-        // Badge de notificações não lidas
-        if (_hasUnreadNotifications())
-          Positioned(
-            right: 8,
-            top: 8,
-            child: Container(
-              width: 8,
-              height: 8,
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.error,
-                shape: BoxShape.circle,
+  /// 🏆 Widget do título
+  Widget _buildTitle(BuildContext context, UserModel? user) {
+    final displayTitle = title ?? 'ClashUp';
+    final displaySubtitle =
+        subtitle ??
+        (user != null ? 'Olá, ${user.displayName.split(' ').first}! 👋' : null);
+
+    return AnimatedOpacity(
+      opacity: isElevated ? 1.0 : 0.9,
+      duration: const Duration(milliseconds: 300),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            displayTitle,
+            style: Theme.of(
+              context,
+            ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+          ),
+          if (displaySubtitle != null && !isElevated)
+            Text(
+              displaySubtitle,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  /// ⚙️ Construir actions
+  List<Widget> _buildActions(BuildContext context) {
+    final List<Widget> actionWidgets = [];
+
+    // Actions customizadas primeiro
+    if (actions != null) {
+      actionWidgets.addAll(actions!);
+    }
+
+    // 🔔 Botão de notificações
+    if (showNotifications) {
+      actionWidgets.add(
+        _buildAnimatedIconButton(
+          context: context,
+          icon: Icons.notifications_outlined,
+          tooltip: 'Notificações',
+          onPressed: onNotificationTap ?? () => _showNotifications(context),
+        ),
+      );
+    }
+
+    // ⚙️ Botão de configurações
+    if (showSettings) {
+      actionWidgets.add(
+        _buildAnimatedIconButton(
+          context: context,
+          icon: Icons.settings_outlined,
+          tooltip: 'Configurações',
+          onPressed: onSettingsTap ?? () => _showSettings(context),
+        ),
+      );
+    }
+
+    // Espaçamento final
+    if (actionWidgets.isNotEmpty) {
+      actionWidgets.add(const SizedBox(width: 8));
+    }
+
+    return actionWidgets;
+  }
+
+  /// 🎯 Botão de ícone animado
+  Widget _buildAnimatedIconButton({
+    required BuildContext context,
+    required IconData icon,
+    required String tooltip,
+    required VoidCallback onPressed,
+  }) {
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0.0, end: 1.0),
+      duration: const Duration(milliseconds: 600),
+      curve: Curves.elasticOut,
+      builder: (context, value, child) {
+        return Transform.scale(
+          scale: value,
+          child: Container(
+            margin: const EdgeInsets.only(right: 4),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              color: Colors.transparent,
+            ),
+            child: IconButton(
+              icon: Icon(icon),
+              tooltip: tooltip,
+              onPressed: onPressed,
+              style: IconButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                foregroundColor: Theme.of(context).colorScheme.onSurface,
+                padding: const EdgeInsets.all(12),
               ),
             ),
           ),
-      ],
+        );
+      },
     );
   }
 
-  /// Botão de perfil (quando AppBar não elevated)
-  Widget _buildProfileButton(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(right: 8),
-      child: IconButton(
-        onPressed: onProfileTap,
-        icon: AvatarCircle(
-          imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
-          fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
-          radius: 16,
-        ),
-        tooltip: 'Perfil',
-      ),
-    );
-  }
-
-  /// Verificar se há notificações não lidas (mock)
-  bool _hasUnreadNotifications() {
-    // TODO: Implementar lógica real de notificações
-    return DateTime.now().second % 2 == 0; // Mock para demonstração
-  }
-}
-
-/// Variante da AppBar para outras telas
-class ModernAppBarVariant extends StatelessWidget
-    implements PreferredSizeWidget {
-  final String title;
-  final bool showBackButton;
-  final List<Widget>? actions;
-  final Widget? leading;
-
-  const ModernAppBarVariant({
-    super.key,
-    required this.title,
-    this.showBackButton = true,
-    this.actions,
-    this.leading,
-  });
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    return AppBar(
-      title: Text(
-        title,
-        style: Theme.of(
-          context,
-        ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600),
-      ),
-
-      leading: leading ?? (showBackButton ? _buildBackButton(context) : null),
-
-      actions: actions,
-
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      elevation: 1,
-      shadowColor: Theme.of(context).shadowColor.withOpacity(0.1),
-
-      centerTitle: true,
-    );
-  }
-
-  /// Botão de voltar customizado
-  Widget _buildBackButton(BuildContext context) {
-    return IconButton(
-      onPressed: () => Navigator.maybePop(context),
-      icon: Icon(
-        Icons.arrow_back_ios_new,
-        color: Theme.of(context).colorScheme.onSurface,
-        size: 20,
-      ),
-      tooltip: 'Voltar',
-    );
-  }
-}
-
-/// AppBar para telas secundárias com gradiente
-class GradientAppBar extends StatelessWidget implements PreferredSizeWidget {
-  final String title;
-  final List<Color>? gradientColors;
-  final List<Widget>? actions;
-  final bool showBackButton;
-
-  const GradientAppBar({
-    super.key,
-    required this.title,
-    this.gradientColors,
-    this.actions,
-    this.showBackButton = true,
-  });
-
-  @override
-  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
-
-  @override
-  Widget build(BuildContext context) {
-    final colors =
-        gradientColors ??
-        [
-          Theme.of(context).colorScheme.primary,
-          Theme.of(context).colorScheme.secondary,
-        ];
-
+  /// ✨ Efeito glass no AppBar
+  Widget _buildGlassEffect(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: colors,
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Theme.of(context).colorScheme.surface.withOpacity(0.9),
+            Theme.of(context).colorScheme.surface.withOpacity(0.7),
+          ],
         ),
-      ),
-      child: AppBar(
-        title: Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Theme.of(context).shadowColor.withOpacity(0.1),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
           ),
-        ),
-
-        leading: showBackButton
-            ? IconButton(
-                onPressed: () => Navigator.maybePop(context),
-                icon: const Icon(
-                  Icons.arrow_back_ios_new,
-                  color: Colors.white,
-                  size: 20,
-                ),
-                tooltip: 'Voltar',
-              )
-            : null,
-
-        actions: actions?.map((action) {
-          if (action is IconButton) {
-            return IconButton(
-              onPressed: action.onPressed,
-              icon: IconTheme(
-                data: const IconThemeData(color: Colors.white),
-                child: action.icon,
-              ),
-              tooltip: action.tooltip,
-            );
-          }
-          return action;
-        }).toList(),
-
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        centerTitle: true,
+        ],
       ),
     );
   }
+
+  /// 🔔 Mostrar notificações
+  void _showNotifications(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Row(
+          children: [
+            Icon(
+              Icons.notifications,
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            const Text('Notificações'),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(Icons.info_outline, color: Colors.blue),
+              title: Text('Sistema em desenvolvimento'),
+              subtitle: Text('Notificações serão implementadas em breve!'),
+              contentPadding: EdgeInsets.zero,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  /// ⚙️ Mostrar configurações
+  void _showSettings(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => const SettingsBottomSheet(),
+    );
+  }
+
+  @override
+  Size get preferredSize => const Size.fromHeight(kToolbarHeight);
+}
+
+/// 🎯 Variantes específicas do AppBar
+
+/// AppBar para Home
+class HomeAppBar extends ModernAppBar {
+  const HomeAppBar({super.key, bool isElevated = false})
+    : super(
+        title: 'ClashUp',
+        isElevated: isElevated,
+        showAvatar: true,
+        showNotifications: true,
+        showSettings: true,
+      );
+}
+
+/// AppBar para páginas internas
+class InternalAppBar extends ModernAppBar {
+  const InternalAppBar({
+    super.key,
+    required String title,
+    String? subtitle,
+    bool showBack = true,
+    List<Widget>? actions,
+  }) : super(
+         title: title,
+         subtitle: subtitle,
+         showAvatar: false,
+         showNotifications: false,
+         showSettings: false,
+         actions: actions,
+         isElevated: true,
+       );
+}
+
+/// AppBar para perfil
+class ProfileAppBar extends ModernAppBar {
+  const ProfileAppBar({super.key, String? userName, bool isElevated = false})
+    : super(
+        title: userName ?? 'Perfil',
+        isElevated: isElevated,
+        showAvatar: false,
+        showNotifications: true,
+        showSettings: true,
+      );
+}
+
+/// AppBar minimalista
+class MinimalAppBar extends ModernAppBar {
+  const MinimalAppBar({super.key, String? title, List<Widget>? actions})
+    : super(
+        title: title,
+        showAvatar: false,
+        showNotifications: false,
+        showSettings: false,
+        actions: actions,
+        isElevated: false,
+      );
 }

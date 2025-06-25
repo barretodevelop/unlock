@@ -83,7 +83,7 @@ class _MiniGamesScreenState extends ConsumerState<MiniGamesScreen>
           child: SlideTransition(
             position: _slideAnimation,
             child: Scaffold(
-              appBar: ModernAppBarVariant(
+              appBar: ModernAppBar(
                 title: 'Mini Games',
                 // subtitle: 'Teste suas habilidades',
                 actions: [

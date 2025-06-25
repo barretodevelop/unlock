@@ -70,7 +70,7 @@ class _RankingStatsScreenState extends ConsumerState<RankingStatsScreen>
         return FadeTransition(
           opacity: _fadeAnimation,
           child: Scaffold(
-            appBar: ModernAppBarVariant(
+            appBar: ModernAppBar(
               title: 'Estatísticas de Ranking',
               actions: [
                 // Menu de opções
@@ -171,8 +171,8 @@ class _RankingStatsScreenState extends ConsumerState<RankingStatsScreen>
             ),
             child: AvatarCircle(
               imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
-              fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
-              radius: 40,
+              // fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
+              // radius: 40,
             ),
           ),
 

@@ -1,7 +1,6 @@
 // lib/features/home/widgets/home_header.dart - CORRIGIDO PARA EVITAR OVERFLOW
 import 'package:flutter/material.dart';
 import 'package:unlock/models/user_model.dart';
-import 'package:unlock/shared/widgets/avatar_circle.dart';
 
 class HomeHeader extends StatelessWidget {
   final UserModel user;
@@ -99,11 +98,11 @@ class HomeHeader extends StatelessWidget {
         const SizedBox(width: 16),
 
         // Avatar do usuário
-        UserAvatar(
-          imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
-          fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
-          radius: 32, // ✅ REDUZIDO: Menor para economizar espaço
-        ),
+        // UserAvatar(
+        //   imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
+        //   fallbackText: user.avatar.startsWith('http') ? null : user.avatar,
+        //   radius: 32, // ✅ REDUZIDO: Menor para economizar espaço
+        // ),
       ],
     );
   }

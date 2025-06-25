@@ -598,6 +598,4 @@ class AuthNotifier extends StateNotifier<AuthState> {
     _authSubscription?.cancel();
     super.dispose();
   }
-
-  Future<void> updateUserData(UserModel updatedUser) async {}
 }

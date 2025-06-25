@@ -28,7 +28,7 @@ class GroupCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUser = ref.watch(authProvider.select((state) => state.user));
     final actionState = ref.watch(groupActionProvider);
-    
+
     // Verificar se usuário é membro
     final isMember = currentUser != null && group.isMember(currentUser.uid);
     final isAdmin = currentUser != null && group.isAdmin(currentUser.uid);
@@ -68,7 +68,14 @@ class GroupCard extends ConsumerWidget {
                 const SizedBox(height: 12),
                 _buildStats(context),
                 const SizedBox(height: 16),
-                _buildActions(context, ref, isMember, isAdmin, isCreator, actionState),
+                _buildActions(
+                  context,
+                  ref,
+                  isMember,
+                  isAdmin,
+                  isCreator,
+                  actionState,
+                ),
               ],
             ),
           ),
@@ -82,13 +89,13 @@ class GroupCard extends ConsumerWidget {
     return Row(
       children: [
         // ✅ CORRIGIDO: Usar GroupAvatar ou configurar corretamente
-        GroupAvatar(
+        AvatarCircle(
           imageUrl: group.avatar.startsWith('http') ? group.avatar : null,
-          fallbackText: group.avatar.startsWith('http') ? null : group.avatar,
-          radius: 24,
+          // fallbackText: group.avatar.startsWith('http') ? null : group.avatar,
+          // radius: 24,
         ),
         const SizedBox(width: 12),
-        
+
         // Nome e tipo
         Expanded(
           child: Column(
@@ -114,7 +121,7 @@ class GroupCard extends ConsumerWidget {
             ],
           ),
         ),
-        
+
         // Menu ou status
         _buildTrailingWidget(context),
       ],
@@ -132,10 +139,7 @@ class GroupCard extends ConsumerWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Text(
-            group.type.icon,
-            style: const TextStyle(fontSize: 10),
-          ),
+          Text(group.type.icon, style: const TextStyle(fontSize: 10)),
           const SizedBox(width: 4),
           Text(
             group.type.label,
@@ -186,7 +190,7 @@ class GroupCard extends ConsumerWidget {
   }
 
   // ========== RESTO DOS MÉTODOS INALTERADOS ==========
-  
+
   Widget _buildTrailingWidget(BuildContext context) {
     if (isPublic) {
       return Icon(
@@ -274,7 +278,8 @@ class GroupCard extends ConsumerWidget {
     );
   }
 
-  Widget _buildStatItem(BuildContext context, {
+  Widget _buildStatItem(
+    BuildContext context, {
     required IconData icon,
     required String value,
     required String label,
@@ -282,11 +287,7 @@ class GroupCard extends ConsumerWidget {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          icon,
-          size: 14,
-          color: Theme.of(context).colorScheme.primary,
-        ),
+        Icon(icon, size: 14, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 4),
         Text(
           '$value $label',
@@ -300,17 +301,14 @@ class GroupCard extends ConsumerWidget {
 
   Widget _buildStatusIndicator(BuildContext context) {
     final color = group.isActive ? Colors.green : Colors.grey;
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
           width: 6,
           height: 6,
-          decoration: BoxDecoration(
-            color: color,
-            shape: BoxShape.circle,
-          ),
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
         const SizedBox(width: 6),
         Text(
@@ -344,7 +342,9 @@ class GroupCard extends ConsumerWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.group_add, size: 18),
-          label: Text(actionState.isLoading ? 'Entrando...' : 'Entrar no Grupo'),
+          label: Text(
+            actionState.isLoading ? 'Entrando...' : 'Entrar no Grupo',
+          ),
           style: ElevatedButton.styleFrom(
             padding: const EdgeInsets.symmetric(vertical: 12),
             shape: RoundedRectangleBorder(
@@ -359,11 +359,7 @@ class GroupCard extends ConsumerWidget {
       return Row(
         children: [
           if (isCreator) ...[
-            Icon(
-              Icons.star,
-              size: 16,
-              color: Colors.amber,
-            ),
+            Icon(Icons.star, size: 16, color: Colors.amber),
             const SizedBox(width: 4),
             Text(
               'Criador',
@@ -387,11 +383,7 @@ class GroupCard extends ConsumerWidget {
               ),
             ),
           ] else ...[
-            Icon(
-              Icons.check_circle,
-              size: 16,
-              color: Colors.green,
-            ),
+            Icon(Icons.check_circle, size: 16, color: Colors.green),
             const SizedBox(width: 4),
             Text(
               'Membro',
@@ -453,7 +445,7 @@ class GroupCard extends ConsumerWidget {
 
   void _joinGroup(WidgetRef ref) {
     AppLogger.info('👤 Tentando entrar no grupo: ${group.id}');
-    
+
     ref.read(groupActionProvider.notifier).joinGroup(group.id).then((success) {
       if (success) {
         onJoin?.call();
@@ -463,7 +455,7 @@ class GroupCard extends ConsumerWidget {
 
   void _handleMenuAction(BuildContext context, String action) {
     AppLogger.debug('🎯 Ação do menu: $action');
-    
+
     switch (action) {
       case 'details':
         onTap?.call();
@@ -485,7 +477,7 @@ class GroupCard extends ConsumerWidget {
         content: const Text('Funcionalidade de convite em desenvolvimento.'),
         actions: [
           TextButton(
-            onPressed: () =>  context.go('/home') ,
+            onPressed: () => context.go('/home'),
             child: const Text('OK'),
           ),
         ],
@@ -517,4 +509,3 @@ class GroupCard extends ConsumerWidget {
     );
   }
 }
- 

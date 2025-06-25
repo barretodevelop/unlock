@@ -27,21 +27,19 @@ class RankingList extends StatelessWidget {
     if (rankings.isEmpty) return _buildEmptyState(context);
 
     return SliverList(
-      delegate: SliverChildBuilderDelegate(
-        (context, index) {
-          final entry = rankings[index];
-          final isCurrentUser = currentUserId != null && entry.userId == currentUserId;
-          
-          return RankingListItem(
-            entry: entry,
-            category: category,
-            animationIndex: showAnimations ? index : -1,
-            isCurrentUser: isCurrentUser,
-            onTap: () => _onEntryTapped(context, entry),
-          );
-        },
-        childCount: rankings.length,
-      ),
+      delegate: SliverChildBuilderDelegate((context, index) {
+        final entry = rankings[index];
+        final isCurrentUser =
+            currentUserId != null && entry.userId == currentUserId;
+
+        return RankingListItem(
+          entry: entry,
+          category: category,
+          animationIndex: showAnimations ? index : -1,
+          isCurrentUser: isCurrentUser,
+          onTap: () => _onEntryTapped(context, entry),
+        );
+      }, childCount: rankings.length),
     );
   }
 
@@ -61,15 +59,15 @@ class RankingList extends StatelessWidget {
             Text(
               'Nenhum ranking encontrado',
               style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-                  ),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+              ),
             ),
             const SizedBox(height: 8),
             Text(
               'Seja o primeiro a aparecer neste ranking!',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                  ),
+                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+              ),
               textAlign: TextAlign.center,
             ),
           ],
@@ -81,7 +79,7 @@ class RankingList extends StatelessWidget {
   /// Handler para toque no item
   void _onEntryTapped(BuildContext context, RankingEntry entry) {
     AppLogger.debug('🏅 Ranking entry tapped: ${entry.userId}');
-    
+
     // Navegar para perfil do usuário
     context.push('/profile/${entry.userId}');
   }
@@ -123,13 +121,15 @@ class _RankingListItemState extends State<RankingListItem>
       vsync: this,
     );
 
-    _slideAnimation = Tween<double>(begin: 50.0, end: 0.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeOut),
-    );
+    _slideAnimation = Tween<double>(
+      begin: 50.0,
+      end: 0.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOut));
 
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _controller, curve: Curves.easeIn),
-    );
+    _fadeAnimation = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeIn));
 
     // Animar entrada com delay baseado no index
     if (widget.animationIndex >= 0) {
@@ -198,29 +198,27 @@ class _RankingListItemState extends State<RankingListItem>
               children: [
                 // Posição
                 _buildPositionBadge(context),
-                
+
                 const SizedBox(width: 16),
-                
+
                 // Avatar
                 AvatarCircle(
-                  imageUrl: widget.entry.avatar.startsWith('http') 
-                      ? widget.entry.avatar 
+                  imageUrl: widget.entry.avatar.startsWith('http')
+                      ? widget.entry.avatar
                       : null,
-                  fallbackText: widget.entry.avatar.startsWith('http') 
-                      ? null 
-                      : widget.entry.avatar,
-                  radius: 24,
+                  // fallbackText: widget.entry.avatar.startsWith('http')
+                  //     ? null
+                  //     : widget.entry.avatar,
+                  // radius: 24,
                 ),
-                
+
                 const SizedBox(width: 16),
-                
+
                 // Informações do usuário
-                Expanded(
-                  child: _buildUserInfo(context),
-                ),
-                
+                Expanded(child: _buildUserInfo(context)),
+
                 const SizedBox(width: 16),
-                
+
                 // Valor e tendência
                 _buildValueSection(context),
               ],
@@ -235,25 +233,22 @@ class _RankingListItemState extends State<RankingListItem>
   Widget _buildPositionBadge(BuildContext context) {
     final position = widget.entry.position;
     final color = _getPositionColor(position);
-    
+
     return Container(
       width: 40,
       height: 40,
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Center(
         child: Text(
           '$position',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                color: color,
-                fontWeight: FontWeight.bold,
-              ),
+            color: color,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ),
     );
@@ -270,16 +265,14 @@ class _RankingListItemState extends State<RankingListItem>
               child: Text(
                 widget.entry.displayName,
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w600,
-                      color: widget.isCurrentUser
-                          ? widget.category.color
-                          : null,
-                    ),
+                  fontWeight: FontWeight.w600,
+                  color: widget.isCurrentUser ? widget.category.color : null,
+                ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            
+
             // Badge "Você" para usuário atual
             if (widget.isCurrentUser)
               Container(
@@ -291,30 +284,26 @@ class _RankingListItemState extends State<RankingListItem>
                 child: Text(
                   'VOCÊ',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
                 ),
               ),
           ],
         ),
-        
+
         const SizedBox(height: 2),
-        
+
         Text(
           '@${widget.entry.username}',
           style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context)
-                    .colorScheme
-                    .onSurface
-                    .withOpacity(0.6),
-              ),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
         ),
-        
+
         // Informações extras (se disponível)
-        if (widget.entry.metadata.isNotEmpty)
-          _buildMetadataInfo(context),
+        if (widget.entry.metadata.isNotEmpty) _buildMetadataInfo(context),
       ],
     );
   }
@@ -323,7 +312,7 @@ class _RankingListItemState extends State<RankingListItem>
   Widget _buildMetadataInfo(BuildContext context) {
     final level = widget.entry.metadata['level'] as int?;
     if (level == null) return const SizedBox.shrink();
-    
+
     return Padding(
       padding: const EdgeInsets.only(top: 4),
       child: Row(
@@ -337,8 +326,8 @@ class _RankingListItemState extends State<RankingListItem>
           Text(
             'Nível $level',
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
-                ),
+              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.5),
+            ),
           ),
         ],
       ),
@@ -369,16 +358,16 @@ class _RankingListItemState extends State<RankingListItem>
               Text(
                 widget.category.formatValue(widget.entry.value),
                 style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                      color: widget.category.color,
-                      fontWeight: FontWeight.bold,
-                    ),
+                  color: widget.category.color,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ],
           ),
         ),
-        
+
         const SizedBox(height: 4),
-        
+
         // Indicador de tendência (placeholder)
         _buildTrendIndicator(context),
       ],
@@ -389,22 +378,17 @@ class _RankingListItemState extends State<RankingListItem>
   Widget _buildTrendIndicator(BuildContext context) {
     // Mock: gerar tendência baseada na posição
     final trend = _getMockTrend();
-    
+
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(
-          trend.icon,
-          size: 12,
-          color: trend.color,
-        ),
+        Icon(trend.icon, size: 12, color: trend.color),
         const SizedBox(width: 2),
         Text(
           trend.label,
-          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: trend.color,
-                fontSize: 10,
-              ),
+          style: Theme.of(
+            context,
+          ).textTheme.labelSmall?.copyWith(color: trend.color, fontSize: 10),
         ),
       ],
     );
@@ -429,7 +413,7 @@ class _RankingListItemState extends State<RankingListItem>
   RankingTrend _getMockTrend() {
     // Mock simples baseado na posição
     final position = widget.entry.position;
-    
+
     if (position <= 10) {
       return RankingTrend.up;
     } else if (position <= 50) {
@@ -456,13 +440,10 @@ class CompactRankingList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final limitedRankings = rankings.take(maxItems).toList();
-    
+
     return Column(
       children: limitedRankings.map((entry) {
-        return CompactRankingItem(
-          entry: entry,
-          category: category,
-        );
+        return CompactRankingItem(entry: entry, category: category);
       }).toList(),
     );
   }
@@ -495,42 +476,42 @@ class CompactRankingItem extends StatelessWidget {
             width: 20,
             child: Text(
               '${entry.position}',
-              style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
           ),
-          
+
           const SizedBox(width: 12),
-          
+
           // Avatar pequeno
           AvatarCircle(
             imageUrl: entry.avatar.startsWith('http') ? entry.avatar : null,
-            fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
-            radius: 16,
+            // fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
+            // radius: 16,
           ),
-          
+
           const SizedBox(width: 12),
-          
+
           // Nome
           Expanded(
             child: Text(
               entry.displayName,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    fontWeight: FontWeight.w500,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w500),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          
+
           // Valor
           Text(
             category.formatValue(entry.value),
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                  color: category.color,
-                  fontWeight: FontWeight.bold,
-                ),
+              color: category.color,
+              fontWeight: FontWeight.bold,
+            ),
           ),
         ],
       ),

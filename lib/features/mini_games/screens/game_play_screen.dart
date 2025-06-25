@@ -102,13 +102,13 @@ class _GamePlayScreenState extends ConsumerState<GamePlayScreen>
           child: SlideTransition(
             position: _slideAnimation,
             child: Scaffold(
-              appBar: ModernAppBarVariant(
+              appBar: ModernAppBar(
                 title: _gameType!.name,
                 // subtitle: _gameType!.description,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back),
-                  onPressed: _handleBackPressed,
-                ),
+                // leading: IconButton(
+                //   icon: const Icon(Icons.arrow_back),
+                //   onPressed: _handleBackPressed,
+                // ),
                 actions: [
                   if (_isGameStarted) ...[
                     IconButton(

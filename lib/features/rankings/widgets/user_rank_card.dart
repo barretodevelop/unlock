@@ -172,10 +172,10 @@ class _UserRankCardState extends ConsumerState<UserRankCard>
             imageUrl: widget.user.avatar.startsWith('http')
                 ? widget.user.avatar
                 : null,
-            fallbackText: widget.user.avatar.startsWith('http')
-                ? null
-                : widget.user.avatar,
-            radius: 20,
+            // fallbackText: widget.user.avatar.startsWith('http')
+            //     ? null
+            //     : widget.user.avatar,
+            // radius: 20,
           ),
 
           const SizedBox(width: 12),
@@ -297,10 +297,10 @@ class _UserRankCardState extends ConsumerState<UserRankCard>
             imageUrl: widget.user.avatar.startsWith('http')
                 ? widget.user.avatar
                 : null,
-            fallbackText: widget.user.avatar.startsWith('http')
-                ? null
-                : widget.user.avatar,
-            radius: 32,
+            // fallbackText: widget.user.avatar.startsWith('http')
+            //     ? null
+            //     : widget.user.avatar,
+            // radius: 32,
           ),
         ),
 
@@ -648,10 +648,10 @@ class MultiCategoryUserRankCard extends ConsumerWidget {
             children: [
               AvatarCircle(
                 imageUrl: user.avatar.startsWith('http') ? user.avatar : null,
-                fallbackText: user.avatar.startsWith('http')
-                    ? null
-                    : user.avatar,
-                radius: 20,
+                // fallbackText: user.avatar.startsWith('http')
+                //     ? null
+                //     : user.avatar,
+                // radius: 20,
               ),
               const SizedBox(width: 12),
               Expanded(

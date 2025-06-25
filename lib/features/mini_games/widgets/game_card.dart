@@ -28,27 +28,19 @@ class _GameCardState extends State<GameCard>
   @override
   void initState() {
     super.initState();
-    
+
     _animationController = AnimationController(
       duration: const Duration(milliseconds: 200),
       vsync: this,
     );
 
-    _scaleAnimation = Tween<double>(
-      begin: 1.0,
-      end: 0.95,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
 
-    _glowAnimation = Tween<double>(
-      begin: 0.0,
-      end: 1.0,
-    ).animate(CurvedAnimation(
-      parent: _animationController,
-      curve: Curves.easeInOut,
-    ));
+    _glowAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
   }
 
   @override
@@ -113,14 +105,28 @@ class _GameCardState extends State<GameCard>
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            _buildHeader(),
-            const SizedBox(height: 12),
-            _buildDescription(),
-            const Spacer(),
-            _buildPersonalBest(),
-            const SizedBox(height: 12),
-            _buildPlayButton(),
+            // Conteúdo superior (ícone, título, descrição)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildHeader(),
+                const SizedBox(height: 12),
+                _buildDescription(),
+              ],
+            ),
+            // Conteúdo inferior (recorde, botão)
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _buildPersonalBest(),
+                const SizedBox(height: 8), // Espaçamento ligeiramente reduzido
+                _buildPlayButton(),
+              ],
+            ),
           ],
         ),
       ),
@@ -161,8 +167,7 @@ class _GameCardState extends State<GameCard>
                   color: widget.gameType.themeColor,
                 ),
               ),
-              if (widget.personalBest != null)
-                _buildRankBadge(),
+              if (widget.personalBest != null) _buildRankBadge(),
             ],
           ),
         ),
@@ -216,9 +221,7 @@ class _GameCardState extends State<GameCard>
       decoration: BoxDecoration(
         color: widget.gameType.themeColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: widget.gameType.themeColor.withOpacity(0.2),
-        ),
+        border: Border.all(color: widget.gameType.themeColor.withOpacity(0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -266,9 +269,7 @@ class _GameCardState extends State<GameCard>
       decoration: BoxDecoration(
         color: widget.gameType.themeColor.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: widget.gameType.themeColor.withOpacity(0.2),
-        ),
+        border: Border.all(color: widget.gameType.themeColor.withOpacity(0.2)),
       ),
       child: Row(
         children: [

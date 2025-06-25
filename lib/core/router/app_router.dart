@@ -1,4 +1,4 @@
-// lib/core/router/app_router.dart - ATUALIZADO COM RANKINGS IMPLEMENTADOS
+// lib/core/router/app_router.dart - COMPLETO COM PROVIDER
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -7,54 +7,61 @@ import 'package:unlock/features/auth/screens/login_screen.dart';
 import 'package:unlock/features/groups/screens/create_group_screen.dart';
 import 'package:unlock/features/groups/screens/group_detail_screen.dart';
 import 'package:unlock/features/groups/screens/groups_list_screen.dart';
-import 'package:unlock/features/home/screens/home_screen_with_mini_games.dart';
-import 'package:unlock/features/rankings/screens/rankings_screen.dart'; // ✅ NOVA TELA DE RANKINGS
+import 'package:unlock/features/home/screens/modern_home_screen%20.dart';
+import 'package:unlock/features/mini_games/screens/game_play_screen.dart'; // ✅ GAMEPLAY
+import 'package:unlock/features/mini_games/screens/mini_games_screen.dart'; // ✅ MINI-GAMES
+import 'package:unlock/features/rankings/screens/rankings_screen.dart';
 import 'package:unlock/onboarding/onboarding_wrapper.dart';
 import 'package:unlock/providers/auth_provider.dart';
 import 'package:unlock/shared/screens/splash_screen.dart';
 
-/// ✅ SISTEMA DE NAVEGAÇÃO COM RANKINGS IMPLEMENTADOS
+/// ✅ PROVIDER PRINCIPAL DO ROUTER - ISSO RESOLVE O ERRO!
+// final appRouterProvider = Provider<GoRouter>((ref) {
+//   return AppRouter.createRouter(ref);
+// });
+
+/// 🚀 Classe Router Principal com Mini-Games e Nova Home
 class AppRouter {
   static final _rootNavigatorKey = GlobalKey<NavigatorState>();
 
-  /// Criar router com rankings funcionais
+  /// Criar router com todas as funcionalidades
   static GoRouter createRouter(WidgetRef ref) {
     return GoRouter(
       navigatorKey: _rootNavigatorKey,
       initialLocation: '/',
       debugLogDiagnostics: false,
 
-      // ✅ REDIRECT OTIMIZADO
-      redirect: (context, state) => _handleRedirect(ref, state),
+      // 🔐 Redirect para auth
+      redirect: (context, state) => AppRouter._handleRedirect(ref, state),
 
-      // ✅ REFRESH LISTENER
+      // 🔄 Refresh listener
       refreshListenable: _AuthChangeNotifier(ref),
 
-      // ✅ ROTAS COMPLETAS
+      // 🛤️ Rotas completas
       routes: [
         // ========== ROTAS PRINCIPAIS ==========
 
-        // Splash Screen
+        // 🎬 Splash Screen
         GoRoute(
           path: '/',
           name: 'splash',
           builder: (context, state) {
-            AppLogger.navigation('🎯 Building SplashScreen');
+            AppLogger.navigation('🎬 Building SplashScreen');
             return const SplashScreen();
           },
         ),
 
-        // Login Screen
+        // 🔐 Login
         GoRoute(
           path: '/login',
           name: 'login',
           builder: (context, state) {
-            AppLogger.navigation('🔑 Building LoginScreen');
+            AppLogger.navigation('🔐 Building LoginScreen');
             return const LoginScreen();
           },
         ),
 
-        // Onboarding Wrapper
+        // 📝 Onboarding
         GoRoute(
           path: '/onboarding',
           name: 'onboarding',
@@ -64,21 +71,17 @@ class AppRouter {
           },
         ),
 
-        // ========== NOVA HOME PRINCIPAL ==========
-
-        // Home com nova navegação
+        // ========== ✅ NOVA HOME MODERNA ==========
         GoRoute(
           path: '/home',
           name: 'home',
           builder: (context, state) {
-            AppLogger.navigation('🏠 Building NewHomeScreen');
-            return const HomeScreenWithMiniGames();
+            AppLogger.navigation('🏠 Building ModernHomeScreen');
+            return const ModernHomeScreen(); // ✅ Nova home com mini-games
           },
         ),
 
-        // ========== ROTAS DOS GRUPOS ==========
-
-        // Lista de Grupos
+        // ========== 👥 ROTAS DOS GRUPOS ==========
         GoRoute(
           path: '/groups',
           name: 'groups',
@@ -86,152 +89,210 @@ class AppRouter {
             AppLogger.navigation('👥 Building GroupsListScreen');
             return const GroupsListScreen();
           },
+          routes: [
+            // Criar grupo
+            GoRoute(
+              path: '/create',
+              name: 'create-group',
+              builder: (context, state) {
+                AppLogger.navigation('➕ Building CreateGroupScreen');
+                return const CreateGroupScreen();
+              },
+            ),
+            // Detalhes do grupo
+            GoRoute(
+              path: '/:groupId',
+              name: 'group-detail',
+              builder: (context, state) {
+                final groupId = state.pathParameters['groupId']!;
+                AppLogger.navigation(
+                  '👁️ Building GroupDetailScreen: $groupId',
+                );
+                return GroupDetailScreen(groupId: groupId);
+              },
+            ),
+          ],
         ),
 
-        // Criar Grupo
-        GoRoute(
-          path: '/groups/create',
-          name: 'create-group',
-          builder: (context, state) {
-            AppLogger.navigation('➕ Building CreateGroupScreen');
-            return const CreateGroupScreen();
-          },
-        ),
-
-        // Detalhes do Grupo
-        GoRoute(
-          path: '/groups/:groupId',
-          name: 'group-detail',
-          builder: (context, state) {
-            final groupId = state.pathParameters['groupId']!;
-            AppLogger.navigation('👁️ Building GroupDetailScreen: $groupId');
-            return GroupDetailScreen(groupId: groupId);
-          },
-        ),
-
-        // ========== ROTAS DE DESAFIOS ==========
-
-        // Lista de Desafios
+        // ========== 🏆 ROTAS DE DESAFIOS ==========
         GoRoute(
           path: '/challenges',
           name: 'challenges',
           builder: (context, state) {
             AppLogger.navigation('🏆 Building ChallengesScreen');
-            return _buildComingSoonScreen(context, 'Desafios');
+            return AppRouter._buildComingSoonScreen(context, 'Desafios');
           },
+          routes: [
+            // Criar desafio
+            GoRoute(
+              path: '/create',
+              name: 'create-challenge',
+              builder: (context, state) {
+                AppLogger.navigation('➕ Building CreateChallengeScreen');
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Criar Desafio',
+                );
+              },
+            ),
+            // Detalhes do desafio
+            GoRoute(
+              path: '/:challengeId',
+              name: 'challenge-detail',
+              builder: (context, state) {
+                final challengeId = state.pathParameters['challengeId']!;
+                AppLogger.navigation(
+                  '👁️ Building ChallengeDetailScreen: $challengeId',
+                );
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Detalhes do Desafio',
+                );
+              },
+            ),
+          ],
         ),
 
-        // Criar Desafio
+        // ========== ✅ ROTAS DOS MINI-GAMES ==========
         GoRoute(
-          path: '/challenges/create',
-          name: 'create-challenge',
+          path: '/mini-games',
+          name: 'mini-games',
           builder: (context, state) {
-            AppLogger.navigation('➕ Building CreateChallengeScreen');
-            return _buildComingSoonScreen(context, 'Criar Desafio');
+            AppLogger.navigation('🎮 Building MiniGamesScreen');
+            return const MiniGamesScreen(); // ✅ Tela principal dos mini-games
           },
+          routes: [
+            // Jogo específico
+            GoRoute(
+              path: '/:gameType',
+              name: 'mini-game-play',
+              builder: (context, state) {
+                final gameType = state.pathParameters['gameType']!;
+                AppLogger.navigation('🎯 Building GamePlayScreen: $gameType');
+                return GamePlayScreen(
+                  gameTypeId: gameType,
+                ); // ✅ Gameplay específico
+              },
+            ),
+            // Leaderboard - ✅ CORRIGIDO
+            GoRoute(
+              path: '/leaderboard',
+              name: 'mini-games-leaderboard',
+              builder: (context, state) {
+                AppLogger.navigation('🏆 Building MiniGamesLeaderboard');
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Leaderboard dos Mini-Games',
+                );
+              },
+            ),
+            // Histórico - ✅ CORRIGIDO
+            GoRoute(
+              path: '/history',
+              name: 'mini-games-history',
+              builder: (context, state) {
+                AppLogger.navigation('📜 Building MiniGamesHistory');
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Histórico de Jogos',
+                );
+              },
+            ),
+          ],
         ),
 
-        // Detalhes do Desafio
-        GoRoute(
-          path: '/challenges/:challengeId',
-          name: 'challenge-detail',
-          builder: (context, state) {
-            final challengeId = state.pathParameters['challengeId']!;
-            AppLogger.navigation(
-              '👁️ Building ChallengeDetailScreen: $challengeId',
-            );
-            return _buildComingSoonScreen(context, 'Detalhes do Desafio');
-          },
-        ),
-
-        // ========== ✅ RANKINGS IMPLEMENTADOS ==========
-
-        // Rankings Screen - ✅ AGORA FUNCIONAL
+        // ========== 🏅 RANKINGS ==========
         GoRoute(
           path: '/rankings',
           name: 'rankings',
           builder: (context, state) {
             AppLogger.navigation('🏅 Building RankingsScreen');
-            return const RankingsScreen(); // ✅ TELA REAL
+            return const RankingsScreen(); // ✅ Tela de rankings implementada
           },
+          routes: [
+            // Rankings por categoria
+            GoRoute(
+              path: '/:category',
+              name: 'rankings-category',
+              builder: (context, state) {
+                final category = state.pathParameters['category']!;
+                AppLogger.navigation(
+                  '🏅 Building RankingsScreen for: $category',
+                );
+                return const RankingsScreen(); // Redireciona para tela principal
+              },
+            ),
+          ],
         ),
 
-        // Rankings por categoria (rota opcional)
-        GoRoute(
-          path: '/rankings/:category',
-          name: 'rankings-category',
-          builder: (context, state) {
-            final category = state.pathParameters['category']!;
-            AppLogger.navigation('🏅 Building RankingsScreen for: $category');
-            // TODO: Implementar navegação direta para categoria
-            return const RankingsScreen();
-          },
-        ),
-
-        // ========== ROTAS REFINADAS ==========
-
-        // Perfil
+        // ========== 👤 PERFIL ==========
         GoRoute(
           path: '/profile',
           name: 'profile',
           builder: (context, state) {
             AppLogger.navigation('👤 Building ProfileScreen');
-            return _buildComingSoonScreen(context, 'Perfil');
+            return AppRouter._buildComingSoonScreen(context, 'Perfil');
           },
+          routes: [
+            // Editar perfil
+            GoRoute(
+              path: '/edit',
+              name: 'edit-profile',
+              builder: (context, state) {
+                AppLogger.navigation('✏️ Building EditProfileScreen');
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Editar Perfil',
+                );
+              },
+            ),
+            // Perfil de outro usuário
+            GoRoute(
+              path: '/:userId',
+              name: 'user-profile',
+              builder: (context, state) {
+                final userId = state.pathParameters['userId']!;
+                AppLogger.navigation('👁️ Building UserProfileScreen: $userId');
+                return AppRouter._buildComingSoonScreen(
+                  context,
+                  'Perfil do Usuário',
+                );
+              },
+            ),
+          ],
         ),
 
-        // Perfil de outro usuário
-        GoRoute(
-          path: '/profile/:userId',
-          name: 'user-profile',
-          builder: (context, state) {
-            final userId = state.pathParameters['userId']!;
-            AppLogger.navigation('👤 Building UserProfileScreen: $userId');
-            return _buildComingSoonScreen(context, 'Perfil do Usuário');
-          },
-        ),
-
-        // Configurações
+        // ========== ⚙️ CONFIGURAÇÕES ==========
         GoRoute(
           path: '/settings',
           name: 'settings',
           builder: (context, state) {
             AppLogger.navigation('⚙️ Building SettingsScreen');
-            return _buildComingSoonScreen(context, 'Configurações');
+            return AppRouter._buildComingSoonScreen(context, 'Configurações');
           },
         ),
 
-        // Mini-Games
-        GoRoute(
-          path: '/games',
-          name: 'games',
-          builder: (context, state) {
-            AppLogger.navigation('🎮 Building GamesScreen');
-            return _buildComingSoonScreen(context, 'Mini-Games');
-          },
-        ),
-
-        // Notificações
+        // ========== 🔔 NOTIFICAÇÕES ==========
         GoRoute(
           path: '/notifications',
           name: 'notifications',
           builder: (context, state) {
             AppLogger.navigation('🔔 Building NotificationsScreen');
-            return _buildComingSoonScreen(context, 'Notificações');
+            return AppRouter._buildComingSoonScreen(context, 'Notificações');
           },
         ),
       ],
 
-      // ✅ ERROR HANDLER REFINADO
+      // ❌ Tratamento de erros
       errorBuilder: (context, state) {
-        AppLogger.error('❌ Route error: ${state.error}');
-        return _ErrorScreen(
-          error: state.error?.toString() ?? 'Rota não encontrada',
-          location: state.uri.toString(),
-        );
+        AppLogger.error('❌ Erro de rota: ${state.error}');
+        return AppRouter._buildErrorScreen(context, state.error);
       },
     );
   }
+
+  /// 🔗 Context do navigator
+  static BuildContext? get context => _rootNavigatorKey.currentContext;
 
   /// ✅ LÓGICA DE REDIRECT OTIMIZADA
   static String? _handleRedirect(WidgetRef ref, GoRouterState state) {
@@ -301,100 +362,57 @@ class AppRouter {
     }
   }
 
-  /// Tela "Em Breve" refinada
+  /// 🚧 Tela "Em breve"
   static Widget _buildComingSoonScreen(BuildContext context, String feature) {
     return Scaffold(
       appBar: AppBar(
         title: Text(feature),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-        elevation: 1,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/home'),
+        ),
       ),
       body: Center(
         child: Padding(
-          padding: const EdgeInsets.all(32),
+          padding: const EdgeInsets.all(24.0),
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Ícone animado
-              TweenAnimationBuilder<double>(
-                tween: Tween(begin: 0.8, end: 1.2),
-                duration: const Duration(seconds: 2),
-                builder: (context, scale, child) {
-                  return Transform.scale(
-                    scale: scale,
-                    child: Container(
-                      width: 120,
-                      height: 120,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [
-                            Theme.of(context).colorScheme.primary,
-                            Theme.of(context).colorScheme.secondary,
-                          ],
-                        ),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.construction,
-                        size: 60,
-                        color: Colors.white,
-                      ),
-                    ),
-                  );
-                },
+              Icon(
+                Icons.construction,
+                size: 64,
+                color: Theme.of(context).colorScheme.primary,
               ),
-
-              const SizedBox(height: 32),
-
+              const SizedBox(height: 24),
               Text(
-                '$feature em Desenvolvimento',
+                '🚧 $feature',
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
                 textAlign: TextAlign.center,
               ),
-
               const SizedBox(height: 16),
-
               Text(
-                'Esta funcionalidade estará disponível em breve. Estamos trabalhando para trazer a melhor experiência!',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.7),
-                ),
+                'Esta funcionalidade será implementada em breve!\nEstamos trabalhando para trazer a melhor experiência.',
+                style: Theme.of(context).textTheme.bodyMedium,
                 textAlign: TextAlign.center,
               ),
-
-              const SizedBox(height: 40),
-
-              // Botões de ação
+              const SizedBox(height: 32),
               Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.of(context).pop(),
-                    icon: const Icon(Icons.arrow_back),
-                    label: const Text('Voltar'),
+                  ElevatedButton(
+                    onPressed: () => context.go('/home'),
+                    child: const Text('Ir para Home'),
                   ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () => GoRouter.of(context).go(AppRoutes.home),
-                    icon: const Icon(Icons.home),
-                    label: const Text('Home'),
+                  OutlinedButton(
+                    onPressed: () =>
+                        context.canPop() ? context.pop() : context.go('/home'),
+                    child: const Text('Voltar'),
                   ),
                 ],
               ),
-
-              const SizedBox(height: 24),
-
-              // Link para Rankings (já implementado)
-              if (feature != 'Rankings')
-                TextButton.icon(
-                  onPressed: () => GoRouter.of(context).go(AppRoutes.rankings),
-                  icon: const Icon(Icons.leaderboard),
-                  label: const Text('Ver Rankings'),
-                ),
             ],
           ),
         ),
@@ -402,9 +420,62 @@ class AppRouter {
     );
   }
 
-  // ✅ GETTERS ATUALIZADOS
-  static GlobalKey<NavigatorState> get rootNavigatorKey => _rootNavigatorKey;
-  static BuildContext? get context => _rootNavigatorKey.currentContext;
+  /// ❌ Tela de erro
+  static Widget _buildErrorScreen(BuildContext context, Exception? error) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Erro'),
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.go('/home'),
+        ),
+      ),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(
+                Icons.error_outline,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                'Ops! Algo deu errado',
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 16),
+              Text(
+                error?.toString() ?? 'Erro desconhecido',
+                style: Theme.of(context).textTheme.bodyMedium,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 32),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                children: [
+                  ElevatedButton(
+                    onPressed: () => context.go('/home'),
+                    child: const Text('Ir para Home'),
+                  ),
+                  OutlinedButton(
+                    onPressed: () =>
+                        context.canPop() ? context.pop() : context.go('/home'),
+                    child: const Text('Tentar Novamente'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// ✅ CONSTANTES DE ROTAS ATUALIZADAS
@@ -425,6 +496,12 @@ class AppRoutes {
   static const String createChallenge = '/challenges/create';
   static String challengeDetail(String id) => '/challenges/$id';
 
+  // ✅ MINI-GAMES
+  static const String miniGames = '/mini-games';
+  static String miniGame(String gameType) => '/mini-games/$gameType';
+  static const String miniGamesLeaderboard = '/mini-games/leaderboard';
+  static const String miniGamesHistory = '/mini-games/history';
+
   // ✅ RANKINGS IMPLEMENTADOS
   static const String rankings = '/rankings';
   static String rankingsCategory(String category) => '/rankings/$category';
@@ -433,7 +510,6 @@ class AppRoutes {
   static const String profile = '/profile';
   static String userProfile(String userId) => '/profile/$userId';
   static const String settings = '/settings';
-  static const String games = '/games';
   static const String notifications = '/notifications';
 }
 
@@ -466,10 +542,10 @@ class _AuthChangeNotifier extends ChangeNotifier {
   bool _shouldNotifyChange(AuthState? previous, AuthState current) {
     if (previous == null) return true;
 
+    // Notificar apenas em mudanças significativas
     return previous.isAuthenticated != current.isAuthenticated ||
-        previous.isLoading != current.isLoading ||
-        previous.isInitialized != current.isInitialized ||
-        previous.needsOnboarding != current.needsOnboarding;
+        previous.needsOnboarding != current.needsOnboarding ||
+        (previous.isLoading && !current.isLoading);
   }
 
   @override
@@ -479,126 +555,29 @@ class _AuthChangeNotifier extends ChangeNotifier {
   }
 }
 
-/// ✅ TELA DE ERRO REFINADA
-class _ErrorScreen extends StatelessWidget {
-  final String error;
-  final String location;
-
-  const _ErrorScreen({required this.error, required this.location});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Erro'),
-        backgroundColor: Theme.of(context).colorScheme.surface,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                Icons.error_outline,
-                size: 80,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: 24),
-              Text(
-                'Oops! Algo deu errado',
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                error,
-                style: Theme.of(context).textTheme.bodyMedium,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                'Rota: $location',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(
-                    context,
-                  ).colorScheme.onSurface.withOpacity(0.6),
-                ),
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 32),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ElevatedButton.icon(
-                    onPressed: () => GoRouter.of(context).go(AppRoutes.home),
-                    icon: const Icon(Icons.home),
-                    label: const Text('Ir para Home'),
-                  ),
-                  const SizedBox(width: 16),
-                  OutlinedButton.icon(
-                    onPressed: () =>
-                        GoRouter.of(context).go(AppRoutes.rankings),
-                    icon: const Icon(Icons.leaderboard),
-                    label: const Text('Ver Rankings'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-/// ✅ UTILITÁRIOS DE NAVEGAÇÃO ATUALIZADOS
-class NavigationUtils {
+/// 🛠️ Extensões úteis para navegação
+extension AppRouterExtensions on BuildContext {
   /// Navegar para home
-  static void goToHome(BuildContext context) {
-    AppLogger.navigation('🏠 Navegando para home');
-    GoRouter.of(context).go(AppRoutes.home);
-  }
+  void goHome() => go('/home');
+
+  /// Navegar para perfil
+  void goProfile() => go('/profile');
+
+  /// Navegar para grupos
+  void goGroups() => go('/groups');
 
   /// Navegar para rankings
-  static void goToRankings(BuildContext context) {
-    AppLogger.navigation('🏅 Navegando para rankings');
-    GoRouter.of(context).go(AppRoutes.rankings);
-  }
+  void goRankings() => go('/rankings');
 
-  /// Navegar para rankings de categoria específica
-  static void goToRankingsCategory(BuildContext context, String category) {
-    AppLogger.navigation('🏅 Navegando para rankings: $category');
-    GoRouter.of(context).go(AppRoutes.rankingsCategory(category));
-  }
+  /// Navegar para desafios
+  void goChallenges() => go('/challenges');
 
-  /// Navegar para perfil de usuário
-  static void goToUserProfile(BuildContext context, String userId) {
-    AppLogger.navigation('👤 Navegando para perfil: $userId');
-    GoRouter.of(context).go(AppRoutes.userProfile(userId));
-  }
+  /// ✅ NOVO: Navegar para mini-games
+  void goMiniGames() => go('/mini-games');
 
-  /// Navegar mantendo stack
-  static void pushTo(BuildContext context, String path, {Object? extra}) {
-    AppLogger.navigation('📌 Pushing para: $path');
-    GoRouter.of(context).push(path, extra: extra);
-  }
+  /// ✅ NOVO: Navegar para jogo específico
+  void goMiniGame(String gameType) => go('/mini-games/$gameType');
 
-  /// Voltar ou ir para home
-  static void popOrHome(BuildContext context) {
-    if (GoRouter.of(context).canPop()) {
-      AppLogger.navigation('⬅️ Pop');
-      GoRouter.of(context).pop();
-    } else {
-      AppLogger.navigation('🏠 Não pode pop, indo para home');
-      GoRouter.of(context).go(AppRoutes.home);
-    }
-  }
-
-  /// Verificar se pode voltar
-  static bool canPop(BuildContext context) {
-    return GoRouter.of(context).canPop();
-  }
+  /// ✅ NOVO: Navegar para leaderboard
+  void goMiniGamesLeaderboard() => go('/mini-games/leaderboard');
 }

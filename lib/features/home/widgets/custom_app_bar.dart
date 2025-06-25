@@ -18,7 +18,7 @@ class CustomAppBar extends ConsumerWidget implements PreferredSizeWidget {
       leading: user != null
           ? Padding(
               padding: const EdgeInsets.all(8.0),
-              child: AvatarCircle(imageUrl: user.avatar, radius: 20),
+              child: AvatarCircle(imageUrl: user.avatar),
             )
           : null,
       actions: [

@@ -1,343 +1,345 @@
-﻿// lib/shared/widgets/stat_card.dart
+﻿// lib/shared/widgets/stat_card.dart - WIDGET CARD DE ESTATÍSTICAS
 import 'package:flutter/material.dart';
+import 'package:flutter_animate/flutter_animate.dart';
 
-/// Widget para exibir estatísticas do usuário (XP, Coins, Gems)
+/// Widget para exibir estatísticas com animações
+///
+/// Características:
+/// - Animações suaves de entrada
+/// - Suporte a ícones e gradientes
+/// - Diferentes variantes de layout
+/// - Tap handlers opcionais
 class StatCard extends StatelessWidget {
-  final IconData icon;
-  final String label;
+  final String title;
   final String value;
-  final Color? iconColor;
-  final Color? backgroundColor;
+  final String? subtitle;
+  final IconData? icon;
+  final Color? color;
+  final Gradient? gradient;
   final VoidCallback? onTap;
-  final bool isAnimated;
+  final StatCardVariant variant;
+  final bool showAnimation;
+  final EdgeInsetsGeometry? padding;
+  final EdgeInsetsGeometry? margin;
 
   const StatCard({
     super.key,
-    required this.icon,
-    required this.label,
+    required this.title,
     required this.value,
-    this.iconColor,
-    this.backgroundColor,
+    this.subtitle,
+    this.icon,
+    this.color,
+    this.gradient,
     this.onTap,
-    this.isAnimated = false,
+    this.variant = StatCardVariant.normal,
+    this.showAnimation = true,
+    this.padding,
+    this.margin,
   });
 
-  /// Construtor para XP
-  const StatCard.xp({
-    super.key,
+  /// Construtor para estatística compacta
+  factory StatCard.compact({
+    required String title,
     required String value,
-    this.onTap,
-    this.isAnimated = false,
-  }) : value = value,
-       icon = Icons.auto_awesome,
-       label = 'XP',
-       iconColor = const Color(0xFF9C27B0), // Purple
-       backgroundColor = null;
+    IconData? icon,
+    Color? color,
+    VoidCallback? onTap,
+  }) {
+    return StatCard(
+      title: title,
+      value: value,
+      icon: icon,
+      color: color,
+      onTap: onTap,
+      variant: StatCardVariant.compact,
+    );
+  }
 
-  /// Construtor para Coins
-  const StatCard.coins({
-    super.key,
+  /// Construtor para estatística destacada
+  factory StatCard.featured({
+    required String title,
     required String value,
-    this.onTap,
-    this.isAnimated = false,
-  }) : value = value,
-       icon = Icons.monetization_on,
-       label = 'Coins',
-       iconColor = const Color(0xFFFF9800), // Orange
-       backgroundColor = null;
-
-  /// Construtor para Gems
-  const StatCard.gems({
-    super.key,
-    required String value,
-    this.onTap,
-    this.isAnimated = false,
-  }) : value = value,
-       icon = Icons.diamond,
-       label = 'Gems',
-       iconColor = const Color(0xFF00BCD4), // Cyan
-       backgroundColor = null;
-
-  /// Construtor para Level
-  const StatCard.level({
-    super.key,
-    required String value,
-    this.onTap,
-    this.isAnimated = false,
-  }) : value = value,
-       icon = Icons.military_tech,
-       label = 'Level',
-       iconColor = const Color(0xFF4CAF50), // Green
-       backgroundColor = null;
+    String? subtitle,
+    IconData? icon,
+    Gradient? gradient,
+    VoidCallback? onTap,
+  }) {
+    return StatCard(
+      title: title,
+      value: value,
+      subtitle: subtitle,
+      icon: icon,
+      gradient: gradient,
+      onTap: onTap,
+      variant: StatCardVariant.featured,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final effectiveColor = color ?? theme.colorScheme.primary;
 
-    final effectiveIconColor = iconColor ?? colorScheme.primary;
-    final effectiveBackgroundColor = backgroundColor ?? colorScheme.surface;
-
-    Widget cardContent = Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: effectiveBackgroundColor,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colorScheme.outline.withOpacity(0.2),
-          width: 1,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: colorScheme.shadow.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          // Ícone
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: effectiveIconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(icon, color: effectiveIconColor, size: 20),
-          ),
-
-          const SizedBox(height: 8),
-
-          // Valor
-          Text(
-            value,
-            style: theme.textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: colorScheme.onSurface,
-            ),
-          ),
-
-          const SizedBox(height: 4),
-
-          // Label
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colorScheme.onSurface.withOpacity(0.7),
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-        ],
-      ),
+    Widget card = Container(
+      margin: margin,
+      padding: padding ?? _getDefaultPadding(),
+      decoration: _buildDecoration(context, effectiveColor),
+      child: _buildContent(context, effectiveColor),
     );
 
-    // Animação se solicitada
-    if (isAnimated) {
-      cardContent = TweenAnimationBuilder<double>(
-        duration: const Duration(milliseconds: 600),
-        tween: Tween(begin: 0.0, end: 1.0),
-        builder: (context, value, child) {
-          return Transform.scale(
-            scale: 0.8 + (0.2 * value),
-            child: Opacity(opacity: value, child: child),
-          );
-        },
-        child: cardContent,
-      );
-    }
-
-    // Tornar clicável se onTap fornecido
     if (onTap != null) {
-      return Material(
-        color: Colors.transparent,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(12),
-          child: cardContent,
-        ),
+      card = InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(_getBorderRadius()),
+        child: card,
       );
     }
 
-    return cardContent;
+    if (showAnimation) {
+      card = card
+          .animate()
+          .fadeIn(duration: 300.ms, curve: Curves.easeOut)
+          .slideY(begin: 0.2, end: 0, duration: 300.ms, curve: Curves.easeOut)
+          .scale(
+            begin: Offset(0.95, 0.95),
+            end: Offset(1.0, 1.0),
+            duration: 300.ms,
+            curve: Curves.easeOut,
+          );
+    }
+
+    return card;
   }
-}
 
-/// Widget para exibir múltiplas estatísticas em uma linha
-class StatsRow extends StatelessWidget {
-  final int xp;
-  final int coins;
-  final int gems;
-  final int level;
-  final bool isAnimated;
-  final VoidCallback? onXpTap;
-  final VoidCallback? onCoinsTap;
-  final VoidCallback? onGemsTap;
-  final VoidCallback? onLevelTap;
+  /// Obter padding padrão baseado na variante
+  EdgeInsetsGeometry _getDefaultPadding() {
+    switch (variant) {
+      case StatCardVariant.compact:
+        return const EdgeInsets.all(12);
+      case StatCardVariant.normal:
+        return const EdgeInsets.all(16);
+      case StatCardVariant.featured:
+        return const EdgeInsets.all(20);
+    }
+  }
 
-  const StatsRow({
-    super.key,
-    required this.xp,
-    required this.coins,
-    required this.gems,
-    required this.level,
-    this.isAnimated = false,
-    this.onXpTap,
-    this.onCoinsTap,
-    this.onGemsTap,
-    this.onLevelTap,
-  });
+  /// Obter border radius
+  double _getBorderRadius() {
+    switch (variant) {
+      case StatCardVariant.compact:
+        return 8;
+      case StatCardVariant.normal:
+        return 12;
+      case StatCardVariant.featured:
+        return 16;
+    }
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  /// Construir decoração do container
+  BoxDecoration _buildDecoration(BuildContext context, Color effectiveColor) {
+    final theme = Theme.of(context);
+
+    return BoxDecoration(
+      gradient: gradient,
+      color: gradient == null ? theme.colorScheme.surface : null,
+      borderRadius: BorderRadius.circular(_getBorderRadius()),
+      border: Border.all(
+        color: theme.colorScheme.outline.withOpacity(0.2),
+        width: 1,
+      ),
+      boxShadow: [
+        BoxShadow(
+          color: theme.shadowColor.withOpacity(0.1),
+          blurRadius: 8,
+          offset: const Offset(0, 2),
+        ),
+      ],
+    );
+  }
+
+  /// Construir conteúdo do card
+  Widget _buildContent(BuildContext context, Color effectiveColor) {
+    switch (variant) {
+      case StatCardVariant.compact:
+        return _buildCompactContent(context, effectiveColor);
+      case StatCardVariant.normal:
+        return _buildNormalContent(context, effectiveColor);
+      case StatCardVariant.featured:
+        return _buildFeaturedContent(context, effectiveColor);
+    }
+  }
+
+  /// Conteúdo compacto
+  Widget _buildCompactContent(BuildContext context, Color effectiveColor) {
+    final theme = Theme.of(context);
+    final textColor = gradient != null
+        ? Colors.white
+        : theme.colorScheme.onSurface;
+
     return Row(
       children: [
-        Expanded(
-          child: StatCard.level(
-            value: level.toString(),
-            onTap: onLevelTap,
-            isAnimated: isAnimated,
+        if (icon != null) ...[
+          Icon(
+            icon,
+            color: gradient != null ? Colors.white : effectiveColor,
+            size: 20,
           ),
-        ),
-        const SizedBox(width: 8),
+          const SizedBox(width: 8),
+        ],
         Expanded(
-          child: StatCard.xp(
-            value: _formatNumber(xp),
-            onTap: onXpTap,
-            isAnimated: isAnimated,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: StatCard.coins(
-            value: _formatNumber(coins),
-            onTap: onCoinsTap,
-            isAnimated: isAnimated,
-          ),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: StatCard.gems(
-            value: _formatNumber(gems),
-            onTap: onGemsTap,
-            isAnimated: isAnimated,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                title,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: textColor.withOpacity(0.7),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                value,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: textColor,
+                  fontWeight: FontWeight.bold,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
           ),
         ),
       ],
     );
   }
 
-  String _formatNumber(int number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
-    }
-    return number.toString();
-  }
-}
-
-/// Widget compacto para estatísticas em uma linha horizontal
-class CompactStatsBar extends StatelessWidget {
-  final int xp;
-  final int coins;
-  final int gems;
-  final int level;
-
-  const CompactStatsBar({
-    super.key,
-    required this.xp,
-    required this.coins,
-    required this.gems,
-    required this.level,
-  });
-
-  @override
-  Widget build(BuildContext context) {
+  /// Conteúdo normal
+  Widget _buildNormalContent(BuildContext context, Color effectiveColor) {
     final theme = Theme.of(context);
-    final colorScheme = theme.colorScheme;
+    final textColor = gradient != null
+        ? Colors.white
+        : theme.colorScheme.onSurface;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-      decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: colorScheme.outline.withOpacity(0.2),
-          width: 1,
-        ),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _CompactStat(
-            icon: Icons.military_tech,
-            value: level.toString(),
-            color: const Color(0xFF4CAF50),
-          ),
-          const SizedBox(width: 12),
-          _CompactStat(
-            icon: Icons.auto_awesome,
-            value: _formatNumber(xp),
-            color: const Color(0xFF9C27B0),
-          ),
-          const SizedBox(width: 12),
-          _CompactStat(
-            icon: Icons.monetization_on,
-            value: _formatNumber(coins),
-            color: const Color(0xFFFF9800),
-          ),
-          const SizedBox(width: 12),
-          _CompactStat(
-            icon: Icons.diamond,
-            value: _formatNumber(gems),
-            color: const Color(0xFF00BCD4),
-          ),
-        ],
-      ),
-    );
-  }
-
-  String _formatNumber(int number) {
-    if (number >= 1000000) {
-      return '${(number / 1000000).toStringAsFixed(1)}M';
-    } else if (number >= 1000) {
-      return '${(number / 1000).toStringAsFixed(1)}K';
-    }
-    return number.toString();
-  }
-}
-
-class _CompactStat extends StatelessWidget {
-  final IconData icon;
-  final String value;
-  final Color color;
-
-  const _CompactStat({
-    required this.icon,
-    required this.value,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Icon(icon, size: 16, color: color),
-        const SizedBox(width: 4),
+        Row(
+          children: [
+            if (icon != null) ...[
+              Icon(
+                icon,
+                color: gradient != null ? Colors.white : effectiveColor,
+                size: 24,
+              ),
+              const SizedBox(width: 8),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: textColor.withOpacity(0.7),
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
         Text(
           value,
-          style: theme.textTheme.bodySmall?.copyWith(
-            fontWeight: FontWeight.w600,
-            color: color,
+          style: theme.textTheme.headlineSmall?.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.bold,
           ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
         ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 4),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: textColor.withOpacity(0.6),
+            ),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
+      ],
+    );
+  }
+
+  /// Conteúdo destacado
+  Widget _buildFeaturedContent(BuildContext context, Color effectiveColor) {
+    final theme = Theme.of(context);
+    final textColor = gradient != null
+        ? Colors.white
+        : theme.colorScheme.onSurface;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            if (icon != null) ...[
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: (gradient != null ? Colors.white : effectiveColor)
+                      .withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  color: gradient != null ? Colors.white : effectiveColor,
+                  size: 24,
+                ),
+              ),
+              const SizedBox(width: 12),
+            ],
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: textColor.withOpacity(0.8),
+                  fontWeight: FontWeight.w500,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Text(
+          value,
+          style: theme.textTheme.headlineMedium?.copyWith(
+            color: textColor,
+            fontWeight: FontWeight.bold,
+          ),
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+        if (subtitle != null) ...[
+          const SizedBox(height: 6),
+          Text(
+            subtitle!,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: textColor.withOpacity(0.7),
+            ),
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ],
       ],
     );
   }
 }
+
+/// Variantes do StatCard
+enum StatCardVariant { compact, normal, featured }

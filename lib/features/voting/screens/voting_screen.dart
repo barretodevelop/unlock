@@ -67,10 +67,10 @@ class _VotingScreenState extends ConsumerState<VotingScreen>
         return FadeTransition(
           opacity: _fadeAnimation,
           child: Scaffold(
-            appBar: ModernAppBarVariant(
+            appBar: ModernAppBar(
               title: 'Votação',
               // subtitle: 'Escolha os melhores!',
-              showBackButton: true,
+              // showBackButton: true,
               actions: [
                 IconButton(
                   onPressed: () => _showVotingInfo(context),

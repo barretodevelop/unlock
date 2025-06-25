@@ -118,9 +118,9 @@ class _RankingsScreenState extends ConsumerState<RankingsScreen>
             position: _slideAnimation,
             child: Scaffold(
               // AppBar com gradiente
-              appBar: ModernAppBarVariant(
+              appBar: ModernAppBar(
                 title: 'Rankings',
-                showBackButton: true,
+                // showBackButton: true,
                 actions: [
                   // Filtro de período
                   PopupMenuButton<RankingPeriod>(

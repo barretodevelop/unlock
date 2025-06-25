@@ -44,21 +44,24 @@ class _RankingPodiumState extends State<RankingPodium>
     });
 
     _scaleAnimations = _controllers.map((controller) {
-      return Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.elasticOut),
-      );
+      return Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.elasticOut));
     }).toList();
 
     _fadeAnimations = _controllers.map((controller) {
-      return Tween<double>(begin: 0.0, end: 1.0).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeIn),
-      );
+      return Tween<double>(
+        begin: 0.0,
+        end: 1.0,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeIn));
     }).toList();
 
     _slideAnimations = _controllers.map((controller) {
-      return Tween<Offset>(begin: const Offset(0, 0.5), end: Offset.zero).animate(
-        CurvedAnimation(parent: controller, curve: Curves.easeOutBack),
-      );
+      return Tween<Offset>(
+        begin: const Offset(0, 0.5),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(parent: controller, curve: Curves.easeOutBack));
     }).toList();
 
     // Iniciar animações em sequência
@@ -68,7 +71,7 @@ class _RankingPodiumState extends State<RankingPodium>
   void _startAnimations() async {
     // Ordem de animação: 1º, 2º, 3º
     final animationOrder = [0, 1, 2]; // Índices na lista topThree
-    
+
     for (int i = 0; i < animationOrder.length; i++) {
       final index = animationOrder[i];
       if (index < widget.topThree.length) {
@@ -96,14 +99,14 @@ class _RankingPodiumState extends State<RankingPodium>
         children: [
           // Título do pódium
           _buildPodiumTitle(context),
-          
+
           const SizedBox(height: 32),
 
           // Pódium em si
           _buildPodiumStructure(context),
-          
+
           const SizedBox(height: 24),
-          
+
           // Informações adicionais
           _buildPodiumStats(context),
         ],
@@ -134,16 +137,16 @@ class _RankingPodiumState extends State<RankingPodium>
           children: [
             Text(
               'Top 3',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             Text(
               widget.category.label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: widget.category.color,
-                    fontWeight: FontWeight.w600,
-                  ),
+                color: widget.category.color,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ],
         ),
@@ -166,7 +169,7 @@ class _RankingPodiumState extends State<RankingPodium>
             color: _getSilverColor(),
             animationIndex: 1,
           ),
-        
+
         const SizedBox(width: 12),
 
         // 1º lugar
@@ -179,7 +182,7 @@ class _RankingPodiumState extends State<RankingPodium>
             animationIndex: 0,
             isWinner: true,
           ),
-        
+
         const SizedBox(width: 12),
 
         // 3º lugar (se existir)
@@ -205,7 +208,7 @@ class _RankingPodiumState extends State<RankingPodium>
     bool isWinner = false,
   }) {
     final isCurrentUser = widget.currentUserId == entry.userId;
-    
+
     return AnimatedBuilder(
       animation: _controllers[animationIndex],
       builder: (context, child) {
@@ -235,7 +238,8 @@ class _RankingPodiumState extends State<RankingPodium>
                       width: isWinner ? 100 : 80,
                       child: Text(
                         entry.displayName,
-                        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontSize: isWinner ? 14 : 12,
                             ),
@@ -249,7 +253,10 @@ class _RankingPodiumState extends State<RankingPodium>
 
                     // Valor
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
                       decoration: BoxDecoration(
                         color: widget.category.color.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(12),
@@ -261,10 +268,10 @@ class _RankingPodiumState extends State<RankingPodium>
                       child: Text(
                         widget.category.formatValue(entry.value),
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: widget.category.color,
-                              fontWeight: FontWeight.bold,
-                              fontSize: isWinner ? 12 : 10,
-                            ),
+                          color: widget.category.color,
+                          fontWeight: FontWeight.bold,
+                          fontSize: isWinner ? 12 : 10,
+                        ),
                       ),
                     ),
 
@@ -296,7 +303,7 @@ class _RankingPodiumState extends State<RankingPodium>
     required bool isCurrentUser,
   }) {
     final avatarRadius = isWinner ? 40.0 : 32.0;
-    
+
     return Stack(
       clipBehavior: Clip.none,
       children: [
@@ -316,16 +323,14 @@ class _RankingPodiumState extends State<RankingPodium>
               ),
             ),
           ),
-        
+
         // Avatar principal
         Container(
           margin: EdgeInsets.all(isWinner ? 8 : 0),
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             border: Border.all(
-              color: isCurrentUser 
-                  ? widget.category.color 
-                  : Colors.white,
+              color: isCurrentUser ? widget.category.color : Colors.white,
               width: isCurrentUser ? 3 : 2,
             ),
             boxShadow: [
@@ -338,11 +343,11 @@ class _RankingPodiumState extends State<RankingPodium>
           ),
           child: AvatarCircle(
             imageUrl: entry.avatar.startsWith('http') ? entry.avatar : null,
-            fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
-            radius: avatarRadius,
+            // fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
+            // radius: avatarRadius,
           ),
         ),
-        
+
         // Badge de posição
         Positioned(
           top: isWinner ? -4 : -8,
@@ -374,7 +379,7 @@ class _RankingPodiumState extends State<RankingPodium>
             ),
           ),
         ),
-        
+
         // Coroa para o 1º lugar
         if (isWinner)
           Positioned(
@@ -382,14 +387,10 @@ class _RankingPodiumState extends State<RankingPodium>
             left: 0,
             right: 0,
             child: Center(
-              child: Icon(
-                Icons.emoji_events,
-                color: Colors.amber,
-                size: 32,
-              ),
+              child: Icon(Icons.emoji_events, color: Colors.amber, size: 32),
             ),
           ),
-          
+
         // Badge "VOCÊ" para usuário atual
         if (isCurrentUser)
           Positioned(
@@ -406,10 +407,10 @@ class _RankingPodiumState extends State<RankingPodium>
                 child: Text(
                   'VOCÊ',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 10,
-                      ),
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 10,
+                  ),
                 ),
               ),
             ),
@@ -432,10 +433,7 @@ class _RankingPodiumState extends State<RankingPodium>
         gradient: LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            color.withOpacity(0.8),
-            color,
-          ],
+          colors: [color.withOpacity(0.8), color],
         ),
         borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(8),
@@ -474,10 +472,10 @@ class _RankingPodiumState extends State<RankingPodium>
   /// Construir estatísticas do pódium
   Widget _buildPodiumStats(BuildContext context) {
     final totalValue = widget.topThree.fold<int>(
-      0, 
+      0,
       (sum, entry) => sum + entry.value,
     );
-    
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -505,7 +503,7 @@ class _RankingPodiumState extends State<RankingPodium>
           _buildStatItem(
             context,
             'Liderança',
-            widget.topThree.isNotEmpty 
+            widget.topThree.isNotEmpty
                 ? widget.category.formatValue(widget.topThree[0].value)
                 : '0',
             Icons.emoji_events,
@@ -524,24 +522,20 @@ class _RankingPodiumState extends State<RankingPodium>
   ) {
     return Column(
       children: [
-        Icon(
-          icon,
-          color: widget.category.color,
-          size: 20,
-        ),
+        Icon(icon, color: widget.category.color, size: 20),
         const SizedBox(height: 4),
         Text(
           value,
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: widget.category.color,
-              ),
+            fontWeight: FontWeight.bold,
+            color: widget.category.color,
+          ),
         ),
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
-              ),
+            color: Theme.of(context).colorScheme.onSurface.withOpacity(0.6),
+          ),
         ),
       ],
     );
@@ -597,7 +591,7 @@ class CompactRankingPodium extends StatelessWidget {
         children: topThree.asMap().entries.map((entry) {
           final index = entry.key;
           final rankingEntry = entry.value;
-          
+
           return _CompactPodiumItem(
             entry: rankingEntry,
             position: index + 1,
@@ -624,7 +618,7 @@ class _CompactPodiumItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _getPositionColor(position);
-    
+
     return Column(
       children: [
         // Avatar com badge
@@ -633,8 +627,8 @@ class _CompactPodiumItem extends StatelessWidget {
           children: [
             AvatarCircle(
               imageUrl: entry.avatar.startsWith('http') ? entry.avatar : null,
-              fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
-              radius: 24,
+              // fallbackText: entry.avatar.startsWith('http') ? null : entry.avatar,
+              // radius: 24,
             ),
             Positioned(
               top: -4,
@@ -661,32 +655,32 @@ class _CompactPodiumItem extends StatelessWidget {
             ),
           ],
         ),
-        
+
         const SizedBox(height: 8),
-        
+
         // Nome
         SizedBox(
           width: 60,
           child: Text(
             entry.displayName,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
             textAlign: TextAlign.center,
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        
+
         const SizedBox(height: 4),
-        
+
         // Valor
         Text(
           category.formatValue(entry.value),
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: category.color,
-                fontWeight: FontWeight.bold,
-              ),
+            color: category.color,
+            fontWeight: FontWeight.bold,
+          ),
         ),
       ],
     );

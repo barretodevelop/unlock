@@ -219,10 +219,10 @@ class _GroupDetailScreenState extends ConsumerState<GroupDetailScreen>
                     imageUrl: group.avatar.startsWith('http')
                         ? group.avatar
                         : null,
-                    fallbackText: group.avatar.startsWith('http')
-                        ? null
-                        : group.avatar,
-                    radius: 50,
+                    // fallbackText: group.avatar.startsWith('http')
+                    //     ? null
+                    //     : group.avatar,
+                    // radius: 50,
                     backgroundColor: Colors.white.withOpacity(0.2),
                   ),
 

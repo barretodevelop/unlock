@@ -1,9 +1,7 @@
-
 // lib/features/groups/widgets/member_list_tile.dart - VERSÃO CORRIGIDA
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:unlock/core/utils/logger.dart';
-import 'package:unlock/shared/widgets/avatar_circle.dart'; // ✅ USAR VERSÃO ATUALIZADA
 
 class MemberListTile extends ConsumerWidget {
   final String userId;
@@ -56,24 +54,24 @@ class MemberListTile extends ConsumerWidget {
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        
+
         // ✅ CORRIGIDO: Avatar com indicador online
-        leading: UserAvatar(
-          imageUrl: avatar.startsWith('http') ? avatar : null,
-          fallbackText: avatar.startsWith('http') ? null : avatar,
-          radius: 24,
-          isOnline: isOnline,
-        ),
-        
+        // leading: UserAvatar(
+        //   imageUrl: avatar.startsWith('http') ? avatar : null,
+        //   fallbackText: avatar.startsWith('http') ? null : avatar,
+        //   radius: 24,
+        //   isOnline: isOnline,
+        // ),
+
         // Nome e informações
         title: Row(
           children: [
             Flexible(
               child: Text(
                 username,
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
                 overflow: TextOverflow.ellipsis,
               ),
             ),
@@ -81,7 +79,7 @@ class MemberListTile extends ConsumerWidget {
             _buildRoleBadges(context),
           ],
         ),
-        
+
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -104,47 +102,44 @@ class MemberListTile extends ConsumerWidget {
                 Text(
                   '•',
                   style: TextStyle(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.4),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.4),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
                   'Membro há ${_getMockMembershipDuration(userId)}',
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.onSurface.withOpacity(0.7),
                   ),
                 ),
               ],
             ),
           ],
         ),
-        
+
         // Ações
         trailing: canManage ? _buildActionsMenu(context) : null,
-        
+
         // Tap handler
         onTap: onTap,
-        
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
+
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }
 
   // ========== RESTO DOS MÉTODOS INALTERADOS ==========
-  
+
   Widget _buildRoleBadges(BuildContext context) {
     return Row(
       mainAxisSize: MainAxisSize.min,
       children: [
         if (isCreator)
-          _buildRoleBadge(
-            context,
-            'Criador',
-            Colors.amber,
-            Icons.star,
-          ),
+          _buildRoleBadge(context, 'Criador', Colors.amber, Icons.star),
         if (isAdmin && !isCreator) ...[
           if (isCreator) const SizedBox(width: 6),
           _buildRoleBadge(
@@ -169,19 +164,12 @@ class MemberListTile extends ConsumerWidget {
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: color.withOpacity(0.3),
-          width: 1,
-        ),
+        border: Border.all(color: color.withOpacity(0.3), width: 1),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(
-            icon,
-            size: 12,
-            color: color,
-          ),
+          Icon(icon, size: 12, color: color),
           const SizedBox(width: 4),
           Text(
             label,
@@ -244,7 +232,7 @@ class MemberListTile extends ConsumerWidget {
 
   void _handleMenuAction(BuildContext context, String action) {
     AppLogger.debug('🎯 Ação do membro: $action para $userId');
-    
+
     switch (action) {
       case 'profile':
         _showProfile(context);
@@ -327,14 +315,29 @@ class MemberListTile extends ConsumerWidget {
 
   String _getMockUsername(String userId) {
     const names = [
-      'Ana Silva', 'Bruno Costa', 'Carla Santos', 'Diego Oliveira',
-      'Elena Ferreira', 'Felipe Lima', 'Gabriela Alves', 'Hugo Martins'
+      'Ana Silva',
+      'Bruno Costa',
+      'Carla Santos',
+      'Diego Oliveira',
+      'Elena Ferreira',
+      'Felipe Lima',
+      'Gabriela Alves',
+      'Hugo Martins',
     ];
     return names[userId.hashCode % names.length];
   }
 
   String _getMockAvatar(String userId) {
-    const avatars = ['👤', '🧑‍💻', '👩‍🎨', '🧑‍🔬', '👩‍💼', '🧑‍🎓', '👩‍⚕️', '🧑‍🏫'];
+    const avatars = [
+      '👤',
+      '🧑‍💻',
+      '👩‍🎨',
+      '🧑‍🔬',
+      '👩‍💼',
+      '🧑‍🎓',
+      '👩‍⚕️',
+      '🧑‍🏫',
+    ];
     return avatars[userId.hashCode % avatars.length];
   }
 
@@ -343,7 +346,14 @@ class MemberListTile extends ConsumerWidget {
   }
 
   String _getMockMembershipDuration(String userId) {
-    const durations = ['1 dia', '3 dias', '1 semana', '2 semanas', '1 mês', '2 meses'];
+    const durations = [
+      '1 dia',
+      '3 dias',
+      '1 semana',
+      '2 semanas',
+      '1 mês',
+      '2 meses',
+    ];
     return durations[userId.hashCode % durations.length];
   }
 }
